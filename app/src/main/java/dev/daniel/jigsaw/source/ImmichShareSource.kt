@@ -11,8 +11,10 @@ import org.json.JSONObject
 /**
  * Lists images in an Immich shared link (album or individual-assets share).
  *
- * Uses `GET /api/shared-links/me` and, for album shares, `GET /api/albums/{id}`; every request carries
- * the share `key` (or custom-URL `slug`) query parameter instead of a user session.
+ * Uses `GET /api/shared-links/me`; for album shares the assets come from `GET /api/albums/{id}` on
+ * older servers, or the timeline API (`/api/timeline/buckets` + `/api/timeline/bucket`) on servers
+ * whose album response no longer embeds assets. Every request carries the share `key` (or
+ * custom-URL `slug`) query parameter instead of a user session.
  */
 class ImmichShareSource(
     shareUrl: String,
@@ -23,12 +25,10 @@ class ImmichShareSource(
 
     override suspend fun listImages(): List<RemoteImage> = withContext(Dispatchers.IO) {
         val link = JSONObject(get(api("shared-links/me")))
-        var assets = link.optJSONArray("assets") ?: JSONArray()
-        val album = link.optJSONObject("album")
-        if (assets.length() == 0 && album != null) {
-            assets = JSONObject(get(api("albums/${album.getString("id")}"))).optJSONArray("assets") ?: JSONArray()
-        }
-        parseAssets(assets).map { (id, name) ->
+        val direct = link.optJSONArray("assets") ?: JSONArray()
+        val albumId = link.optJSONObject("album")?.getString("id")
+        val assets = if (direct.length() == 0 && albumId != null) albumAssets(albumId) else parseAssets(direct)
+        assets.map { (id, name) ->
             RemoteImage(
                 id = id,
                 name = name,
@@ -40,6 +40,18 @@ class ImmichShareSource(
     }
 
     private fun get(url: String) = String(Http.getBytes(HttpResource(url), client), Charsets.UTF_8)
+
+    private fun albumAssets(albumId: String): List<Pair<String, String>> {
+        val album = JSONObject(get(api("albums/$albumId")))
+        album.optJSONArray("assets")?.let { return parseAssets(it) }
+        val buckets = JSONArray(get(api("timeline/buckets").withQuery("albumId", albumId)))
+        return (0 until buckets.length()).flatMap { i ->
+            val bucket = buckets.getJSONObject(i).getString("timeBucket")
+            parseTimelineBucket(
+                JSONObject(get(api("timeline/bucket").withQuery("albumId", albumId).withQuery("timeBucket", bucket)))
+            )
+        }
+    }
 
     private fun api(path: String): String = share.base.newBuilder()
         .addPathSegments("api/$path")
@@ -78,5 +90,23 @@ class ImmichShareSource(
                 .map { assets.getJSONObject(it) }
                 .filter { it.optString("type") == "IMAGE" }
                 .map { it.getString("id") to it.optString("originalFileName", it.getString("id")) }
+
+        /**
+         * Timeline buckets are columnar: parallel arrays per field. Returns (id, capture time) for
+         * every non-trashed image; filenames aren't part of this payload.
+         */
+        fun parseTimelineBucket(bucket: JSONObject): List<Pair<String, String>> {
+            val ids = bucket.optJSONArray("id") ?: return emptyList()
+            val isImage = bucket.optJSONArray("isImage")
+            val isTrashed = bucket.optJSONArray("isTrashed")
+            val created = bucket.optJSONArray("fileCreatedAt")
+            return (0 until ids.length())
+                .filter { isImage?.optBoolean(it, false) == true && isTrashed?.optBoolean(it, false) != true }
+                .map { i ->
+                    val id = ids.getString(i)
+                    val name = created?.optString(i)?.takeIf { it.length >= 16 }?.take(16)?.replace('T', ' ') ?: id
+                    id to name
+                }
+        }
     }
 }

@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.source
 
 import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -84,6 +85,20 @@ class SourceParsingTest {
         assertEquals(
             listOf("https://example.com/img/c.webp"),
             UrlListSource.parseManifest(base, """["/img/c.webp"]"""),
+        )
+    }
+
+    @Test
+    fun `immich timeline bucket keeps live images only, named by capture time`() {
+        val bucket = JSONObject(
+            """{"id":["a","v","t","b"],
+                "isImage":[true,false,true,true],
+                "isTrashed":[false,false,true,false],
+                "fileCreatedAt":["2026-10-13T09:58:52.749",null,"2026-10-01T00:00:00","x"]}"""
+        )
+        assertEquals(
+            listOf("a" to "2026-10-13 09:58", "b" to "b"),
+            ImmichShareSource.parseTimelineBucket(bucket),
         )
     }
 
