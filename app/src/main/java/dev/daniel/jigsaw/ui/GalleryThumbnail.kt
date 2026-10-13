@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.ui
 
+import android.graphics.Bitmap
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,7 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.decodeSampled
+import dev.daniel.jigsaw.puzzle.renderUntouchedPile
 import dev.daniel.jigsaw.source.Http
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -35,11 +38,9 @@ private class ThumbnailLoader(private val ioDispatcher: CoroutineDispatcher = Di
 
     fun cached(key: String): ImageBitmap? = cache.get(key)
 
-    /** Decodes the bytes from [read] (blocking I/O, run on the I/O dispatcher) and caches them under [key]. */
-    suspend fun load(key: String, read: () -> ByteArray): ImageBitmap = cached(key) ?: loads.withPermit {
-        withContext(ioDispatcher) {
-            decodeSampled(read(), maxSide = MAX_SIDE).asImageBitmap()
-        }.also { cache.put(key, it) }
+    /** Runs [produce] (blocking: I/O and decoding) on the I/O dispatcher and caches the result under [key]. */
+    suspend fun load(key: String, produce: () -> Bitmap): ImageBitmap = cached(key) ?: loads.withPermit {
+        withContext(ioDispatcher) { produce().asImageBitmap() }.also { cache.put(key, it) }
     }
 
     private companion object {
@@ -47,11 +48,13 @@ private class ThumbnailLoader(private val ioDispatcher: CoroutineDispatcher = Di
         const val HEAP_FRACTION = 8
         const val BYTES_PER_PIXEL = 4
         const val MAX_PARALLEL_LOADS = 6
-        const val MAX_SIDE = 400
     }
 }
 
 private val thumbnails = ThumbnailLoader()
+
+/** Thumbnails and puzzle previews are rendered at this size (longer side, pixels). */
+private const val MAX_SIDE = 400
 
 private sealed interface ThumbState {
     data object Loading : ThumbState
@@ -60,27 +63,36 @@ private sealed interface ThumbState {
 }
 
 /**
- * Gallery tile: the puzzle as currently laid out if it is in progress ([preview]), otherwise the
- * picture itself (not started yet, or solved).
+ * Gallery tile, by the state of the image's puzzle: never opened → a pile of pieces cut from the
+ * thumbnail; in progress → its saved [PuzzleTile.InProgress] snapshot; solved → the picture.
  */
 @Composable
-fun GalleryThumbnail(item: GalleryImage, preview: PuzzlePreview?, modifier: Modifier = Modifier) {
-    if (preview != null) {
-        // The preview shows the board plus loose pieces; fit it whole rather than cropping.
-        LoadedImage(
-            key = "preview:${preview.file.path}@${preview.version}",
-            read = { preview.file.readBytes() },
+fun GalleryThumbnail(item: GalleryImage, tile: PuzzleTile?, modifier: Modifier = Modifier) {
+    val resource = item.image.thumbnail
+    when (tile) {
+        is PuzzleTile.InProgress -> LoadedImage(
+            key = "preview:${tile.preview.file.path}@${tile.preview.version}",
+            produce = { decodeSampled(tile.preview.file.readBytes(), MAX_SIDE) },
             contentDescription = item.image.name,
             contentScale = ContentScale.Fit,
             modifier = modifier,
         )
-    } else {
-        val resource = item.image.thumbnail
-        LoadedImage(
+        PuzzleTile.Solved -> LoadedImage(
             key = resource.url,
-            read = { Http.getBytes(resource) },
+            produce = { decodeSampled(Http.getBytes(resource), MAX_SIDE) },
             contentDescription = item.image.name,
             contentScale = ContentScale.Crop,
+            modifier = modifier,
+        )
+        null -> LoadedImage(
+            key = "pile:${resource.url}",
+            produce = {
+                val picture = decodeSampled(Http.getBytes(resource), MAX_SIDE)
+                // Seeded by the image so the heap looks the same every time the tile is drawn.
+                renderUntouchedPile(picture, JigsawCut.DEFAULT_PIECES, item.key.hashCode().toLong(), MAX_SIDE)
+            },
+            contentDescription = item.image.name,
+            contentScale = ContentScale.Fit,
             modifier = modifier,
         )
     }
@@ -89,7 +101,7 @@ fun GalleryThumbnail(item: GalleryImage, preview: PuzzlePreview?, modifier: Modi
 @Composable
 private fun LoadedImage(
     key: String,
-    read: () -> ByteArray,
+    produce: () -> Bitmap,
     contentDescription: String,
     contentScale: ContentScale,
     modifier: Modifier = Modifier,
@@ -100,7 +112,7 @@ private fun LoadedImage(
     ) {
         if (value is ThumbState.Ready) return@produceState
         value = try {
-            ThumbState.Ready(thumbnails.load(key, read))
+            ThumbState.Ready(thumbnails.load(key, produce))
         } catch (_: IOException) {
             ThumbState.Failed
         }

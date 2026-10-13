@@ -79,6 +79,13 @@ class PuzzleGame(val image: GalleryImage, val seed: Long, val cut: CutPuzzle, va
 /** Stored image of a puzzle's current layout. [version] changes whenever the file is rewritten. */
 data class PuzzlePreview(val file: File, val version: Long)
 
+/** What a gallery tile knows about an image's puzzle. */
+sealed interface PuzzleTile {
+    data class InProgress(val preview: PuzzlePreview) : PuzzleTile
+
+    data object Solved : PuzzleTile
+}
+
 class AppViewModel @JvmOverloads constructor(
     app: Application,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -100,11 +107,8 @@ class AppViewModel @JvmOverloads constructor(
     var puzzle by mutableStateOf<Load<PuzzleContent>>(Load.Loading)
         private set
 
-    /**
-     * Layout images of puzzles in progress, by [GalleryImage.key]; the gallery shows these instead of
-     * the picture.
-     */
-    var previews by mutableStateOf<Map<String, PuzzlePreview>>(emptyMap())
+    /** Puzzle state per [GalleryImage.key] for the gallery tiles; absent means never opened. */
+    var tiles by mutableStateOf<Map<String, PuzzleTile>>(emptyMap())
         private set
 
     /** Lock pieces placed near their solved spot onto the board. Off by default: it makes puzzles much easier. */
@@ -141,7 +145,7 @@ class AppViewModel @JvmOverloads constructor(
         sources = sources.filterNot { it.id == id }
         store.save(sources)
         galleryStale = true
-        previews = previews.filterKeys { !it.startsWith("$id/") }
+        tiles = tiles.filterKeys { !it.startsWith("$id/") }
         viewModelScope.launch(puzzleIo) { puzzles.clearSource(id) }
     }
 
@@ -169,17 +173,24 @@ class AppViewModel @JvmOverloads constructor(
             val failures = results.zip(current).mapNotNull { (result, source) ->
                 result.exceptionOrNull()?.let { "${source.label}: ${it.message ?: it.javaClass.simpleName}" }
             }
-            previews = withContext(puzzleIo) {
-                images.mapNotNull { image ->
-                    puzzles.previewFile(image.source.id, image.image.id)
-                        ?.let { image.key to PuzzlePreview(it, it.lastModified()) }
-                }.toMap()
+            tiles = withContext(puzzleIo) {
+                images.mapNotNull { image -> tileFor(image)?.let { image.key to it } }.toMap()
             }
             gallery = if (images.isEmpty() && failures.isNotEmpty()) {
                 Load.Failed(failures.joinToString("\n"))
             } else {
                 Load.Ready(GalleryContent(images, failures))
             }
+        }
+    }
+
+    /** Blocking: reads the stored state of [image]'s puzzle. Run on [puzzleIo]. */
+    private fun tileFor(image: GalleryImage): PuzzleTile? {
+        val preview = puzzles.previewFile(image.source.id, image.image.id)
+        return when {
+            preview != null -> PuzzleTile.InProgress(PuzzlePreview(preview, preview.lastModified()))
+            puzzles.load(image.source.id, image.image.id) == SavedPuzzle.Solved -> PuzzleTile.Solved
+            else -> null
         }
     }
 
@@ -210,7 +221,7 @@ class AppViewModel @JvmOverloads constructor(
     fun restartPuzzle() {
         val image = (screen as? Screen.Puzzle)?.image ?: return
         puzzle = Load.Loading // so openImage doesn't save the state being discarded
-        previews = previews - image.key
+        tiles = tiles - image.key
         viewModelScope.launch(puzzleIo) { puzzles.clear(image.source.id, image.image.id) }
         openImage(image)
     }
@@ -231,27 +242,32 @@ class AppViewModel @JvmOverloads constructor(
         }
         val image = game.image
         viewModelScope.launch {
-            val preview = withContext(puzzleIo) {
+            val tile = withContext(puzzleIo) {
                 try {
                     puzzles.save(image.source.id, image.image.id, saved)
-                    if (saved is SavedPuzzle.InProgress) savePreview(image, game.cut, snapshot) else null
+                    if (saved is SavedPuzzle.InProgress) {
+                        PuzzleTile.InProgress(savePreview(image, game.cut, snapshot))
+                    } else {
+                        PuzzleTile.Solved
+                    }
                 } catch (_: IOException) {
                     // Losing one save only costs the moves since the previous one; nothing to show the user.
                     null
                 }
             }
-            previews = if (preview != null) previews + (image.key to preview) else previews - image.key
+            tile?.let { tiles = tiles + (image.key to it) }
         }
     }
 
-    private fun savePreview(image: GalleryImage, cut: CutPuzzle, snapshot: BoardSnapshot): PuzzlePreview? {
+    private fun savePreview(image: GalleryImage, cut: CutPuzzle, snapshot: BoardSnapshot): PuzzlePreview {
         val png = ByteArrayOutputStream().use { out ->
             renderPreview(cut, snapshot, maxSide = PREVIEW_MAX_SIDE).compress(Bitmap.CompressFormat.PNG, 0, out)
             out.toByteArray()
         }
         puzzles.savePreview(image.source.id, image.image.id, png)
+        val file = puzzles.previewFile(image.source.id, image.image.id) ?: throw IOException("Preview vanished")
         // A fresh version per save, so the gallery's thumbnail cache doesn't serve the old layout.
-        return puzzles.previewFile(image.source.id, image.image.id)?.let { PuzzlePreview(it, System.nanoTime()) }
+        return PuzzlePreview(file, System.nanoTime())
     }
 
     fun back() {
@@ -281,7 +297,7 @@ class AppViewModel @JvmOverloads constructor(
     }
 
     private fun newGame(image: GalleryImage, bitmap: Bitmap): PuzzleContent.Playing {
-        val (rows, cols) = JigsawCut.gridFor(bitmap.width, bitmap.height, TARGET_PIECES)
+        val (rows, cols) = JigsawCut.gridFor(bitmap.width, bitmap.height, JigsawCut.DEFAULT_PIECES)
         val seed = Random.nextLong()
         val cut = cutPuzzle(bitmap, JigsawCut(rows, cols, Random(seed)))
         return PuzzleContent.Playing(PuzzleGame(image, seed, cut, scattered = false))
@@ -299,7 +315,6 @@ class AppViewModel @JvmOverloads constructor(
 
     private companion object {
         const val MAX_PUZZLE_SIDE = 1600
-        const val TARGET_PIECES = 24
 
         /** Matches the gallery thumbnails' resolution. */
         const val PREVIEW_MAX_SIDE = 400

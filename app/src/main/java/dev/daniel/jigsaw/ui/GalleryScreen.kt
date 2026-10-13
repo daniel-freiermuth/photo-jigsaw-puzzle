@@ -39,7 +39,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun GalleryScreen(
     state: Load<GalleryContent>,
-    previews: Map<String, PuzzlePreview>,
+    tiles: Map<String, PuzzleTile>,
     hasSources: Boolean,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -75,14 +75,14 @@ fun GalleryScreen(
                 state is Load.Failed -> Message("Couldn't list images:\n${state.message}", "Retry", onRefresh)
                 state is Load.Ready && state.value.images.isEmpty() && state.value.failures.isEmpty() ->
                     Message("No images found in your sources.", "Refresh", onRefresh)
-                state is Load.Ready -> ImageGrid(state.value, previews, onPick)
+                state is Load.Ready -> ImageGrid(state.value, tiles, onPick)
             }
         }
     }
 }
 
 @Composable
-private fun ImageGrid(content: GalleryContent, previews: Map<String, PuzzlePreview>, onPick: (GalleryImage) -> Unit) {
+private fun ImageGrid(content: GalleryContent, tiles: Map<String, PuzzleTile>, onPick: (GalleryImage) -> Unit) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(110.dp),
         modifier = Modifier.fillMaxSize(),
@@ -104,7 +104,7 @@ private fun ImageGrid(content: GalleryContent, previews: Map<String, PuzzlePrevi
         items(content.images, key = { it.key }) { item ->
             GalleryThumbnail(
                 item,
-                preview = previews[item.key],
+                tile = tiles[item.key],
                 modifier = Modifier
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(8.dp))
