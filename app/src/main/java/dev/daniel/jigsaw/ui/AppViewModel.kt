@@ -20,14 +20,16 @@ import dev.daniel.jigsaw.source.toImageSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 sealed interface Screen {
-    data object Sources : Screen
-    data class Gallery(val source: SourceConfig) : Screen
-    data class Puzzle(val source: SourceConfig, val image: RemoteImage) : Screen
+    data object Gallery : Screen
+    data object Settings : Screen
+    data class Puzzle(val image: GalleryImage) : Screen
 }
 
 sealed interface Load<out T> {
@@ -35,6 +37,14 @@ sealed interface Load<out T> {
     data class Failed(val message: String) : Load<Nothing>
     data class Ready<T>(val value: T) : Load<T>
 }
+
+/** An image plus the source it came from; ids are only unique within one source. */
+data class GalleryImage(val source: SourceConfig, val image: RemoteImage) {
+    val key get() = "${source.id}/${image.id}"
+}
+
+/** Images from every source that answered, plus a message for each source that didn't. */
+data class GalleryContent(val images: List<GalleryImage>, val failures: List<String>)
 
 /** A puzzle in progress. [version] bumps on every board mutation so Compose redraws. */
 class PuzzleGame(val cut: CutPuzzle) {
@@ -46,24 +56,28 @@ class PuzzleGame(val cut: CutPuzzle) {
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val store = SourceStore(app)
+    private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     var sources by mutableStateOf(store.load())
         private set
-    var screen by mutableStateOf<Screen>(Screen.Sources)
+    var screen by mutableStateOf<Screen>(Screen.Gallery)
         private set
-    var gallery by mutableStateOf<Load<List<RemoteImage>>>(Load.Loading)
+    var gallery by mutableStateOf<Load<GalleryContent>>(Load.Loading)
         private set
     var puzzle by mutableStateOf<Load<PuzzleGame>>(Load.Loading)
         private set
 
-    private var galleryJob: Job? = null
-    private var puzzleJob: Job? = null
-
-    private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
-
     /** Lock pieces placed near their solved spot onto the board. Off by default: it makes puzzles much easier. */
     var snapToBoard by mutableStateOf(settings.getBoolean(KEY_SNAP_TO_BOARD, false))
         private set
+
+    private var galleryJob: Job? = null
+    private var puzzleJob: Job? = null
+    private var galleryStale = false
+
+    init {
+        refreshGallery()
+    }
 
     fun updateSnapToBoard(enabled: Boolean) {
         snapToBoard = enabled
@@ -75,46 +89,57 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         runCatching { config.toImageSource() }.onFailure { return it.message ?: "Invalid URL" }
         sources = sources + config
         store.save(sources)
+        galleryStale = true
         return null
     }
 
     fun removeSource(id: String) {
         sources = sources.filterNot { it.id == id }
         store.save(sources)
+        galleryStale = true
     }
 
-    fun openSource(source: SourceConfig) {
-        screen = Screen.Gallery(source)
-        refreshGallery()
+    fun openSettings() {
+        screen = Screen.Settings
     }
 
+    /** Lists every source concurrently; one unreachable source doesn't hide the others' images. */
     fun refreshGallery() {
-        val source = (screen as? Screen.Gallery)?.source ?: return
         galleryJob?.cancel()
+        galleryStale = false
+        val current = sources
         gallery = Load.Loading
         galleryJob = viewModelScope.launch {
-            gallery = try {
-                Load.Ready(source.toImageSource().listImages())
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Load.Failed(e.message ?: e.javaClass.simpleName)
+            val results = current.map { source ->
+                async {
+                    try {
+                        Result.success(source.toImageSource().listImages().map { GalleryImage(source, it) })
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Result.failure(e)
+                    }
+                }
+            }.awaitAll()
+            val images = results.flatMap { it.getOrDefault(emptyList()) }
+            val failures = results.zip(current).mapNotNull { (result, source) ->
+                result.exceptionOrNull()?.let { "${source.label}: ${it.message ?: it.javaClass.simpleName}" }
+            }
+            gallery = if (images.isEmpty() && failures.isNotEmpty()) {
+                Load.Failed(failures.joinToString("\n"))
+            } else {
+                Load.Ready(GalleryContent(images, failures))
             }
         }
     }
 
-    fun openImage(image: RemoteImage) {
-        val source = when (val s = screen) {
-            is Screen.Gallery -> s.source
-            is Screen.Puzzle -> s.source
-            Screen.Sources -> return
-        }
-        screen = Screen.Puzzle(source, image)
+    fun openImage(image: GalleryImage) {
+        screen = Screen.Puzzle(image)
         puzzleJob?.cancel()
         puzzle = Load.Loading
         puzzleJob = viewModelScope.launch {
             puzzle = try {
-                Load.Ready(PuzzleGame(loadPuzzle(image)))
+                Load.Ready(PuzzleGame(loadPuzzle(image.image)))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -123,27 +148,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Starts a new puzzle from another random image of the current gallery. */
+    /** Starts a new puzzle from another random image of the gallery. */
     fun openRandomImage() {
-        val images = (gallery as? Load.Ready)?.value ?: return
+        val images = (gallery as? Load.Ready)?.value?.images ?: return
         val current = (screen as? Screen.Puzzle)?.image
         val pool = images.filter { it != current }.ifEmpty { images }
         if (pool.isNotEmpty()) openImage(pool.random())
     }
 
     fun back() {
-        when (val s = screen) {
+        when (screen) {
             is Screen.Puzzle -> {
                 puzzleJob?.cancel()
                 puzzle = Load.Loading
-                screen = Screen.Gallery(s.source)
             }
-            is Screen.Gallery -> {
-                galleryJob?.cancel()
-                screen = Screen.Sources
-            }
-            Screen.Sources -> Unit
+            Screen.Settings -> if (galleryStale) refreshGallery()
+            Screen.Gallery -> Unit
         }
+        screen = Screen.Gallery
     }
 
     private suspend fun loadPuzzle(image: RemoteImage): CutPuzzle {

@@ -19,7 +19,7 @@ import dev.daniel.jigsaw.ui.AppViewModel
 import dev.daniel.jigsaw.ui.GalleryScreen
 import dev.daniel.jigsaw.ui.PuzzleScreen
 import dev.daniel.jigsaw.ui.Screen
-import dev.daniel.jigsaw.ui.SourcesScreen
+import dev.daniel.jigsaw.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,28 +31,29 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun App(vm: AppViewModel = viewModel()) {
-    BackHandler(enabled = vm.screen != Screen.Sources) { vm.back() }
+    BackHandler(enabled = vm.screen != Screen.Gallery) { vm.back() }
     when (val screen = vm.screen) {
-        Screen.Sources -> SourcesScreen(
-            sources = vm.sources,
-            onOpen = vm::openSource,
-            onAdd = vm::addSource,
-            onRemove = vm::removeSource,
-        )
-        is Screen.Gallery -> GalleryScreen(
-            title = screen.source.label,
+        Screen.Gallery -> GalleryScreen(
             state = vm.gallery,
-            onBack = vm::back,
+            hasSources = vm.sources.isNotEmpty(),
             onRefresh = vm::refreshGallery,
+            onOpenSettings = vm::openSettings,
             onPick = vm::openImage,
         )
+        Screen.Settings -> SettingsScreen(
+            sources = vm.sources,
+            onAdd = vm::addSource,
+            onRemove = vm::removeSource,
+            snapToBoard = vm.snapToBoard,
+            onSnapToBoardChange = vm::updateSnapToBoard,
+            onBack = vm::back,
+        )
         is Screen.Puzzle -> PuzzleScreen(
-            title = screen.image.name,
+            title = screen.image.image.name,
             state = vm.puzzle,
             onBack = vm::back,
             onAnotherImage = vm::openRandomImage,
             snapToBoard = vm.snapToBoard,
-            onSnapToBoardChange = vm::updateSnapToBoard,
         )
     }
 }

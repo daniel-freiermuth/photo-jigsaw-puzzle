@@ -10,13 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,7 +57,6 @@ fun PuzzleScreen(
     onBack: () -> Unit,
     onAnotherImage: () -> Unit,
     snapToBoard: Boolean,
-    onSnapToBoardChange: (Boolean) -> Unit,
 ) {
     val game = (state as? Load.Ready)?.value
     Scaffold(
@@ -77,17 +72,6 @@ fun PuzzleScreen(
                     if (game != null) {
                         TextButton(onClick = { game.showHint = !game.showHint }) {
                             Text(if (game.showHint) "Hide hint" else "Hint")
-                        }
-                        var menuOpen by remember { mutableStateOf(false) }
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(
-                                text = { Text("Snap pieces onto board") },
-                                onClick = { onSnapToBoardChange(!snapToBoard) },
-                                trailingIcon = { Checkbox(checked = snapToBoard, onCheckedChange = onSnapToBoardChange) },
-                            )
                         }
                     }
                 },

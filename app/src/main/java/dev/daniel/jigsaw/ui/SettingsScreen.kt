@@ -1,8 +1,7 @@
 package dev.daniel.jigsaw.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -13,13 +12,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,9 +37,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.daniel.jigsaw.source.SourceConfig
@@ -47,49 +48,83 @@ import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SourcesScreen(
+fun SettingsScreen(
     sources: List<SourceConfig>,
-    onOpen: (SourceConfig) -> Unit,
     onAdd: (SourceConfig) -> String?,
     onRemove: (String) -> Unit,
+    snapToBoard: Boolean,
+    onSnapToBoardChange: (Boolean) -> Unit,
+    onBack: () -> Unit,
 ) {
     var adding by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<SourceConfig?>(null) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Jigsaw — image sources") }) },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { adding = true }) { Icon(Icons.Default.Add, "Add source") }
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
         },
     ) { padding ->
-        if (sources.isEmpty()) {
-            Box(Modifier.padding(padding).fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                Text(
-                    "Add a Nextcloud public share, an Immich shared link, or a URL list to start puzzling.",
-                    textAlign = TextAlign.Center,
-                )
+        LazyColumn(
+            Modifier.padding(padding).fillMaxSize(),
+            contentPadding = PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            item { SectionHeader("Image sources") }
+            if (sources.isEmpty()) {
+                item {
+                    Text(
+                        "Add a Nextcloud public share, an Immich shared link, or a URL list to start puzzling.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                    )
+                }
             }
-        } else {
-            LazyColumn(
-                Modifier.padding(padding).fillMaxSize(),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(sources, key = { it.id }) { source ->
-                    Card(Modifier.fillMaxWidth().clickable { onOpen(source) }) {
-                        Row(Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(source.label, style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    "${source.kind.title} · ${source.url}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            IconButton(onClick = { pendingDelete = source }) { Icon(Icons.Default.Delete, "Remove") }
+            items(sources, key = { it.id }) { source ->
+                Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(source.label, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "${source.kind.title} · ${source.url}",
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
+                        IconButton(onClick = { pendingDelete = source }) { Icon(Icons.Default.Delete, "Remove") }
                     }
+                }
+            }
+            item {
+                OutlinedButton(onClick = { adding = true }) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Text("Add source", Modifier.padding(start = 8.dp))
+                }
+            }
+            item { SectionHeader("Puzzle", Modifier.padding(top = 16.dp)) }
+            item {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = snapToBoard, role = Role.Switch, onValueChange = onSnapToBoardChange)
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Snap pieces onto board", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Pieces dropped near their spot lock in place. Makes puzzles much easier.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Switch(checked = snapToBoard, onCheckedChange = null)
                 }
             }
         }
@@ -107,6 +142,16 @@ fun SourcesScreen(
             dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
         )
     }
+}
+
+@Composable
+private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = modifier.padding(horizontal = 4.dp),
+    )
 }
 
 enum class SourceKind(val title: String, val hint: String) {
