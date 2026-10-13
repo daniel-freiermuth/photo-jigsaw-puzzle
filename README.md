@@ -33,6 +33,8 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
   images. Saves live in the app's private storage (`files/puzzles/`, one small JSON per image) and are
   removed together with their source.
 - Solved images open as the plain picture; **Play again** starts a fresh cut.
+- In the gallery, puzzles in progress show a snapshot of their current layout (board plus loose pieces) instead
+  of the picture; untouched and solved images show the picture.
 
 ## Build
 

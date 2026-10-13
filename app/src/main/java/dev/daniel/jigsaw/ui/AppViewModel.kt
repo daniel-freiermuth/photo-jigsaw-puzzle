@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.daniel.jigsaw.puzzle.BoardSnapshot
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PuzzleBoard
@@ -19,6 +20,7 @@ import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.cutPuzzle
 import dev.daniel.jigsaw.puzzle.decodeSampled
+import dev.daniel.jigsaw.puzzle.renderPreview
 import dev.daniel.jigsaw.source.Http
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
@@ -31,6 +33,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import kotlin.random.Random
@@ -73,6 +76,9 @@ class PuzzleGame(val image: GalleryImage, val seed: Long, val cut: CutPuzzle, va
     var solved by mutableStateOf(false)
 }
 
+/** Stored image of a puzzle's current layout. [version] changes whenever the file is rewritten. */
+data class PuzzlePreview(val file: File, val version: Long)
+
 class AppViewModel @JvmOverloads constructor(
     app: Application,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -92,6 +98,13 @@ class AppViewModel @JvmOverloads constructor(
     var gallery by mutableStateOf<Load<GalleryContent>>(Load.Loading)
         private set
     var puzzle by mutableStateOf<Load<PuzzleContent>>(Load.Loading)
+        private set
+
+    /**
+     * Layout images of puzzles in progress, by [GalleryImage.key]; the gallery shows these instead of
+     * the picture.
+     */
+    var previews by mutableStateOf<Map<String, PuzzlePreview>>(emptyMap())
         private set
 
     /** Lock pieces placed near their solved spot onto the board. Off by default: it makes puzzles much easier. */
@@ -128,6 +141,7 @@ class AppViewModel @JvmOverloads constructor(
         sources = sources.filterNot { it.id == id }
         store.save(sources)
         galleryStale = true
+        previews = previews.filterKeys { !it.startsWith("$id/") }
         viewModelScope.launch(puzzleIo) { puzzles.clearSource(id) }
     }
 
@@ -154,6 +168,12 @@ class AppViewModel @JvmOverloads constructor(
             val images = results.flatMap { it.getOrDefault(emptyList()) }
             val failures = results.zip(current).mapNotNull { (result, source) ->
                 result.exceptionOrNull()?.let { "${source.label}: ${it.message ?: it.javaClass.simpleName}" }
+            }
+            previews = withContext(puzzleIo) {
+                images.mapNotNull { image ->
+                    puzzles.previewFile(image.source.id, image.image.id)
+                        ?.let { image.key to PuzzlePreview(it, it.lastModified()) }
+                }.toMap()
             }
             gallery = if (images.isEmpty() && failures.isNotEmpty()) {
                 Load.Failed(failures.joinToString("\n"))
@@ -190,6 +210,7 @@ class AppViewModel @JvmOverloads constructor(
     fun restartPuzzle() {
         val image = (screen as? Screen.Puzzle)?.image ?: return
         puzzle = Load.Loading // so openImage doesn't save the state being discarded
+        previews = previews - image.key
         viewModelScope.launch(puzzleIo) { puzzles.clear(image.source.id, image.image.id) }
         openImage(image)
     }
@@ -202,19 +223,35 @@ class AppViewModel @JvmOverloads constructor(
         val game = ((puzzle as? Load.Ready)?.value as? PuzzleContent.Playing)?.game ?: return
         if (!game.scattered) return
         val board = game.cut.board
+        val snapshot = board.snapshot
         val saved = if (board.isSolved) {
             SavedPuzzle.Solved
         } else {
-            SavedPuzzle.InProgress(board.rows, board.cols, game.seed, board.snapshot)
+            SavedPuzzle.InProgress(board.rows, board.cols, game.seed, snapshot)
         }
         val image = game.image
-        viewModelScope.launch(puzzleIo) {
-            try {
-                puzzles.save(image.source.id, image.image.id, saved)
-            } catch (_: IOException) {
-                // Losing one save only costs the moves since the previous one; nothing to show the user.
+        viewModelScope.launch {
+            val preview = withContext(puzzleIo) {
+                try {
+                    puzzles.save(image.source.id, image.image.id, saved)
+                    if (saved is SavedPuzzle.InProgress) savePreview(image, game.cut, snapshot) else null
+                } catch (_: IOException) {
+                    // Losing one save only costs the moves since the previous one; nothing to show the user.
+                    null
+                }
             }
+            previews = if (preview != null) previews + (image.key to preview) else previews - image.key
         }
+    }
+
+    private fun savePreview(image: GalleryImage, cut: CutPuzzle, snapshot: BoardSnapshot): PuzzlePreview? {
+        val png = ByteArrayOutputStream().use { out ->
+            renderPreview(cut, snapshot, maxSide = PREVIEW_MAX_SIDE).compress(Bitmap.CompressFormat.PNG, 0, out)
+            out.toByteArray()
+        }
+        puzzles.savePreview(image.source.id, image.image.id, png)
+        // A fresh version per save, so the gallery's thumbnail cache doesn't serve the old layout.
+        return puzzles.previewFile(image.source.id, image.image.id)?.let { PuzzlePreview(it, System.nanoTime()) }
     }
 
     fun back() {
@@ -263,6 +300,9 @@ class AppViewModel @JvmOverloads constructor(
     private companion object {
         const val MAX_PUZZLE_SIDE = 1600
         const val TARGET_PIECES = 24
+
+        /** Matches the gallery thumbnails' resolution. */
+        const val PREVIEW_MAX_SIDE = 400
         const val KEY_SNAP_TO_BOARD = "snapToBoard"
     }
 }

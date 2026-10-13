@@ -36,6 +36,7 @@ internal fun App(vm: AppViewModel = viewModel()) {
     when (val screen = vm.screen) {
         Screen.Gallery -> GalleryScreen(
             state = vm.gallery,
+            previews = vm.previews,
             hasSources = vm.sources.isNotEmpty(),
             onRefresh = vm::refreshGallery,
             onOpenSettings = vm::openSettings,

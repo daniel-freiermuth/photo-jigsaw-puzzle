@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.source.Http
-import dev.daniel.jigsaw.source.HttpResource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
@@ -25,28 +24,29 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
-/** In-memory thumbnail cache with bounded download concurrency. */
+/** In-memory thumbnail cache with bounded loading concurrency. */
 private class ThumbnailLoader(private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO) {
     private val cache = object : LruCache<String, ImageBitmap>(
         (Runtime.getRuntime().maxMemory() / HEAP_FRACTION).toInt(),
     ) {
         override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * BYTES_PER_PIXEL
     }
-    private val downloads = Semaphore(MAX_PARALLEL_DOWNLOADS)
+    private val loads = Semaphore(MAX_PARALLEL_LOADS)
 
-    fun cached(resource: HttpResource): ImageBitmap? = cache.get(resource.url)
+    fun cached(key: String): ImageBitmap? = cache.get(key)
 
-    suspend fun load(resource: HttpResource): ImageBitmap = cached(resource) ?: downloads.withPermit {
+    /** Decodes the bytes from [read] (blocking I/O, run on the I/O dispatcher) and caches them under [key]. */
+    suspend fun load(key: String, read: () -> ByteArray): ImageBitmap = cached(key) ?: loads.withPermit {
         withContext(ioDispatcher) {
-            decodeSampled(Http.getBytes(resource), maxSide = MAX_SIDE).asImageBitmap()
-        }.also { cache.put(resource.url, it) }
+            decodeSampled(read(), maxSide = MAX_SIDE).asImageBitmap()
+        }.also { cache.put(key, it) }
     }
 
     private companion object {
         /** Use up to 1/8 of the heap for thumbnails. */
         const val HEAP_FRACTION = 8
         const val BYTES_PER_PIXEL = 4
-        const val MAX_PARALLEL_DOWNLOADS = 6
+        const val MAX_PARALLEL_LOADS = 6
         const val MAX_SIDE = 400
     }
 }
@@ -59,15 +59,48 @@ private sealed interface ThumbState {
     data class Ready(val image: ImageBitmap) : ThumbState
 }
 
+/**
+ * Gallery tile: the puzzle as currently laid out if it is in progress ([preview]), otherwise the
+ * picture itself (not started yet, or solved).
+ */
 @Composable
-fun RemoteThumbnail(resource: HttpResource, contentDescription: String, modifier: Modifier = Modifier) {
+fun GalleryThumbnail(item: GalleryImage, preview: PuzzlePreview?, modifier: Modifier = Modifier) {
+    if (preview != null) {
+        // The preview shows the board plus loose pieces; fit it whole rather than cropping.
+        LoadedImage(
+            key = "preview:${preview.file.path}@${preview.version}",
+            read = { preview.file.readBytes() },
+            contentDescription = item.image.name,
+            contentScale = ContentScale.Fit,
+            modifier = modifier,
+        )
+    } else {
+        val resource = item.image.thumbnail
+        LoadedImage(
+            key = resource.url,
+            read = { Http.getBytes(resource) },
+            contentDescription = item.image.name,
+            contentScale = ContentScale.Crop,
+            modifier = modifier,
+        )
+    }
+}
+
+@Composable
+private fun LoadedImage(
+    key: String,
+    read: () -> ByteArray,
+    contentDescription: String,
+    contentScale: ContentScale,
+    modifier: Modifier = Modifier,
+) {
     val state by produceState<ThumbState>(
-        initialValue = thumbnails.cached(resource)?.let { ThumbState.Ready(it) } ?: ThumbState.Loading,
-        key1 = resource,
+        initialValue = thumbnails.cached(key)?.let { ThumbState.Ready(it) } ?: ThumbState.Loading,
+        key1 = key,
     ) {
         if (value is ThumbState.Ready) return@produceState
         value = try {
-            ThumbState.Ready(thumbnails.load(resource))
+            ThumbState.Ready(thumbnails.load(key, read))
         } catch (_: IOException) {
             ThumbState.Failed
         }
@@ -80,7 +113,7 @@ fun RemoteThumbnail(resource: HttpResource, contentDescription: String, modifier
                 s.image,
                 contentDescription,
                 Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
+                contentScale = contentScale,
             )
         }
     }

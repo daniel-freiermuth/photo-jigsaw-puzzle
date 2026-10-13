@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.puzzle
 
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -62,5 +63,21 @@ class PuzzleStoreTest {
         assertNull(PuzzleStore.decode("not json"))
         assertNull(PuzzleStore.decode("""{"version": 99, "solved": true}"""))
         assertNull(PuzzleStore.decode("""{"version": 1, "solved": false, "rows": 2}"""))
+    }
+
+    @Test
+    fun `previews exist only while a puzzle is in progress`() {
+        val store = PuzzleStore(tmp.root)
+        val png = byteArrayOf(1, 2, 3)
+        assertNull(store.previewFile("s", "img"))
+        store.save("s", "img", inProgress)
+        store.savePreview("s", "img", png)
+        assertArrayEquals(png, store.previewFile("s", "img")?.readBytes())
+        store.save("s", "img", SavedPuzzle.Solved)
+        assertNull(store.previewFile("s", "img"))
+        store.save("s", "other", inProgress)
+        store.savePreview("s", "other", png)
+        store.clear("s", "other")
+        assertNull(store.previewFile("s", "other"))
     }
 }
