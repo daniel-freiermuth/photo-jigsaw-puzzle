@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -39,18 +41,17 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import dev.daniel.jigsaw.puzzle.Bounds
+import dev.daniel.jigsaw.puzzle.BoardLayout
+import dev.daniel.jigsaw.puzzle.CanvasSpec
 import dev.daniel.jigsaw.puzzle.CutPuzzle
-import dev.daniel.jigsaw.puzzle.JigsawCut
-import kotlin.math.min
+import dev.daniel.jigsaw.puzzle.boardLayout
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
-/** Fraction of the long screen axis given to the board; the rest is the tray for loose pieces. */
-private const val BOARD_SHARE = 0.55f
 private const val BOARD_FILL_ALPHA = 0.06f
 private const val BOARD_STROKE_ALPHA = 0.35f
 private const val PIECE_OUTLINE_ALPHA = 0.5f
@@ -121,56 +122,34 @@ private fun SolvedCard(onBack: () -> Unit, onAnotherImage: () -> Unit, modifier:
     }
 }
 
-/** Screen placement of the board plus the grid-unit areas pieces may occupy. */
-private class BoardLayout(
-    /** Screen position of the board's top-left corner. */
-    val origin: Offset,
-    /** Screen pixels per source-bitmap pixel. */
-    val scale: Float,
-    /** On-screen size of one grid cell. */
-    val cellPx: Size,
-    /** The whole canvas; groups must keep a grabbable part inside it. */
-    val screen: Bounds,
-    /** Where pieces start out, kept clear of the screen edges so tabs aren't clipped. */
-    val scatter: Bounds,
-)
-
 private class PuzzleColors(val boardFill: Color, val boardStroke: Color, val pieceOutline: ColorFilter)
 
-/** Portrait: board on top, loose pieces below. Landscape: board left, loose pieces right. */
-private fun computeLayout(size: IntSize, cut: CutPuzzle, margin: Float): BoardLayout {
-    val w = size.width.toFloat()
-    val h = size.height.toFloat()
-    val iw = cut.source.width.toFloat()
-    val ih = cut.source.height.toFloat()
-    val portrait = h >= w
-    val scale = if (portrait) {
-        min((w - 2 * margin) / iw, (h * BOARD_SHARE - margin) / ih)
-    } else {
-        min((w * BOARD_SHARE - margin) / iw, (h - 2 * margin) / ih)
+/** Margin kept between the board and the canvas edges. */
+private val BoardMargin = 12.dp
+
+/** Height of the puzzle screen's top bar (Material 3 small top app bar). */
+private val TopBarHeight = 64.dp
+
+/**
+ * The puzzle canvas size on this device, derived from the window: what the puzzle screen gets below
+ * its top bar and inside the system bars. Lets other screens lay pieces out exactly as a puzzle would.
+ */
+@Composable
+fun puzzleCanvasSpec(): CanvasSpec {
+    val density = LocalDensity.current
+    val window = LocalWindowInfo.current.containerSize
+    val bars = WindowInsets.systemBars
+    return with(density) {
+        CanvasSpec(
+            width = window.width.toFloat(),
+            height = (window.height - bars.getTop(density) - bars.getBottom(density) - TopBarHeight.roundToPx())
+                .toFloat(),
+            margin = BoardMargin.toPx(),
+        )
     }
-    val origin = if (portrait) Offset((w - iw * scale) / 2, margin) else Offset(margin, (h - ih * scale) / 2)
-    val cellPx = Size(cut.cellWidth * scale, cut.cellHeight * scale)
-    fun toGrid(left: Float, top: Float, right: Float, bottom: Float, inset: Float) = Bounds(
-        minX = (left - origin.x) / cellPx.width + inset,
-        minY = (top - origin.y) / cellPx.height + inset,
-        maxX = (right - origin.x) / cellPx.width - inset,
-        maxY = (bottom - origin.y) / cellPx.height - inset,
-    )
-    val pad = JigsawCut.PAD
-    val tray = if (portrait) {
-        toGrid(0f, origin.y + ih * scale + margin, w, h, pad)
-    } else {
-        toGrid(origin.x + iw * scale + margin, 0f, w, h, pad)
-    }
-    return BoardLayout(
-        origin = origin,
-        scale = scale,
-        cellPx = cellPx,
-        screen = toGrid(0f, 0f, w, h, inset = 0f),
-        scatter = if (tray.fitsCell) tray else toGrid(0f, 0f, w, h, pad),
-    )
 }
+
+private val BoardLayout.originOffset get() = Offset(origin.x, origin.y)
 
 @Composable
 private fun PuzzleBoardView(
@@ -179,16 +158,19 @@ private fun PuzzleBoardView(
     onMoveEnd: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val margin = with(LocalDensity.current) { 12.dp.toPx() }
+    val margin = with(LocalDensity.current) { BoardMargin.toPx() }
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     val layout = remember(canvasSize, game) {
         if (canvasSize == IntSize.Zero) return@remember null
-        computeLayout(canvasSize, game.cut, margin).also {
-            if (!game.scattered) {
-                game.cut.board.scatter(it.scatter, Random.Default)
-                game.scattered = true
+        val canvas = CanvasSpec(canvasSize.width.toFloat(), canvasSize.height.toFloat(), margin)
+        val board = game.cut.board
+        boardLayout(canvas, game.cut.source.width.toFloat(), game.cut.source.height.toFloat(), board.rows, board.cols)
+            .also {
+                if (!game.scattered) {
+                    board.scatter(it.scatter, Random.Default)
+                    game.scattered = true
+                }
             }
-        }
     }
     val onSurface = MaterialTheme.colorScheme.onSurface
     val colors = PuzzleColors(
@@ -247,7 +229,7 @@ private fun Modifier.puzzleGestures(
             val l = layout.value
             if (i != null && l != null) {
                 change.consume()
-                board.moveGroup(i, amount.x / l.cellPx.width, amount.y / l.cellPx.height)
+                board.moveGroup(i, amount.x / l.cellSize.x, amount.y / l.cellSize.y)
                 game.version++
             }
         },
@@ -258,19 +240,19 @@ private fun DrawScope.drawPuzzle(game: PuzzleGame, layout: BoardLayout, colors: 
     val cut = game.cut
     val board = cut.board
     val boardSize = Size(cut.source.width * layout.scale, cut.source.height * layout.scale)
-    drawRect(colors.boardFill, layout.origin, boardSize)
-    drawRect(colors.boardStroke, layout.origin, boardSize, style = Stroke(width = 1.dp.toPx()))
+    drawRect(colors.boardFill, layout.originOffset, boardSize)
+    drawRect(colors.boardStroke, layout.originOffset, boardSize, style = Stroke(width = 1.dp.toPx()))
     if (game.showHint) {
         drawImage(
             cut.source,
-            dstOffset = layout.origin.round(),
+            dstOffset = layout.originOffset.round(),
             dstSize = IntSize(boardSize.width.roundToInt(), boardSize.height.roundToInt()),
             alpha = HINT_ALPHA,
         )
     }
     for (i in board.drawOrder) {
         val piece = cut.pieces[i]
-        val topLeft = layout.origin + Offset(
+        val topLeft = layout.originOffset + Offset(
             (board.x(i) * cut.cellWidth - cut.padX) * layout.scale,
             (board.y(i) * cut.cellHeight - cut.padY) * layout.scale,
         )

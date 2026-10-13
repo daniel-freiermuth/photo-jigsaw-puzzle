@@ -24,7 +24,7 @@ sealed interface SavedPuzzle {
 class PuzzleStore(private val root: File) {
 
     fun load(sourceId: String, imageId: String): SavedPuzzle? {
-        val file = fileFor(sourceId, imageId, STATE_SUFFIX)
+        val file = fileFor(sourceId, imageId)
         if (!file.exists()) return null
         return try {
             decode(file.readText())
@@ -33,41 +33,30 @@ class PuzzleStore(private val root: File) {
         }
     }
 
-    /** Saving [SavedPuzzle.Solved] also drops the preview: solved puzzles are shown as the picture. */
     fun save(sourceId: String, imageId: String, puzzle: SavedPuzzle) {
-        writeAtomically(fileFor(sourceId, imageId, STATE_SUFFIX), encode(puzzle).toByteArray())
-        if (puzzle == SavedPuzzle.Solved) fileFor(sourceId, imageId, PREVIEW_SUFFIX).delete()
+        val file = fileFor(sourceId, imageId)
+        file.parentFile?.mkdirs()
+        // Write-then-rename so a crash mid-write never leaves a truncated save behind.
+        val tmp = File(file.path + ".tmp")
+        tmp.writeText(encode(puzzle))
+        if (!tmp.renameTo(file)) throw IOException("Could not save puzzle to $file")
     }
-
-    /** Stores an encoded image of the puzzle's current layout, for the gallery. */
-    fun savePreview(sourceId: String, imageId: String, image: ByteArray) {
-        writeAtomically(fileFor(sourceId, imageId, PREVIEW_SUFFIX), image)
-    }
-
-    /** The stored layout preview, or null if the puzzle isn't in progress (or predates previews). */
-    fun previewFile(sourceId: String, imageId: String): File? =
-        fileFor(sourceId, imageId, PREVIEW_SUFFIX).takeIf { it.exists() }
 
     fun clear(sourceId: String, imageId: String) {
-        fileFor(sourceId, imageId, STATE_SUFFIX).delete()
-        fileFor(sourceId, imageId, PREVIEW_SUFFIX).delete()
+        fileFor(sourceId, imageId).delete()
     }
 
     fun clearSource(sourceId: String) {
         File(root, hash(sourceId)).deleteRecursively()
     }
 
-    // Write-then-rename so a crash mid-write never leaves a truncated file behind.
-    private fun writeAtomically(file: File, bytes: ByteArray) {
-        file.parentFile?.mkdirs()
-        val tmp = File(file.path + ".tmp")
-        tmp.writeBytes(bytes)
-        if (!tmp.renameTo(file)) throw IOException("Could not write $file")
+    /** Removes layout images written by earlier versions; tiles are now rendered from the saved state. */
+    fun deleteLegacyPreviews() {
+        root.walkTopDown().filter { it.isFile && it.name.endsWith(LEGACY_PREVIEW_SUFFIX) }.forEach { it.delete() }
     }
 
     // Hashed names: ids are arbitrary strings (paths, URLs) and must not escape the directory.
-    private fun fileFor(sourceId: String, imageId: String, suffix: String) =
-        File(File(root, hash(sourceId)), hash(imageId) + suffix)
+    private fun fileFor(sourceId: String, imageId: String) = File(File(root, hash(sourceId)), hash(imageId) + ".json")
 
     private fun hash(id: String): String = MessageDigest.getInstance("SHA-256")
         .digest(id.toByteArray())
@@ -75,8 +64,7 @@ class PuzzleStore(private val root: File) {
 
     companion object {
         private const val FORMAT_VERSION = 1
-        private const val STATE_SUFFIX = ".json"
-        private const val PREVIEW_SUFFIX = ".png"
+        private const val LEGACY_PREVIEW_SUFFIX = ".png"
 
         fun encode(puzzle: SavedPuzzle): String = JSONObject().apply {
             put("version", FORMAT_VERSION)

@@ -10,13 +10,15 @@ import kotlin.math.max
 import kotlin.random.Random
 
 /**
- * Gallery image of a puzzle in progress: once any piece sits on the board (its centre inside the
- * target area), just the board with what has been placed; before that, the pile of loose pieces.
- * Safe off the main thread: only reads the immutable piece bitmaps.
+ * Gallery image of a puzzle in progress, drawn by re-cutting [picture] (typically the thumbnail)
+ * with the saved seed and laying the pieces out as saved. Once any piece sits on the board (its
+ * centre inside the target area) only the board is shown; before that, just the loose pieces.
  */
-fun renderPreview(cut: CutPuzzle, board: BoardSnapshot, maxSide: Int): Bitmap {
-    val rows = cut.board.rows
-    val cols = cut.board.cols
+fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, maxSide: Int): Bitmap {
+    val rows = saved.rows
+    val cols = saved.cols
+    val board = saved.board
+    val cut = cutPuzzle(picture, JigsawCut(rows, cols, Random(saved.seed)))
     val anyOnBoard = board.xs.indices.any { i ->
         val cx = board.xs[i] + CENTER
         val cy = board.ys[i] + CENTER
@@ -30,14 +32,16 @@ fun renderPreview(cut: CutPuzzle, board: BoardSnapshot, maxSide: Int): Bitmap {
 }
 
 /**
- * Gallery image of a puzzle that was never opened: [picture] (typically the thumbnail) cut into
- * about [pieces] pieces and dropped in a heap. [seed] keeps the heap stable between renders.
+ * Gallery image of a puzzle that was never opened: what opening it and leaving straight away would
+ * look like. [picture] is cut into about [pieces] pieces, scattered over the tray exactly as the
+ * puzzle screen would on [canvas], and framed on the pieces. [seed] keeps it stable between renders.
  */
-fun renderUntouchedPile(picture: Bitmap, pieces: Int, seed: Long, maxSide: Int): Bitmap {
+fun renderUntouched(picture: Bitmap, pieces: Int, canvas: CanvasSpec, seed: Long, maxSide: Int): Bitmap {
     val (rows, cols) = JigsawCut.gridFor(picture.width, picture.height, pieces)
     val random = Random(seed)
     val cut = cutPuzzle(picture, JigsawCut(rows, cols, random))
-    cut.board.scatter(Bounds(0f, 0f, cols * PILE_SPREAD, rows * PILE_SPREAD), random)
+    val layout = boardLayout(canvas, picture.width.toFloat(), picture.height.toFloat(), rows, cols)
+    cut.board.scatter(layout.scatter, random)
     return renderPile(cut, cut.board.snapshot, maxSide)
 }
 
@@ -89,9 +93,6 @@ private fun render(cut: CutPuzzle, board: BoardSnapshot, frame: Bounds, maxSide:
 
 /** Offset from a piece's cell corner to its centre, in cell units. */
 private const val CENTER = 0.5f
-
-/** Heap area relative to the solved picture: below 1 so pieces overlap like a real pile. */
-private const val PILE_SPREAD = 0.8f
 
 // Theme-neutral greys: previews are rendered once and shown in light and dark mode alike.
 private const val BOARD_FILL = 0x22808080

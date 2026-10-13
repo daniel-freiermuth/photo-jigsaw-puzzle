@@ -33,13 +33,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.daniel.jigsaw.puzzle.SavedPuzzle
 
 /** Main view: every image from every configured source. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GalleryScreen(
     state: Load<GalleryContent>,
-    tiles: Map<String, PuzzleTile>,
+    tiles: Map<String, SavedPuzzle>,
     hasSources: Boolean,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -82,7 +83,8 @@ fun GalleryScreen(
 }
 
 @Composable
-private fun ImageGrid(content: GalleryContent, tiles: Map<String, PuzzleTile>, onPick: (GalleryImage) -> Unit) {
+private fun ImageGrid(content: GalleryContent, tiles: Map<String, SavedPuzzle>, onPick: (GalleryImage) -> Unit) {
+    val canvas = puzzleCanvasSpec()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(110.dp),
         modifier = Modifier.fillMaxSize(),
@@ -104,7 +106,8 @@ private fun ImageGrid(content: GalleryContent, tiles: Map<String, PuzzleTile>, o
         items(content.images, key = { it.key }) { item ->
             GalleryThumbnail(
                 item,
-                tile = tiles[item.key],
+                saved = tiles[item.key],
+                canvas = canvas,
                 modifier = Modifier
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(8.dp))

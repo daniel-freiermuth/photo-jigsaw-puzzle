@@ -12,7 +12,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import dev.daniel.jigsaw.puzzle.BoardSnapshot
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PuzzleBoard
@@ -20,7 +19,6 @@ import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.cutPuzzle
 import dev.daniel.jigsaw.puzzle.decodeSampled
-import dev.daniel.jigsaw.puzzle.renderPreview
 import dev.daniel.jigsaw.source.Http
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
@@ -33,7 +31,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import kotlin.random.Random
@@ -76,16 +73,6 @@ class PuzzleGame(val image: GalleryImage, val seed: Long, val cut: CutPuzzle, va
     var solved by mutableStateOf(false)
 }
 
-/** Stored image of a puzzle's current layout. [version] changes whenever the file is rewritten. */
-data class PuzzlePreview(val file: File, val version: Long)
-
-/** What a gallery tile knows about an image's puzzle. */
-sealed interface PuzzleTile {
-    data class InProgress(val preview: PuzzlePreview) : PuzzleTile
-
-    data object Solved : PuzzleTile
-}
-
 class AppViewModel @JvmOverloads constructor(
     app: Application,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -107,8 +94,8 @@ class AppViewModel @JvmOverloads constructor(
     var puzzle by mutableStateOf<Load<PuzzleContent>>(Load.Loading)
         private set
 
-    /** Puzzle state per [GalleryImage.key] for the gallery tiles; absent means never opened. */
-    var tiles by mutableStateOf<Map<String, PuzzleTile>>(emptyMap())
+    /** Saved puzzle state per [GalleryImage.key], for the gallery tiles; absent means never opened. */
+    var tiles by mutableStateOf<Map<String, SavedPuzzle>>(emptyMap())
         private set
 
     /** Lock pieces placed near their solved spot onto the board. Off by default: it makes puzzles much easier. */
@@ -174,7 +161,8 @@ class AppViewModel @JvmOverloads constructor(
                 result.exceptionOrNull()?.let { "${source.label}: ${it.message ?: it.javaClass.simpleName}" }
             }
             tiles = withContext(puzzleIo) {
-                images.mapNotNull { image -> tileFor(image)?.let { image.key to it } }.toMap()
+                puzzles.deleteLegacyPreviews()
+                images.mapNotNull { image -> savedPuzzle(image)?.let { image.key to it } }.toMap()
             }
             gallery = if (images.isEmpty() && failures.isNotEmpty()) {
                 Load.Failed(failures.joinToString("\n"))
@@ -184,15 +172,8 @@ class AppViewModel @JvmOverloads constructor(
         }
     }
 
-    /** Blocking: reads the stored state of [image]'s puzzle. Run on [puzzleIo]. */
-    private fun tileFor(image: GalleryImage): PuzzleTile? {
-        val preview = puzzles.previewFile(image.source.id, image.image.id)
-        return when {
-            preview != null -> PuzzleTile.InProgress(PuzzlePreview(preview, preview.lastModified()))
-            puzzles.load(image.source.id, image.image.id) == SavedPuzzle.Solved -> PuzzleTile.Solved
-            else -> null
-        }
-    }
+    /** Blocking: the stored state of [image]'s puzzle, null if never opened. Run on [puzzleIo]. */
+    private fun savedPuzzle(image: GalleryImage): SavedPuzzle? = puzzles.load(image.source.id, image.image.id)
 
     /** Opens [image]'s puzzle where it was left, the finished picture if solved, or a new puzzle. */
     fun openImage(image: GalleryImage) {
@@ -234,40 +215,21 @@ class AppViewModel @JvmOverloads constructor(
         val game = ((puzzle as? Load.Ready)?.value as? PuzzleContent.Playing)?.game ?: return
         if (!game.scattered) return
         val board = game.cut.board
-        val snapshot = board.snapshot
         val saved = if (board.isSolved) {
             SavedPuzzle.Solved
         } else {
-            SavedPuzzle.InProgress(board.rows, board.cols, game.seed, snapshot)
+            SavedPuzzle.InProgress(board.rows, board.cols, game.seed, board.snapshot)
         }
         val image = game.image
-        viewModelScope.launch {
-            val tile = withContext(puzzleIo) {
-                try {
-                    puzzles.save(image.source.id, image.image.id, saved)
-                    if (saved is SavedPuzzle.InProgress) {
-                        PuzzleTile.InProgress(savePreview(image, game.cut, snapshot))
-                    } else {
-                        PuzzleTile.Solved
-                    }
-                } catch (_: IOException) {
-                    // Losing one save only costs the moves since the previous one; nothing to show the user.
-                    null
-                }
+        // The gallery renders its tile from this state, so it is current even before the write lands.
+        tiles = tiles + (image.key to saved)
+        viewModelScope.launch(puzzleIo) {
+            try {
+                puzzles.save(image.source.id, image.image.id, saved)
+            } catch (_: IOException) {
+                // Losing one save only costs the moves since the previous one; nothing to show the user.
             }
-            tile?.let { tiles = tiles + (image.key to it) }
         }
-    }
-
-    private fun savePreview(image: GalleryImage, cut: CutPuzzle, snapshot: BoardSnapshot): PuzzlePreview {
-        val png = ByteArrayOutputStream().use { out ->
-            renderPreview(cut, snapshot, maxSide = PREVIEW_MAX_SIDE).compress(Bitmap.CompressFormat.PNG, 0, out)
-            out.toByteArray()
-        }
-        puzzles.savePreview(image.source.id, image.image.id, png)
-        val file = puzzles.previewFile(image.source.id, image.image.id) ?: throw IOException("Preview vanished")
-        // A fresh version per save, so the gallery's thumbnail cache doesn't serve the old layout.
-        return PuzzlePreview(file, System.nanoTime())
     }
 
     fun back() {
@@ -315,9 +277,6 @@ class AppViewModel @JvmOverloads constructor(
 
     private companion object {
         const val MAX_PUZZLE_SIDE = 1600
-
-        /** Matches the gallery thumbnails' resolution. */
-        const val PREVIEW_MAX_SIDE = 400
         const val KEY_SNAP_TO_BOARD = "snapToBoard"
     }
 }

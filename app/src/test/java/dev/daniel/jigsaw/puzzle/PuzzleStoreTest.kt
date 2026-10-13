@@ -1,7 +1,7 @@
 package dev.daniel.jigsaw.puzzle
 
-import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
@@ -66,18 +66,13 @@ class PuzzleStoreTest {
     }
 
     @Test
-    fun `previews exist only while a puzzle is in progress`() {
+    fun `legacy preview images are removed while saves stay`() {
         val store = PuzzleStore(tmp.root)
-        val png = byteArrayOf(1, 2, 3)
-        assertNull(store.previewFile("s", "img"))
         store.save("s", "img", inProgress)
-        store.savePreview("s", "img", png)
-        assertArrayEquals(png, store.previewFile("s", "img")?.readBytes())
-        store.save("s", "img", SavedPuzzle.Solved)
-        assertNull(store.previewFile("s", "img"))
-        store.save("s", "other", inProgress)
-        store.savePreview("s", "other", png)
-        store.clear("s", "other")
-        assertNull(store.previewFile("s", "other"))
+        val sourceDir = tmp.root.listFiles()!!.single()
+        val legacy = sourceDir.resolve("old-preview.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        store.deleteLegacyPreviews()
+        assertFalse(legacy.exists())
+        assertEquals(inProgress, store.load("s", "img"))
     }
 }

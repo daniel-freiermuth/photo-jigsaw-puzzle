@@ -33,8 +33,10 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
   images. Saves live in the app's private storage (`files/puzzles/`, one small JSON per image) and are
   removed together with their source.
 - Solved images open as the plain picture; **Play again** starts a fresh cut.
-- Gallery tiles show each puzzle's state: a pile of pieces before it is started, the actual pile of loose pieces
-  once opened, only the board with what has been placed as soon as a piece sits on it, and the picture once solved.
+- Gallery tiles show each puzzle's state, zoomed on the pieces: before it is started, exactly what opening it would
+  show (its pieces freshly scattered); once opened, its loose pieces as left; as soon as a piece sits on the board,
+  only the board with what has been placed; once solved, the picture. Tiles are drawn from the saved state over the
+  thumbnail, so they always match the save.
 
 ## Build
 

@@ -16,9 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import dev.daniel.jigsaw.puzzle.CanvasSpec
 import dev.daniel.jigsaw.puzzle.JigsawCut
+import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.decodeSampled
-import dev.daniel.jigsaw.puzzle.renderUntouchedPile
+import dev.daniel.jigsaw.puzzle.renderProgress
+import dev.daniel.jigsaw.puzzle.renderUntouched
 import dev.daniel.jigsaw.source.Http
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -63,33 +66,35 @@ private sealed interface ThumbState {
 }
 
 /**
- * Gallery tile, by the state of the image's puzzle: never opened → a pile of pieces cut from the
- * thumbnail; in progress → its saved [PuzzleTile.InProgress] snapshot; solved → the picture.
+ * Gallery tile, by the state of the image's puzzle: never opened → what opening it would show (a
+ * fresh scatter of pieces, laid out for [canvas]); in progress → its saved layout; solved → the
+ * picture. Puzzle tiles are cut from the thumbnail, so they stay cheap and always match the save.
  */
 @Composable
-fun GalleryThumbnail(item: GalleryImage, tile: PuzzleTile?, modifier: Modifier = Modifier) {
+fun GalleryThumbnail(item: GalleryImage, saved: SavedPuzzle?, canvas: CanvasSpec, modifier: Modifier = Modifier) {
     val resource = item.image.thumbnail
-    when (tile) {
-        is PuzzleTile.InProgress -> LoadedImage(
-            key = "preview:${tile.preview.file.path}@${tile.preview.version}",
-            produce = { decodeSampled(tile.preview.file.readBytes(), MAX_SIDE) },
-            contentDescription = item.image.name,
-            contentScale = ContentScale.Fit,
-            modifier = modifier,
-        )
-        PuzzleTile.Solved -> LoadedImage(
+    val picture = { decodeSampled(Http.getBytes(resource), MAX_SIDE) }
+    when (saved) {
+        SavedPuzzle.Solved -> LoadedImage(
             key = resource.url,
-            produce = { decodeSampled(Http.getBytes(resource), MAX_SIDE) },
+            produce = picture,
             contentDescription = item.image.name,
             contentScale = ContentScale.Crop,
             modifier = modifier,
         )
+        // The data class hash changes with every move, so each layout gets its own cache entry.
+        is SavedPuzzle.InProgress -> LoadedImage(
+            key = "progress:${resource.url}:${saved.hashCode()}",
+            produce = { renderProgress(picture(), saved, MAX_SIDE) },
+            contentDescription = item.image.name,
+            contentScale = ContentScale.Fit,
+            modifier = modifier,
+        )
         null -> LoadedImage(
-            key = "pile:${resource.url}",
+            key = "untouched:${resource.url}:$canvas",
             produce = {
-                val picture = decodeSampled(Http.getBytes(resource), MAX_SIDE)
-                // Seeded by the image so the heap looks the same every time the tile is drawn.
-                renderUntouchedPile(picture, JigsawCut.DEFAULT_PIECES, item.key.hashCode().toLong(), MAX_SIDE)
+                // Seeded by the image so the scatter looks the same every time the tile is drawn.
+                renderUntouched(picture(), JigsawCut.DEFAULT_PIECES, canvas, item.key.hashCode().toLong(), MAX_SIDE)
             },
             contentDescription = item.image.name,
             contentScale = ContentScale.Fit,
