@@ -21,21 +21,22 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
     /** Indices bottom → top. */
     val drawOrder: List<Int> get() = order
 
-    fun row(i: Int) = i / cols
-    fun col(i: Int) = i % cols
     fun x(i: Int) = xs[i]
+
     fun y(i: Int) = ys[i]
+
     fun isLocked(i: Int) = locked[i]
+
     /** Every piece joined into one group, whether or not it sits on the board. */
     val isSolved get() = groupOf.all { it == groupOf[0] }
-    fun sameGroup(a: Int, b: Int) = groupOf[a] == groupOf[b]
-    fun members(i: Int): List<Int> = (0 until size).filter { groupOf[it] == groupOf[i] }
 
-    /** Places every piece at a random spot so that its cell lies within the given bounds. */
-    fun scatter(minX: Float, minY: Float, maxX: Float, maxY: Float, random: Random) {
+    fun sameGroup(a: Int, b: Int) = groupOf[a] == groupOf[b]
+
+    /** Places every piece at a random spot so that its cell lies within [bounds]. */
+    fun scatter(bounds: Bounds, random: Random) {
         for (i in 0 until size) {
-            xs[i] = randomIn(minX, maxX - 1f, random)
-            ys[i] = randomIn(minY, maxY - 1f, random)
+            xs[i] = randomIn(bounds.minX, bounds.maxX - 1f, random)
+            ys[i] = randomIn(bounds.minY, bounds.maxY - 1f, random)
         }
         order.shuffle(random)
     }
@@ -59,23 +60,23 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
 
     /**
      * Shifts the group just enough that at least [overlap] cells of its bounding box stay within
-     * the bounds on each axis, so it can always be grabbed again. The rest may hang off-screen:
+     * [bounds] on each axis, so it can always be grabbed again. The rest may hang off-screen:
      * large groups must be able to sit flush against an edge to meet their counterparts.
      */
-    fun keepGroupReachable(i: Int, minX: Float, minY: Float, maxX: Float, maxY: Float, overlap: Float = 0.5f) {
+    fun keepGroupReachable(i: Int, bounds: Bounds, overlap: Float = MIN_REACHABLE_OVERLAP) {
         val m = members(i)
         val left = m.minOf { xs[it] }
         val top = m.minOf { ys[it] }
         val right = m.maxOf { xs[it] } + 1f
         val bottom = m.maxOf { ys[it] } + 1f
         val dx = when {
-            right < minX + overlap -> minX + overlap - right
-            left > maxX - overlap -> maxX - overlap - left
+            right < bounds.minX + overlap -> bounds.minX + overlap - right
+            left > bounds.maxX - overlap -> bounds.maxX - overlap - left
             else -> 0f
         }
         val dy = when {
-            bottom < minY + overlap -> minY + overlap - bottom
-            top > maxY - overlap -> maxY - overlap - top
+            bottom < bounds.minY + overlap -> bounds.minY + overlap - bottom
+            top > bounds.maxY - overlap -> bounds.maxY - overlap - top
             else -> 0f
         }
         moveGroup(i, dx, dy)
@@ -96,29 +97,40 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
     }
 
     private fun joinNeighbour(i: Int, tolerance: Float): Boolean {
-        for (p in members(i)) {
-            for (n in neighbours(p)) {
-                if (sameGroup(p, n)) continue
-                val dx = xs[n] - (xs[p] + col(n) - col(p))
-                val dy = ys[n] - (ys[p] + row(n) - row(p))
-                if (hypot(dx, dy) > tolerance) continue
-                // Never move a locked group; align whichever side is still loose.
-                if (locked[p]) moveGroup(n, -dx, -dy) else moveGroup(p, dx, dy)
-                merge(p, n)
-                return true
+        val (p, n) = members(i).asSequence()
+            .flatMap { piece -> neighbours(piece).asSequence().map { piece to it } }
+            .firstOrNull { (piece, other) ->
+                !sameGroup(piece, other) && distance(misalignment(piece, other)) <= tolerance
             }
-        }
-        return false
-    }
-
-    private fun lockIfPlaced(i: Int, tolerance: Float): Boolean {
-        if (locked[i]) return false
-        val m = members(i)
-        val anchor = m.firstOrNull { hypot(xs[it] - col(it), ys[it] - row(it)) <= tolerance } ?: return false
-        moveGroup(i, col(anchor) - xs[anchor], row(anchor) - ys[anchor])
-        lock(m)
+            ?: return false
+        val (dx, dy) = misalignment(p, n)
+        // Never move a locked group; align whichever side is still loose.
+        if (locked[p]) moveGroup(n, -dx, -dy) else moveGroup(p, dx, dy)
+        merge(p, n)
         return true
     }
+
+    /** How far neighbour [n] sits from where it belongs relative to piece [p]. */
+    private fun misalignment(p: Int, n: Int): Pair<Float, Float> =
+        xs[n] - (xs[p] + col(n) - col(p)) to ys[n] - (ys[p] + row(n) - row(p))
+
+    private fun distance(offset: Pair<Float, Float>) = hypot(offset.first, offset.second)
+
+    private fun lockIfPlaced(i: Int, tolerance: Float): Boolean {
+        val m = members(i)
+        val anchor = if (locked[i]) null else m.firstOrNull { hypot(xs[it] - col(it), ys[it] - row(it)) <= tolerance }
+        anchor?.let {
+            moveGroup(i, col(it) - xs[it], row(it) - ys[it])
+            lock(m)
+        }
+        return anchor != null
+    }
+
+    private fun row(i: Int) = i / cols
+
+    private fun col(i: Int) = i % cols
+
+    private fun members(i: Int): List<Int> = (0 until size).filter { groupOf[it] == groupOf[i] }
 
     private fun merge(a: Int, b: Int) {
         val target = groupOf[a]
@@ -150,5 +162,8 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
     companion object {
         /** Max misalignment, in cell units, that still snaps. */
         const val SNAP_TOLERANCE = 0.2f
+
+        /** Cells of a group that must stay on-screen after a drop so it can be grabbed again. */
+        const val MIN_REACHABLE_OVERLAP = 0.5f
     }
 }

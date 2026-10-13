@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.daniel.jigsaw.puzzle.CutPuzzle
@@ -17,13 +18,14 @@ import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
 import dev.daniel.jigsaw.source.SourceStore
 import dev.daniel.jigsaw.source.toImageSource
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import kotlin.random.Random
 
 sealed interface Screen {
@@ -54,7 +56,11 @@ class PuzzleGame(val cut: CutPuzzle) {
     var scattered = false
 }
 
-class AppViewModel(app: Application) : AndroidViewModel(app) {
+class AppViewModel @JvmOverloads constructor(
+    app: Application,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+) : AndroidViewModel(app) {
     private val store = SourceStore(app)
     private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
@@ -81,12 +87,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateSnapToBoard(enabled: Boolean) {
         snapToBoard = enabled
-        settings.edit().putBoolean(KEY_SNAP_TO_BOARD, enabled).apply()
+        settings.edit { putBoolean(KEY_SNAP_TO_BOARD, enabled) }
     }
 
     /** Validates [config] (URL shape) and saves it; returns an error message on failure. */
     fun addSource(config: SourceConfig): String? {
-        runCatching { config.toImageSource() }.onFailure { return it.message ?: "Invalid URL" }
+        try {
+            config.toImageSource()
+        } catch (e: IllegalArgumentException) {
+            return e.message ?: "Invalid URL"
+        }
         sources = sources + config
         store.save(sources)
         galleryStale = true
@@ -114,9 +124,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 async {
                     try {
                         Result.success(source.toImageSource().listImages().map { GalleryImage(source, it) })
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
+                    } catch (e: IOException) {
                         Result.failure(e)
                     }
                 }
@@ -140,9 +148,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         puzzleJob = viewModelScope.launch {
             puzzle = try {
                 Load.Ready(PuzzleGame(loadPuzzle(image.image)))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
+            } catch (e: IOException) {
                 Load.Failed(e.message ?: e.javaClass.simpleName)
             }
         }
@@ -169,8 +175,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun loadPuzzle(image: RemoteImage): CutPuzzle {
-        val bytes = withContext(Dispatchers.IO) { Http.getBytes(image.full) }
-        return withContext(Dispatchers.Default) {
+        val bytes = withContext(ioDispatcher) { Http.getBytes(image.full) }
+        return withContext(computeDispatcher) {
             val bitmap = decodeSampled(bytes, maxSide = MAX_PUZZLE_SIDE)
             val (rows, cols) = JigsawCut.gridFor(bitmap.width, bitmap.height, TARGET_PIECES)
             cutPuzzle(bitmap, JigsawCut(rows, cols, Random.Default))

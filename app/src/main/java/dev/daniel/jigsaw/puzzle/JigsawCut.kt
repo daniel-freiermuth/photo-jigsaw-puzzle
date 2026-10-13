@@ -28,16 +28,22 @@ class JigsawCut(val rows: Int, val cols: Int, random: Random) {
     /** horizontal[r][c]: edge along y = r from x = c to c+1, for r in 1 until rows. */
     private val horizontal = Array(rows + 1) { r ->
         Array(cols) { c ->
-            if (r == 0 || r == rows) straight(Pt(c.f, r.f), Pt(c + 1f, r.f))
-            else tab(random) { u, v -> Pt(c + u, r + v) }
+            if (r == 0 || r == rows) {
+                straight(Pt(c.toFloat(), r.toFloat()), Pt(c + 1f, r.toFloat()))
+            } else {
+                tab(random) { u, v -> Pt(c + u, r + v) }
+            }
         }
     }
 
     /** vertical[r][c]: edge along x = c from y = r to r+1, for c in 1 until cols. */
     private val vertical = Array(rows) { r ->
         Array(cols + 1) { c ->
-            if (c == 0 || c == cols) straight(Pt(c.f, r.f), Pt(c.f, r + 1f))
-            else tab(random) { u, v -> Pt(c + v, r + u) }
+            if (c == 0 || c == cols) {
+                straight(Pt(c.toFloat(), r.toFloat()), Pt(c.toFloat(), r + 1f))
+            } else {
+                tab(random) { u, v -> Pt(c + v, r + u) }
+            }
         }
     }
 
@@ -55,11 +61,17 @@ class JigsawCut(val rows: Int, val cols: Int, random: Random) {
      * Classic jigsaw tab after Draradech's generator. `u` runs along the edge, `v` across it;
      * a random flip decides which neighbour gets the tab and which the blank.
      */
+    // The literals are the published control-point layout of the tab curve; naming each would hide its shape.
+    @Suppress("MagicNumber")
     private fun tab(random: Random, toGrid: (Float, Float) -> Pt): Edge {
         fun jitter() = (random.nextFloat() * 2f - 1f) * JITTER
         val flip = if (random.nextBoolean()) 1f else -1f
         val t = TAB_SIZE
-        val a = jitter(); val b = jitter(); val c = jitter(); val d = jitter(); val e = jitter()
+        val a = jitter()
+        val b = jitter()
+        val c = jitter()
+        val d = jitter()
+        val e = jitter()
         val uv = listOf(
             0f to 0f,
             0.2f to a,
@@ -91,5 +103,3 @@ class JigsawCut(val rows: Int, val cols: Int, random: Random) {
         }
     }
 }
-
-private val Int.f get() = toFloat()

@@ -115,7 +115,7 @@ class PuzzleBoardTest {
         moveTo(board, 3, 21.05f, 5f)
         board.drop(3, snapToBoard = false)
         moveTo(board, 2, 2.1f, 5.05f) // right half pokes 0.1 past the right edge
-        board.keepGroupReachable(2, 0f, 0f, 4f, 10f)
+        board.keepGroupReachable(2, Bounds(0f, 0f, 4f, 10f))
         board.drop(2, snapToBoard = false)
         assertTrue(board.isSolved)
         assertEquals(0f, board.x(0), 1e-5f)
@@ -127,18 +127,18 @@ class PuzzleBoardTest {
         val board = scatteredBoard()
         moveTo(board, 1, 11f, 10f)
         board.drop(1, snapToBoard = false) // group spans x 10..12, y 10..11
-        board.keepGroupReachable(0, 0f, 0f, 11.5f, 30f)
+        board.keepGroupReachable(0, Bounds(0f, 0f, 11.5f, 30f))
         assertEquals(10f, board.x(0), 1e-5f) // partly off-screen is fine
-        board.keepGroupReachable(0, 0f, 0f, 9f, 30f)
+        board.keepGroupReachable(0, Bounds(0f, 0f, 9f, 30f))
         assertEquals(8.5f, board.x(0), 1e-5f) // fully off the right edge: half a cell comes back
-        board.keepGroupReachable(0, 0f, 12f, 30f, 30f)
+        board.keepGroupReachable(0, Bounds(0f, 12f, 30f, 30f))
         assertEquals(11.5f, board.y(0), 1e-5f) // above the top edge
     }
 
     @Test
     fun `scatter keeps whole cells within bounds`() {
         val board = PuzzleBoard(4, 5)
-        board.scatter(-2f, 5f, 6f, 9f, Random(42))
+        board.scatter(Bounds(-2f, 5f, 6f, 9f), Random(42))
         for (i in 0 until board.size) {
             assertTrue(board.x(i) >= -2f && board.x(i) + 1f <= 6f)
             assertTrue(board.y(i) >= 5f && board.y(i) + 1f <= 9f)

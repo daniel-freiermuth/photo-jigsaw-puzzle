@@ -1,12 +1,15 @@
 package dev.daniel.jigsaw.source
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
+import java.io.IOException
 
 /**
  * Lists images in an Immich shared link (album or individual-assets share).
@@ -19,15 +22,20 @@ import org.json.JSONObject
 class ImmichShareSource(
     shareUrl: String,
     private val client: OkHttpClient,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ImageSource {
 
     private val share = parseShareUrl(shareUrl)
 
-    override suspend fun listImages(): List<RemoteImage> = withContext(Dispatchers.IO) {
-        val link = JSONObject(get(api("shared-links/me")))
-        val direct = link.optJSONArray("assets") ?: JSONArray()
-        val albumId = link.optJSONObject("album")?.getString("id")
-        val assets = if (direct.length() == 0 && albumId != null) albumAssets(albumId) else parseAssets(direct)
+    override suspend fun listImages(): List<RemoteImage> = withContext(ioDispatcher) {
+        val assets = try {
+            val link = JSONObject(get(api("shared-links/me")))
+            val direct = link.optJSONArray("assets") ?: JSONArray()
+            val albumId = link.optJSONObject("album")?.getString("id")
+            if (direct.length() == 0 && albumId != null) albumAssets(albumId) else parseAssets(direct)
+        } catch (e: JSONException) {
+            throw IOException("Unexpected response from Immich", e)
+        }
         assets.map { (id, name) ->
             RemoteImage(
                 id = id,
@@ -48,7 +56,9 @@ class ImmichShareSource(
         return (0 until buckets.length()).flatMap { i ->
             val bucket = buckets.getJSONObject(i).getString("timeBucket")
             parseTimelineBucket(
-                JSONObject(get(api("timeline/bucket").withQuery("albumId", albumId).withQuery("timeBucket", bucket)))
+                JSONObject(
+                    get(api("timeline/bucket").withQuery("albumId", albumId).withQuery("timeBucket", bucket)),
+                ),
             )
         }
     }
@@ -104,9 +114,16 @@ class ImmichShareSource(
                 .filter { isImage?.optBoolean(it, false) == true && isTrashed?.optBoolean(it, false) != true }
                 .map { i ->
                     val id = ids.getString(i)
-                    val name = created?.optString(i)?.takeIf { it.length >= 16 }?.take(16)?.replace('T', ' ') ?: id
+                    val name = created?.optString(i)
+                        ?.takeIf { it.length >= TIMESTAMP_TO_MINUTE }
+                        ?.take(TIMESTAMP_TO_MINUTE)
+                        ?.replace('T', ' ')
+                        ?: id
                     id to name
                 }
         }
+
+        /** Length of an ISO timestamp up to the minute: `YYYY-MM-DDTHH:MM`. */
+        private const val TIMESTAMP_TO_MINUTE = 16
     }
 }

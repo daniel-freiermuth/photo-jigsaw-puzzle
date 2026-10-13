@@ -29,8 +29,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Not private: called from the Activity's lambda, which would otherwise need a synthetic accessor.
 @Composable
-private fun App(vm: AppViewModel = viewModel()) {
+internal fun App(vm: AppViewModel = viewModel()) {
     BackHandler(enabled = vm.screen != Screen.Gallery) { vm.back() }
     when (val screen = vm.screen) {
         Screen.Gallery -> GalleryScreen(
@@ -59,7 +60,7 @@ private fun App(vm: AppViewModel = viewModel()) {
 }
 
 @Composable
-private fun AppTheme(content: @Composable () -> Unit) {
+internal fun AppTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val context = LocalContext.current
     val colors = when {

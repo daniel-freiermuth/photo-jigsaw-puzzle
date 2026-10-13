@@ -1,0 +1,20 @@
+# Built on detekt's default config with `allRules = true` (every rule, including inactive and
+# experimental ones) plus ktlint (detekt-formatting) and Compose rules. Only deviations are listed
+# here, each with a reason.
+
+naming:
+  FunctionNaming:
+    # Composables are PascalCase by Compose convention.
+    ignoreAnnotated: ['Composable']
+
+complexity:
+  LongParameterList:
+    # Hoisted Compose state is passed as explicit values + event lambdas by design; bundling them
+    # into holder objects is discouraged by the Compose API guidelines.
+    ignoreAnnotated: ['Composable']
+  CyclomaticComplexMethod:
+    # A flat `when` mapping (e.g. EXIF orientation -> transform) is a lookup table, not branching logic.
+    ignoreSimpleWhenEntries: true
+  TooManyFunctions:
+    # Count the public surface; private helpers don't make a class harder to use.
+    ignorePrivate: true

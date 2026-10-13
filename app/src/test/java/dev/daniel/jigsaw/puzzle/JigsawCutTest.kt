@@ -22,23 +22,22 @@ class JigsawCutTest {
     @Test
     fun `neighbouring pieces share the identical cut in opposite directions`() {
         for (r in 0 until cut.rows) for (c in 0 until cut.cols) {
-            if (c + 1 < cut.cols) assertEquals(cut.outline(r, c)[1], cut.outline(r, c + 1)[3].reversed())
-            if (r + 1 < cut.rows) assertEquals(cut.outline(r, c)[2], cut.outline(r + 1, c)[0].reversed())
+            if (c + 1 < cut.cols) assertEquals(cut.outline(r, c)[RIGHT], cut.outline(r, c + 1)[LEFT].reversed())
+            if (r + 1 < cut.rows) assertEquals(cut.outline(r, c)[BOTTOM], cut.outline(r + 1, c)[TOP].reversed())
         }
     }
 
     @Test
     fun `border edges are straight and interior edges are tabbed within padding`() {
         for (r in 0 until cut.rows) for (c in 0 until cut.cols) {
-            val (top, right, bottom, left) = cut.outline(r, c)
-            assertEquals(r == 0, top.isStraight)
-            assertEquals(c == cut.cols - 1, right.isStraight)
-            assertEquals(r == cut.rows - 1, bottom.isStraight)
-            assertEquals(c == 0, left.isStraight)
-            for (edge in listOf(top, right, bottom, left)) for (p in edge.points) {
-                assertTrue(p.x >= c - JigsawCut.PAD && p.x <= c + 1 + JigsawCut.PAD)
-                assertTrue(p.y >= r - JigsawCut.PAD && p.y <= r + 1 + JigsawCut.PAD)
-            }
+            val edges = cut.outline(r, c)
+            assertEquals(r == 0, edges[TOP].isStraight)
+            assertEquals(c == cut.cols - 1, edges[RIGHT].isStraight)
+            assertEquals(r == cut.rows - 1, edges[BOTTOM].isStraight)
+            assertEquals(c == 0, edges[LEFT].isStraight)
+            val points = edges.flatMap { it.points }
+            assertTrue(points.all { it.x >= c - JigsawCut.PAD && it.x <= c + 1 + JigsawCut.PAD })
+            assertTrue(points.all { it.y >= r - JigsawCut.PAD && it.y <= r + 1 + JigsawCut.PAD })
         }
     }
 
@@ -61,5 +60,13 @@ class JigsawCutTest {
         }
         val (rows, cols) = JigsawCut.gridFor(4000, 200, 24)
         assertFalse(rows < 2 || cols < 2)
+    }
+
+    private companion object {
+        // Indices into JigsawCut.outline(), which runs clockwise from the top edge.
+        const val TOP = 0
+        const val RIGHT = 1
+        const val BOTTOM = 2
+        const val LEFT = 3
     }
 }

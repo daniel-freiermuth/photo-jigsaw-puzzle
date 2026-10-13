@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Every check is enabled (checkAllWarnings) and warnings are errors. Only deviations are listed. -->
+<lint>
+  <!--
+    "Newer version available" checks depend on the date and on network access, so the same commit
+    would pass today and fail tomorrow. Dependency upgrades should be deliberate, reviewed changes.
+  -->
+  <issue id="AndroidGradlePluginVersion" severity="ignore" />
+  <issue id="GradleDependency" severity="ignore" />
+  <issue id="NewerVersionAvailable" severity="ignore" />
+
+  <!--
+    False positive with Kotlin 2 (K2): flags plain member calls such as MutableList.removeAll /
+    List.indexOf as conflicting with stdlib extensions that are never imported explicitly.
+  -->
+  <issue id="MemberExtensionConflict" severity="ignore" />
+</lint>

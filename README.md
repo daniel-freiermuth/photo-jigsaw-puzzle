@@ -34,9 +34,22 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
 Requires JDK 17 and an Android SDK (compileSdk 36) referenced by `local.properties` (`sdk.dir=…`) or `ANDROID_HOME`.
 
 ```sh
-./gradlew :app:testDebugUnitTest   # engine, geometry, and source-parsing tests
+./gradlew check                    # everything below; must pass before committing
 ./gradlew :app:installDebug        # build + install on a connected device/emulator
+./gradlew :app:detekt --auto-correct  # apply ktlint formatting fixes
 ```
+
+## Checks
+
+`./gradlew check` runs, with every warning treated as an error:
+
+- **Kotlin compiler**: `allWarningsAsErrors`, `extraWarnings`, `progressiveMode`.
+- **Android Lint**: all checks enabled (`checkAllWarnings`), including test sources and dependencies.
+  Deviations, each with a reason: `config/lint/lint.xml`.
+- **detekt** with `allRules = true`, ktlint formatting (`ktlint_official` style via `.editorconfig`) and
+  [Compose rules](https://mrmans0n.github.io/compose-rules/), both the plain and the type-resolution variants.
+  Deviations, each with a reason: `config/detekt/detekt.yml`. HTML reports land in `app/build/reports/detekt/`.
+- **Unit tests** for debug and release.
 
 ## Layout
 

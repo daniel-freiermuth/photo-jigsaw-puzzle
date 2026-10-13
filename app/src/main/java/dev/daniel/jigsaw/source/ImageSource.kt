@@ -57,9 +57,14 @@ fun SourceConfig.toImageSource(client: OkHttpClient = Http.client): ImageSource 
 }
 
 object Http {
+    private const val CONNECT_TIMEOUT_SECONDS = 15L
+
+    /** Generous: full-size originals from a home server over mobile data can be slow. */
+    private const val READ_TIMEOUT_SECONDS = 60L
+
     val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .build()
 
     fun request(resource: HttpResource): Request = Request.Builder()

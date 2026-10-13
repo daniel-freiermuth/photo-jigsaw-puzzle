@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.source
 
 import android.util.Xml
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -11,8 +12,12 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.xmlpull.v1.XmlPullParser
+import org.xmlpull.v1.XmlPullParserException
 import java.io.IOException
 import java.io.Reader
+import java.net.HttpURLConnection.HTTP_BAD_METHOD
+import java.net.HttpURLConnection.HTTP_NOT_FOUND
+import java.net.URLDecoder
 
 /**
  * Lists images in a Nextcloud public share (recursively) over the public WebDAV endpoint.
@@ -24,18 +29,19 @@ class NextcloudShareSource(
     shareUrl: String,
     private val password: String,
     private val client: OkHttpClient,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ImageSource {
 
     private val share = parseShareUrl(shareUrl)
 
-    override suspend fun listImages(): List<RemoteImage> = withContext(Dispatchers.IO) {
+    override suspend fun listImages(): List<RemoteImage> = withContext(ioDispatcher) {
         var lastError: IOException? = null
         for (endpoint in endpoints()) {
             try {
                 return@withContext crawl(endpoint)
             } catch (e: HttpStatusException) {
-                // 404/405 means this server lacks the endpoint; anything else is a real failure.
-                if (e.code != 404 && e.code != 405) throw e
+                // Not found / method not allowed: this server lacks the endpoint. Anything else is a real failure.
+                if (e.code != HTTP_NOT_FOUND && e.code != HTTP_BAD_METHOD) throw e
                 lastError = e
             }
         }
@@ -53,8 +59,11 @@ class NextcloudShareSource(
         )
         val modern = Endpoint(
             root = base.newBuilder().addPathSegments("public.php/dav/files/${share.token}/").build(),
-            headers = if (password.isEmpty()) common
-            else common + ("Authorization" to Credentials.basic("anonymous", password)),
+            headers = if (password.isEmpty()) {
+                common
+            } else {
+                common + ("Authorization" to Credentials.basic("anonymous", password))
+            },
         )
         return listOf(legacy, modern)
     }
@@ -67,27 +76,27 @@ class NextcloudShareSource(
         while (pending.isNotEmpty() && visited < MAX_FOLDERS) {
             val dir = pending.removeFirst()
             visited++
-            val entries = propfind(dir, endpoint.headers)
             val dirPath = dir.encodedPath.decodeUrlPath().trimEnd('/')
-            for (entry in entries) {
-                val entryUrl = dir.resolve(entry.href) ?: continue
-                val decodedPath = entryUrl.encodedPath.decodeUrlPath()
-                if (decodedPath.trimEnd('/') == dirPath) continue
-                if (entry.isCollection) {
-                    pending.addLast(entryUrl)
-                } else if (entry.contentType.isPuzzleImage()) {
-                    val relative = "/" + decodedPath.removePrefix(rootPath).trimStart('/')
-                    val full = HttpResource(entryUrl.toString(), endpoint.headers)
-                    images += RemoteImage(
-                        id = relative,
-                        name = relative.substringAfterLast('/'),
-                        thumbnail = if (password.isEmpty()) previewResource(relative) else full,
-                        full = full,
-                    )
-                }
-            }
+            val children = propfind(dir, endpoint.headers)
+                .mapNotNull { entry -> dir.resolve(entry.href)?.let { entry to it } }
+                .filter { (_, url) -> url.encodedPath.decodeUrlPath().trimEnd('/') != dirPath }
+            children.filter { (entry, _) -> entry.isCollection }.forEach { (_, url) -> pending.addLast(url) }
+            images += children
+                .filter { (entry, _) -> !entry.isCollection && entry.contentType.isPuzzleImage() }
+                .map { (_, url) -> image(url, rootPath, endpoint.headers) }
         }
         return images.sortedBy { it.id.lowercase() }
+    }
+
+    private fun image(url: HttpUrl, rootPath: String, headers: Map<String, String>): RemoteImage {
+        val relative = "/" + url.encodedPath.decodeUrlPath().removePrefix(rootPath).trimStart('/')
+        val full = HttpResource(url.toString(), headers)
+        return RemoteImage(
+            id = relative,
+            name = relative.substringAfterLast('/'),
+            thumbnail = if (password.isEmpty()) previewResource(relative) else full,
+            full = full,
+        )
     }
 
     private fun previewResource(relativePath: String) = HttpResource(
@@ -95,8 +104,8 @@ class NextcloudShareSource(
             .addPathSegments("index.php/apps/files_sharing/publicpreview")
             .addPathSegment(share.token)
             .addQueryParameter("file", relativePath)
-            .addQueryParameter("x", "400")
-            .addQueryParameter("y", "400")
+            .addQueryParameter("x", THUMBNAIL_SIZE)
+            .addQueryParameter("y", THUMBNAIL_SIZE)
             .addQueryParameter("a", "1")
             .build()
             .toString()
@@ -112,8 +121,14 @@ class NextcloudShareSource(
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code, dir.toString())
             val body = response.body ?: throw IOException("Empty PROPFIND response")
-            return parseMultistatus(body.charStream(), Xml.newPullParser())
+            return parseResponse(body.charStream(), dir)
         }
+    }
+
+    private fun parseResponse(reader: Reader, dir: HttpUrl): List<DavEntry> = try {
+        parseMultistatus(reader, Xml.newPullParser())
+    } catch (e: XmlPullParserException) {
+        throw IOException("Malformed WebDAV response from $dir", e)
     }
 
     class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code for $url")
@@ -124,6 +139,7 @@ class NextcloudShareSource(
 
     companion object {
         private const val MAX_FOLDERS = 200
+        private const val THUMBNAIL_SIZE = "400"
         private const val DAV = "DAV:"
         private val PROPFIND_BODY = """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -164,7 +180,11 @@ class NextcloudShareSource(
             while (event != XmlPullParser.END_DOCUMENT) {
                 if (event == XmlPullParser.START_TAG && parser.namespace == DAV) {
                     when (parser.name) {
-                        "response" -> { href = null; isCollection = false; contentType = "" }
+                        "response" -> {
+                            href = null
+                            isCollection = false
+                            contentType = ""
+                        }
                         "href" -> href = parser.nextText().trim()
                         "collection" -> isCollection = true
                         "getcontenttype" -> contentType = parser.nextText().trim()
@@ -184,4 +204,4 @@ internal fun String.isPuzzleImage(): Boolean {
     return type.startsWith("image/") && type != "image/svg+xml"
 }
 
-private fun String.decodeUrlPath(): String = java.net.URLDecoder.decode(replace("+", "%2B"), "UTF-8")
+internal fun String.decodeUrlPath(): String = URLDecoder.decode(replace("+", "%2B"), "UTF-8")

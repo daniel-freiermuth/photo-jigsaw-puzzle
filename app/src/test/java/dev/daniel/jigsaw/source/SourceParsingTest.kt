@@ -50,7 +50,10 @@ class SourceParsingTest {
             ),
             entries,
         )
-        assertEquals(listOf(false, true, false), listOf("text/plain", "image/png; q=1", "image/svg+xml").map { it.isPuzzleImage() })
+        assertEquals(
+            listOf(false, true, false),
+            listOf("text/plain", "image/png; q=1", "image/svg+xml").map { it.isPuzzleImage() },
+        )
     }
 
     @Test

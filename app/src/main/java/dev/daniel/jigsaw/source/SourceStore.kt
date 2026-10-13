@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.source
 
 import android.content.Context
+import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -11,7 +12,7 @@ class SourceStore(context: Context) {
     fun load(): List<SourceConfig> = decode(prefs.getString(KEY, null) ?: "[]")
 
     fun save(sources: List<SourceConfig>) {
-        prefs.edit().putString(KEY, encode(sources)).apply()
+        prefs.edit { putString(KEY, encode(sources)) }
     }
 
     companion object {
@@ -19,19 +20,21 @@ class SourceStore(context: Context) {
 
         fun encode(sources: List<SourceConfig>): String = JSONArray().apply {
             sources.forEach { source ->
-                put(JSONObject().apply {
-                    put("id", source.id)
-                    put("label", source.label)
-                    put("url", source.url)
-                    when (source) {
-                        is SourceConfig.NextcloudShare -> {
-                            put("type", "nextcloud")
-                            put("password", source.password)
+                put(
+                    JSONObject().apply {
+                        put("id", source.id)
+                        put("label", source.label)
+                        put("url", source.url)
+                        when (source) {
+                            is SourceConfig.NextcloudShare -> {
+                                put("type", "nextcloud")
+                                put("password", source.password)
+                            }
+                            is SourceConfig.ImmichShare -> put("type", "immich")
+                            is SourceConfig.UrlList -> put("type", "urllist")
                         }
-                        is SourceConfig.ImmichShare -> put("type", "immich")
-                        is SourceConfig.UrlList -> put("type", "urllist")
-                    }
-                })
+                    },
+                )
             }
         }.toString()
 

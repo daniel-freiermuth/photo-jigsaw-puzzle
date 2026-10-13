@@ -1,7 +1,6 @@
 package dev.daniel.jigsaw.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,25 +9,24 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,21 +53,14 @@ fun SettingsScreen(
     snapToBoard: Boolean,
     onSnapToBoardChange: (Boolean) -> Unit,
     onBack: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var adding by rememberSaveable { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<SourceConfig?>(null) }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-            )
-        },
+        modifier = modifier,
+        topBar = { BackTopBar("Settings", onBack) },
     ) { padding ->
         LazyColumn(
             Modifier.padding(padding).fillMaxSize(),
@@ -87,20 +78,7 @@ fun SettingsScreen(
                 }
             }
             items(sources, key = { it.id }) { source ->
-                Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(source.label, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "${source.kind.title} · ${source.url}",
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        IconButton(onClick = { pendingDelete = source }) { Icon(Icons.Default.Delete, "Remove") }
-                    }
-                }
+                SourceRow(source, onRemove = { pendingDelete = source })
             }
             item {
                 OutlinedButton(onClick = { adding = true }) {
@@ -109,38 +87,83 @@ fun SettingsScreen(
                 }
             }
             item { SectionHeader("Puzzle", Modifier.padding(top = 16.dp)) }
-            item {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .toggleable(value = snapToBoard, role = Role.Switch, onValueChange = onSnapToBoardChange)
-                        .padding(horizontal = 4.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Snap pieces onto board", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "Pieces dropped near their spot lock in place. Makes puzzles much easier.",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                    Switch(checked = snapToBoard, onCheckedChange = null)
-                }
-            }
+            item { SnapToBoardRow(snapToBoard, onSnapToBoardChange) }
         }
     }
 
-    if (adding) AddSourceDialog(onDismiss = { adding = false }, onSubmit = { config ->
-        onAdd(config).also { if (it == null) adding = false }
-    })
+    if (adding) {
+        AddSourceDialog(
+            onDismiss = { adding = false },
+            onSubmit = { config -> onAdd(config).also { if (it == null) adding = false } },
+        )
+    }
 
     pendingDelete?.let { source ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text("Remove “${source.label}”?") },
-            confirmButton = { TextButton(onClick = { onRemove(source.id); pendingDelete = null }) { Text("Remove") } },
-            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+        RemoveSourceDialog(
+            source = source,
+            onConfirm = {
+                onRemove(source.id)
+                pendingDelete = null
+            },
+            onDismiss = { pendingDelete = null },
         )
+    }
+}
+
+@Composable
+private fun RemoveSourceDialog(
+    source: SourceConfig,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+        title = { Text("Remove “${source.label}”?") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Remove") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun SourceRow(source: SourceConfig, onRemove: () -> Unit, modifier: Modifier = Modifier) {
+    Card(modifier.fillMaxWidth()) {
+        Row(
+            Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(source.label, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "${source.kind.title} · ${source.url}",
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, contentDescription = "Remove") }
+        }
+    }
+}
+
+@Composable
+private fun SnapToBoardRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Snap pieces onto board", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Pieces dropped near their spot lock in place. Makes puzzles much easier.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 
@@ -154,7 +177,7 @@ private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-enum class SourceKind(val title: String, val hint: String) {
+private enum class SourceKind(val title: String, val hint: String) {
     Nextcloud("Nextcloud", "https://cloud.example.com/s/AbCdEf123"),
     Immich("Immich", "https://photos.example.com/share/…"),
     UrlList("URL list", "https://example.com/puzzles.txt"),
@@ -168,7 +191,7 @@ private val SourceConfig.kind
     }
 
 @Composable
-private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> String?) {
+private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> String?, modifier: Modifier = Modifier) {
     var kind by rememberSaveable { mutableStateOf(SourceKind.Nextcloud) }
     var label by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
@@ -177,6 +200,7 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> S
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = modifier,
         title = { Text("Add image source") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -186,7 +210,11 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> S
                     }
                 }
                 OutlinedTextField(
-                    url, { url = it; error = null },
+                    url,
+                    { input ->
+                        url = input
+                        error = null
+                    },
                     label = { Text("Share link") },
                     placeholder = { Text(kind.hint) },
                     singleLine = true,
@@ -195,7 +223,8 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> S
                 OutlinedTextField(label, { label = it }, label = { Text("Name (optional)") }, singleLine = true)
                 if (kind == SourceKind.Nextcloud) {
                     OutlinedTextField(
-                        password, { password = it },
+                        password,
+                        { password = it },
                         label = { Text("Share password (if any)") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
@@ -206,18 +235,19 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> S
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val trimmed = url.trim()
-                val name = label.trim().ifEmpty { trimmed.toHttpUrlOrNull()?.host ?: trimmed }
-                val id = UUID.randomUUID().toString()
-                val config = when (kind) {
-                    SourceKind.Nextcloud -> SourceConfig.NextcloudShare(id, name, trimmed, password)
-                    SourceKind.Immich -> SourceConfig.ImmichShare(id, name, trimmed)
-                    SourceKind.UrlList -> SourceConfig.UrlList(id, name, trimmed)
-                }
-                error = onSubmit(config)
-            }) { Text("Add") }
+            TextButton(onClick = { error = onSubmit(newSourceConfig(kind, label, url, password)) }) { Text("Add") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+private fun newSourceConfig(kind: SourceKind, label: String, url: String, password: String): SourceConfig {
+    val trimmed = url.trim()
+    val name = label.trim().ifEmpty { trimmed.toHttpUrlOrNull()?.host ?: trimmed }
+    val id = UUID.randomUUID().toString()
+    return when (kind) {
+        SourceKind.Nextcloud -> SourceConfig.NextcloudShare(id, name, trimmed, password)
+        SourceKind.Immich -> SourceConfig.ImmichShare(id, name, trimmed)
+        SourceKind.UrlList -> SourceConfig.UrlList(id, name, trimmed)
+    }
 }
