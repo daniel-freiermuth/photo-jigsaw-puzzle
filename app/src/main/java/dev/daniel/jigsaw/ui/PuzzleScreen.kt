@@ -12,10 +12,17 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -66,7 +73,7 @@ fun PuzzleScreen(
     state: Load<PuzzleContent>,
     onBack: () -> Unit,
     onAnotherImage: () -> Unit,
-    onPlayAgain: () -> Unit,
+    onStartOver: () -> Unit,
     onMoveEnd: () -> Unit,
     snapToBoard: Boolean,
     modifier: Modifier = Modifier,
@@ -75,18 +82,7 @@ fun PuzzleScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            BackTopBar(title, onBack) {
-                when (content) {
-                    is PuzzleContent.Playing -> {
-                        val game = content.game
-                        TextButton(onClick = { game.showHint = !game.showHint }) {
-                            Text(if (game.showHint) "Hide hint" else "Hint")
-                        }
-                    }
-                    is PuzzleContent.Finished -> TextButton(onClick = onPlayAgain) { Text("Play again") }
-                    null -> Unit
-                }
-            }
+            BackTopBar(title, onBack) { PuzzleActions(content, onStartOver) }
         },
     ) { padding ->
         Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -107,6 +103,58 @@ fun PuzzleScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Top-bar actions: hint toggle and a menu with "Start over" while playing, "Play again" once solved. */
+@Composable
+private fun PuzzleActions(content: PuzzleContent?, onStartOver: () -> Unit) {
+    when (content) {
+        is PuzzleContent.Playing -> PlayingActions(content.game, onStartOver)
+        // Solved: nothing to lose, so no confirmation.
+        is PuzzleContent.Finished -> TextButton(onClick = onStartOver) { Text("Play again") }
+        null -> Unit
+    }
+}
+
+@Composable
+private fun PlayingActions(game: PuzzleGame, onStartOver: () -> Unit, modifier: Modifier = Modifier) {
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmStartOver by remember { mutableStateOf(false) }
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        TextButton(onClick = { game.showHint = !game.showHint }) {
+            Text(if (game.showHint) "Hide hint" else "Hint")
+        }
+        Box {
+            IconButton(onClick = { menuOpen = true }) {
+                Icon(Icons.Default.MoreVert, contentDescription = "More options")
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text("Start over") },
+                    onClick = {
+                        menuOpen = false
+                        confirmStartOver = true
+                    },
+                )
+            }
+        }
+        if (confirmStartOver) {
+            AlertDialog(
+                onDismissRequest = { confirmStartOver = false },
+                title = { Text("Start over?") },
+                text = { Text("The pieces are cut and scattered anew; progress on this puzzle is lost.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            confirmStartOver = false
+                            onStartOver()
+                        },
+                    ) { Text("Start over") }
+                },
+                dismissButton = { TextButton(onClick = { confirmStartOver = false }) { Text("Cancel") } },
+            )
         }
     }
 }

@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import kotlin.random.Random
 
 /** What is remembered about one image's puzzle. */
 sealed interface SavedPuzzle {
@@ -13,7 +14,22 @@ sealed interface SavedPuzzle {
     data object Solved : SavedPuzzle
 
     /** [seed] regenerates the identical cut for a [rows] × [cols] grid; [board] holds the piece state. */
-    data class InProgress(val rows: Int, val cols: Int, val seed: Long, val board: BoardSnapshot) : SavedPuzzle
+    data class InProgress(val rows: Int, val cols: Int, val seed: Long, val board: BoardSnapshot) : SavedPuzzle {
+        /** Whether a piece has been placed on the board yet. */
+        val started get() = board.anyOnBoard(rows, cols)
+
+        /**
+         * A puzzle not [started] yet still counts as new, so it follows the current rotation setting
+         * (its pile is turned or straightened in place, keeping joined pieces joined). Seeded by
+         * [seed], so the gallery tile and the opened puzzle agree.
+         */
+        fun withRotation(rotatePieces: Boolean, cellAspect: Float): InProgress =
+            if (started || board.rotatable == rotatePieces) {
+                this
+            } else {
+                copy(board = board.withRotatable(rotatePieces, rows, cols, cellAspect, Random(seed)))
+            }
+    }
 }
 
 /**

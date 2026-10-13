@@ -90,8 +90,8 @@ fun GalleryThumbnail(
         )
         // The data class hash changes with every move, so each layout gets its own cache entry.
         is SavedPuzzle.InProgress -> LoadedImage(
-            key = "progress:${resource.url}:${saved.hashCode()}",
-            produce = { renderProgress(picture(), saved, MAX_SIDE) },
+            key = "progress:${resource.url}:${saved.hashCode()}:$rotatePieces",
+            produce = { renderProgress(picture(), saved, rotatePieces, MAX_SIDE) },
             contentDescription = item.image.name,
             contentScale = ContentScale.Fit,
             modifier = modifier,

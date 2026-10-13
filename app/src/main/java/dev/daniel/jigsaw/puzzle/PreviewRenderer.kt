@@ -13,19 +13,15 @@ import kotlin.random.Random
 /**
  * Gallery image of a puzzle in progress, drawn by re-cutting [picture] (typically the thumbnail)
  * with the saved seed and laying the pieces out as saved. Once any piece sits on the board (its
- * centre inside the target area) only the board is shown; before that, just the loose pieces.
+ * centre inside the target area) only the board is shown; before that, just the loose pieces, turned
+ * per [rotatePieces] since an unstarted puzzle follows the current setting.
  */
-fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, maxSide: Int): Bitmap {
+fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, rotatePieces: Boolean, maxSide: Int): Bitmap {
     val rows = saved.rows
     val cols = saved.cols
-    val board = saved.board
     val cut = cutPuzzle(picture, JigsawCut(rows, cols, Random(saved.seed)))
-    val anyOnBoard = board.xs.indices.any { i ->
-        val cx = board.xs[i] + CENTER
-        val cy = board.ys[i] + CENTER
-        cx in 0f..cols.toFloat() && cy in 0f..rows.toFloat()
-    }
-    return if (anyOnBoard) {
+    val board = saved.withRotation(rotatePieces, cut.cellWidth / cut.cellHeight).board
+    return if (saved.started) {
         render(cut, board, Bounds(0f, 0f, cols.toFloat(), rows.toFloat()), maxSide, drawBoard = true)
     } else {
         renderPile(cut, board, maxSide)

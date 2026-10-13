@@ -263,7 +263,8 @@ class AppViewModel @JvmOverloads constructor(
             val bitmap = decodeSampled(bytes, maxSide = MAX_PUZZLE_SIDE)
             when (saved) {
                 SavedPuzzle.Solved -> PuzzleContent.Finished(bitmap.asImageBitmap())
-                is SavedPuzzle.InProgress -> resume(image, bitmap, saved) ?: newGame(image, bitmap, rotatePieces)
+                is SavedPuzzle.InProgress ->
+                    resume(image, bitmap, saved, rotatePieces) ?: newGame(image, bitmap, rotatePieces)
                 null -> newGame(image, bitmap, rotatePieces)
             }
         }
@@ -277,15 +278,24 @@ class AppViewModel @JvmOverloads constructor(
         return PuzzleContent.Playing(PuzzleGame(image, seed, cut, scattered = false))
     }
 
-    /** Null if the save doesn't fit (e.g. written by an incompatible version); the caller starts afresh. */
-    private fun resume(image: GalleryImage, bitmap: Bitmap, saved: SavedPuzzle.InProgress): PuzzleContent.Playing? =
-        try {
-            val board = PuzzleBoard(saved.rows, saved.cols, saved.board, cellAspect(bitmap, saved.rows, saved.cols))
-            val cut = cutPuzzle(bitmap, JigsawCut(saved.rows, saved.cols, Random(saved.seed)), board)
-            PuzzleContent.Playing(PuzzleGame(image, saved.seed, cut, scattered = true))
-        } catch (_: IllegalArgumentException) {
-            null
-        }
+    /**
+     * Null if the save doesn't fit (e.g. written by an incompatible version); the caller starts afresh.
+     * A puzzle with nothing on the board yet takes on the current rotation setting.
+     */
+    private fun resume(
+        image: GalleryImage,
+        bitmap: Bitmap,
+        saved: SavedPuzzle.InProgress,
+        rotatePieces: Boolean,
+    ): PuzzleContent.Playing? = try {
+        val aspect = cellAspect(bitmap, saved.rows, saved.cols)
+        val current = saved.withRotation(rotatePieces, aspect)
+        val board = PuzzleBoard(current.rows, current.cols, current.board, aspect)
+        val cut = cutPuzzle(bitmap, JigsawCut(current.rows, current.cols, Random(current.seed)), board)
+        PuzzleContent.Playing(PuzzleGame(image, current.seed, cut, scattered = true))
+    } catch (_: IllegalArgumentException) {
+        null
+    }
 
     private fun cellAspect(bitmap: Bitmap, rows: Int, cols: Int) =
         (bitmap.width.toFloat() / cols) / (bitmap.height.toFloat() / rows)

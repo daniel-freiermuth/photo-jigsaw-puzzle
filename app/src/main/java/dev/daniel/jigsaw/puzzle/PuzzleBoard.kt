@@ -266,3 +266,33 @@ data class BoardSnapshot(
     val turns: List<Int> = emptyList(),
     val rotatable: Boolean = false,
 )
+
+/** Whether any piece's centre lies inside the target area of a rows × cols board, i.e. the puzzle has begun. */
+fun BoardSnapshot.anyOnBoard(rows: Int, cols: Int): Boolean = xs.indices.any { i ->
+    val cx = xs[i] + PIECE_CENTER
+    val cy = ys[i] + PIECE_CENTER
+    cx in 0f..cols.toFloat() && cy in 0f..rows.toFloat()
+}
+
+/**
+ * The same layout switched to [rotatable] mode: each group (joined pieces stay joined) is turned a
+ * random number of quarter turns when enabling, or back upright when disabling. Positions stay put
+ * apart from the turn around each group's first piece.
+ */
+fun BoardSnapshot.withRotatable(
+    rotatable: Boolean,
+    rows: Int,
+    cols: Int,
+    cellAspect: Float,
+    random: Random
+): BoardSnapshot {
+    if (rotatable == this.rotatable) return this
+    val board = PuzzleBoard(rows, cols, copy(rotatable = true), cellAspect)
+    for (pivot in groups.indices.distinctBy { groups[it] }) {
+        val quarters = if (rotatable) random.nextInt(PuzzleBoard.QUARTERS) else -board.turns(pivot)
+        repeat(quarters.mod(PuzzleBoard.QUARTERS)) { board.rotateGroup(pivot) }
+    }
+    return board.snapshot.copy(rotatable = rotatable)
+}
+
+private const val PIECE_CENTER = 0.5f
