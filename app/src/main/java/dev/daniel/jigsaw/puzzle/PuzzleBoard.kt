@@ -18,6 +18,22 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
     private val locked = BooleanArray(size)
     private val order = MutableList(size) { it }
 
+    /** Restores a board saved with [snapshot]; throws [IllegalArgumentException] if it doesn't fit. */
+    constructor(rows: Int, cols: Int, snapshot: BoardSnapshot) : this(rows, cols) {
+        val n = rows * cols
+        require(
+            listOf(snapshot.xs, snapshot.ys, snapshot.groups, snapshot.locked, snapshot.order).all { it.size == n },
+        ) { "Snapshot does not match a $rows×$cols board" }
+        require(snapshot.order.sorted() == (0 until n).toList()) { "Snapshot draw order is not a permutation" }
+        require(snapshot.groups.all { it in 0 until n }) { "Snapshot group ids out of range" }
+        snapshot.xs.forEachIndexed { i, v -> xs[i] = v }
+        snapshot.ys.forEachIndexed { i, v -> ys[i] = v }
+        snapshot.groups.forEachIndexed { i, v -> groupOf[i] = v }
+        snapshot.locked.forEachIndexed { i, v -> locked[i] = v }
+        order.clear()
+        order.addAll(snapshot.order)
+    }
+
     /** Indices bottom → top. */
     val drawOrder: List<Int> get() = order
 
@@ -40,6 +56,16 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
         }
         order.shuffle(random)
     }
+
+    /** Copy of the full mutable state (a fresh copy on every read), for persisting a puzzle in progress. */
+    val snapshot
+        get() = BoardSnapshot(
+            xs = xs.toList(),
+            ys = ys.toList(),
+            groups = groupOf.toList(),
+            locked = locked.toList(),
+            order = order.toList(),
+        )
 
     /** Topmost movable piece for which [hit] is true. */
     fun pieceAt(hit: (Int) -> Boolean): Int? = order.asReversed().firstOrNull { !locked[it] && hit(it) }
@@ -167,3 +193,13 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
         const val MIN_REACHABLE_OVERLAP = 0.5f
     }
 }
+
+/** Plain-data copy of a [PuzzleBoard]'s state, indexed by piece. */
+data class BoardSnapshot(
+    val xs: List<Float>,
+    val ys: List<Float>,
+    val groups: List<Int>,
+    val locked: List<Boolean>,
+    /** Piece indices bottom → top. */
+    val order: List<Int>,
+)

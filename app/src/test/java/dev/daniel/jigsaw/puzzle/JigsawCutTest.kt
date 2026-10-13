@@ -51,6 +51,19 @@ class JigsawCutTest {
     }
 
     @Test
+    fun `the same seed recreates the identical cut, so saved puzzles resume with the same shapes`() {
+        val a = JigsawCut(rows = 4, cols = 6, random = Random(99L))
+        val b = JigsawCut(rows = 4, cols = 6, random = Random(99L))
+        val other = JigsawCut(rows = 4, cols = 6, random = Random(100L))
+        assertEquals(outlines(a), outlines(b))
+        assertFalse(outlines(a) == outlines(other))
+    }
+
+    private fun outlines(cut: JigsawCut) = (0 until cut.rows).flatMap { r ->
+        (0 until cut.cols).map { c -> cut.outline(r, c) }
+    }
+
+    @Test
     fun `gridFor targets the piece count with near-square cells`() {
         for ((w, h) in listOf(1600 to 1200, 1200 to 1600, 1600 to 900, 1000 to 1000)) {
             val (rows, cols) = JigsawCut.gridFor(w, h, 24)

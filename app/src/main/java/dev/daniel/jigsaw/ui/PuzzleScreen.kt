@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.ui
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -59,21 +60,28 @@ private const val HINT_ALPHA = 0.3f
 @Composable
 fun PuzzleScreen(
     title: String,
-    state: Load<PuzzleGame>,
+    state: Load<PuzzleContent>,
     onBack: () -> Unit,
     onAnotherImage: () -> Unit,
+    onPlayAgain: () -> Unit,
+    onMoveEnd: () -> Unit,
     snapToBoard: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val game = (state as? Load.Ready)?.value
+    val content = (state as? Load.Ready)?.value
     Scaffold(
         modifier = modifier,
         topBar = {
             BackTopBar(title, onBack) {
-                if (game != null) {
-                    TextButton(onClick = { game.showHint = !game.showHint }) {
-                        Text(if (game.showHint) "Hide hint" else "Hint")
+                when (content) {
+                    is PuzzleContent.Playing -> {
+                        val game = content.game
+                        TextButton(onClick = { game.showHint = !game.showHint }) {
+                            Text(if (game.showHint) "Hide hint" else "Hint")
+                        }
                     }
+                    is PuzzleContent.Finished -> TextButton(onClick = onPlayAgain) { Text("Play again") }
+                    null -> Unit
                 }
             }
         },
@@ -82,10 +90,17 @@ fun PuzzleScreen(
             when (state) {
                 Load.Loading -> CircularProgressIndicator()
                 is Load.Failed -> Text("Couldn't load image:\n${state.message}", Modifier.padding(24.dp))
-                is Load.Ready -> {
-                    PuzzleBoardView(state.value, snapToBoard)
-                    if (state.value.solved) {
-                        SolvedCard(onBack, onAnotherImage, Modifier.align(Alignment.BottomCenter))
+                is Load.Ready -> when (val value = state.value) {
+                    is PuzzleContent.Finished -> Image(
+                        value.picture,
+                        contentDescription = title,
+                        modifier = Modifier.fillMaxSize().padding(12.dp),
+                    )
+                    is PuzzleContent.Playing -> {
+                        PuzzleBoardView(value.game, snapToBoard, onMoveEnd)
+                        if (value.game.solved) {
+                            SolvedCard(onBack, onAnotherImage, Modifier.align(Alignment.BottomCenter))
+                        }
                     }
                 }
             }
@@ -158,7 +173,12 @@ private fun computeLayout(size: IntSize, cut: CutPuzzle, margin: Float): BoardLa
 }
 
 @Composable
-private fun PuzzleBoardView(game: PuzzleGame, snapToBoard: Boolean, modifier: Modifier = Modifier) {
+private fun PuzzleBoardView(
+    game: PuzzleGame,
+    snapToBoard: Boolean,
+    onMoveEnd: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val margin = with(LocalDensity.current) { 12.dp.toPx() }
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     val layout = remember(canvasSize, game) {
@@ -186,6 +206,7 @@ private fun PuzzleBoardView(game: PuzzleGame, snapToBoard: Boolean, modifier: Mo
                 layout = rememberUpdatedState(layout),
                 snapToBoard = rememberUpdatedState(snapToBoard),
                 haptics = LocalHapticFeedback.current,
+                onMoveEnd = rememberUpdatedState(onMoveEnd),
             ),
     ) {
         game.version // subscribe: redraw whenever the board changes
@@ -199,6 +220,7 @@ private fun Modifier.puzzleGestures(
     layout: State<BoardLayout?>,
     snapToBoard: State<Boolean>,
     haptics: HapticFeedback,
+    onMoveEnd: State<() -> Unit>,
 ): Modifier = pointerInput(game) {
     val board = game.cut.board
     var dragging: Int? = null
@@ -209,6 +231,7 @@ private fun Modifier.puzzleGestures(
         if (board.drop(i, snapToBoard.value)) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         if (board.isSolved) game.solved = true
         game.version++
+        onMoveEnd.value()
     }
     detectDragGestures(
         onDragStart = { pos ->

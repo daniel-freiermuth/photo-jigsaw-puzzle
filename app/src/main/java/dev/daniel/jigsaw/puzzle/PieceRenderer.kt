@@ -32,8 +32,12 @@ class CutPuzzle(
     val padY get() = JigsawCut.PAD * cellHeight
 }
 
-/** Cuts [bitmap] into rows × cols pieces following [cut]. CPU-heavy: run off the main thread. */
-fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut): CutPuzzle {
+/**
+ * Cuts [bitmap] into rows × cols pieces following [cut], with pieces placed per [board] (a fresh,
+ * solved-layout board by default). CPU-heavy: run off the main thread.
+ */
+fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut, board: PuzzleBoard = PuzzleBoard(cut.rows, cut.cols)): CutPuzzle {
+    require(board.rows == cut.rows && board.cols == cut.cols) { "Board does not match the cut" }
     val rows = cut.rows
     val cols = cut.cols
     val cellW = bitmap.width.toFloat() / cols
@@ -65,7 +69,7 @@ fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut): CutPuzzle {
         Canvas(outline).drawPath(path, stroke)
         PieceImage(piece.asImageBitmap(), outline.asImageBitmap(), Region().apply { setPath(path, clip) })
     }
-    return CutPuzzle(bitmap.asImageBitmap(), PuzzleBoard(rows, cols), pieces, cellW, cellH)
+    return CutPuzzle(bitmap.asImageBitmap(), board, pieces, cellW, cellH)
 }
 
 private inline fun piecePath(edges: List<Edge>, toPx: (Pt) -> Pair<Float, Float>): Path {

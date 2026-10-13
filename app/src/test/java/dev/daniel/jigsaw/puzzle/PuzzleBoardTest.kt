@@ -155,4 +155,34 @@ class PuzzleBoardTest {
         board.bringToFront(3)
         assertEquals(setOf(1, 3), board.drawOrder.takeLast(2).toSet())
     }
+
+    @Test
+    fun `restored board continues exactly where the snapshot left off`() {
+        val board = scatteredBoard()
+        moveTo(board, 0, 0f, 0f)
+        board.drop(0, snapToBoard = true) // locked on the board
+        moveTo(board, 3, 31f, 31f)
+        moveTo(board, 1, 31f, 30.1f)
+        board.drop(1, snapToBoard = false) // 1 and 3 joined, loose
+        board.bringToFront(2)
+
+        val restored = PuzzleBoard(2, 2, board.snapshot)
+        assertEquals(board.snapshot, restored.snapshot)
+        assertTrue(restored.isLocked(0))
+        assertTrue(restored.sameGroup(1, 3))
+        // Groups still behave as groups after restoring: moving 1 carries 3 along.
+        restored.moveGroup(1, 2f, 0f)
+        assertEquals(33f, restored.x(3), 1e-5f)
+        assertEquals(2, restored.drawOrder.last())
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `restoring a snapshot from another grid size is rejected`() {
+        PuzzleBoard(3, 2, PuzzleBoard(2, 2).snapshot)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `restoring a snapshot with a broken draw order is rejected`() {
+        PuzzleBoard(2, 2, PuzzleBoard(2, 2).snapshot.copy(order = listOf(0, 0, 1, 2)))
+    }
 }
