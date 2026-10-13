@@ -21,7 +21,9 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
 - Pick a source → pick an image from the thumbnail gallery → ~24 pieces with classic tab/blank cuts.
 - Drag pieces; touching uses the real piece outline (tabs included).
 - Drop a piece next to its true neighbour and they join and move as a group.
-- Drop a piece or group near its spot on the board outline and it locks in place.
+- The puzzle is solved once every piece is joined into one group; the board outline is just a guide.
+- Groups can hang partly off-screen (half a cell always stays grabbable), so big halves can meet edge to edge.
+- Optional **Snap pieces onto board** (⋮ menu, off by default): pieces dropped near their spot lock in place.
 - **Hint** shows a faint copy of the picture on the board.
 
 ## Build
