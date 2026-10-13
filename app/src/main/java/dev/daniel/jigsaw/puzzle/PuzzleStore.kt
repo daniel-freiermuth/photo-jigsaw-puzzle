@@ -80,6 +80,8 @@ class PuzzleStore(private val root: File) {
                     put("groups", JSONArray(puzzle.board.groups))
                     put("locked", JSONArray(puzzle.board.locked))
                     put("order", JSONArray(puzzle.board.order))
+                    put("turns", JSONArray(puzzle.board.turns))
+                    put("rotatable", puzzle.board.rotatable)
                 }
             }
         }.toString()
@@ -100,6 +102,9 @@ class PuzzleStore(private val root: File) {
                         groups = o.getJSONArray("groups").map { getInt(it) },
                         locked = o.getJSONArray("locked").map { getBoolean(it) },
                         order = o.getJSONArray("order").map { getInt(it) },
+                        // Absent in saves from before rotation existed: all pieces upright.
+                        turns = o.optJSONArray("turns")?.map { getInt(it) }.orEmpty(),
+                        rotatable = o.optBoolean("rotatable", false),
                     ),
                 )
             }

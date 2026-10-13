@@ -28,6 +28,9 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
 - Groups can hang partly off-screen (half a cell always stays grabbable), so big halves can meet edge to edge.
 - Optional **Snap pieces onto board** (Settings, off by default): pieces dropped near their spot lock in place.
 - **Hint** shows a faint copy of the picture on the board.
+- Optional **Rotate pieces** (Settings, off by default): new puzzles start with pieces turned by quarter turns;
+  tap a piece to turn its group clockwise. Pieces only join in the same orientation, only upright groups lock onto
+  the board, and a puzzle is solved once it is one upright group. Existing puzzles keep the mode they started with.
 - Every image keeps its own puzzle: progress is saved after each move (and when leaving), so going back and
   reopening an image — even after the app was closed — resumes exactly where it was left, for any number of
   images. Saves live in the app's private storage (`files/puzzles/`, one small JSON per image) and are

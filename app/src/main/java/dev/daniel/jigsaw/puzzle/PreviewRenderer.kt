@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withRotation
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.random.Random
@@ -33,13 +34,15 @@ fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, maxSide: Int)
 
 /**
  * Gallery image of a puzzle that was never opened: what opening it and leaving straight away would
- * look like. [picture] is cut into about [pieces] pieces, scattered over the tray exactly as the
- * puzzle screen would on [canvas], and framed on the pieces. [seed] keeps it stable between renders.
+ * look like. [picture] is cut like a new puzzle, scattered over the tray exactly as the puzzle
+ * screen would on [canvas] (turned at random if [rotatable]), and framed on the pieces. [seed]
+ * keeps it stable between renders.
  */
-fun renderUntouched(picture: Bitmap, pieces: Int, canvas: CanvasSpec, seed: Long, maxSide: Int): Bitmap {
-    val (rows, cols) = JigsawCut.gridFor(picture.width, picture.height, pieces)
+fun renderUntouched(picture: Bitmap, canvas: CanvasSpec, rotatable: Boolean, seed: Long, maxSide: Int): Bitmap {
+    val (rows, cols) = JigsawCut.gridFor(picture.width, picture.height, JigsawCut.DEFAULT_PIECES)
     val random = Random(seed)
-    val cut = cutPuzzle(picture, JigsawCut(rows, cols, random))
+    val aspect = (picture.width.toFloat() / cols) / (picture.height.toFloat() / rows)
+    val cut = cutPuzzle(picture, JigsawCut(rows, cols, random), PuzzleBoard(rows, cols, aspect, rotatable))
     val layout = boardLayout(canvas, picture.width.toFloat(), picture.height.toFloat(), rows, cols)
     cut.board.scatter(layout.scatter, random)
     return renderPile(cut, cut.board.snapshot, maxSide)
@@ -84,8 +87,14 @@ private fun render(cut: CutPuzzle, board: BoardSnapshot, frame: Bounds, maxSide:
             val left = board.xs[i] * cut.cellWidth - cut.padX
             val top = board.ys[i] * cut.cellHeight - cut.padY
             val piece = cut.pieces[i]
-            drawBitmap(piece.image.asAndroidBitmap(), left, top, piecePaint)
-            drawBitmap(piece.outline.asAndroidBitmap(), left, top, outlinePaint)
+            withRotation(
+                board.turns.getOrElse(i) { 0 } * QUARTER_TURN_DEGREES,
+                (board.xs[i] + CENTER) * cut.cellWidth,
+                (board.ys[i] + CENTER) * cut.cellHeight,
+            ) {
+                drawBitmap(piece.image.asAndroidBitmap(), left, top, piecePaint)
+                drawBitmap(piece.outline.asAndroidBitmap(), left, top, outlinePaint)
+            }
         }
     }
     return bitmap
@@ -93,6 +102,8 @@ private fun render(cut: CutPuzzle, board: BoardSnapshot, frame: Bounds, maxSide:
 
 /** Offset from a piece's cell corner to its centre, in cell units. */
 private const val CENTER = 0.5f
+
+private const val QUARTER_TURN_DEGREES = 90f
 
 // Theme-neutral greys: previews are rendered once and shown in light and dark mode alike.
 private const val BOARD_FILL = 0x22808080

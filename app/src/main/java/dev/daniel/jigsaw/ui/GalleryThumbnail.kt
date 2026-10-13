@@ -17,7 +17,6 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import dev.daniel.jigsaw.puzzle.CanvasSpec
-import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.puzzle.renderProgress
@@ -67,11 +66,18 @@ private sealed interface ThumbState {
 
 /**
  * Gallery tile, by the state of the image's puzzle: never opened → what opening it would show (a
- * fresh scatter of pieces, laid out for [canvas]); in progress → its saved layout; solved → the
- * picture. Puzzle tiles are cut from the thumbnail, so they stay cheap and always match the save.
+ * fresh scatter of pieces, laid out for [canvas] and turned if [rotatePieces]); in progress → its
+ * saved layout; solved → the picture. Puzzle tiles are cut from the thumbnail, so they stay cheap
+ * and always match the save.
  */
 @Composable
-fun GalleryThumbnail(item: GalleryImage, saved: SavedPuzzle?, canvas: CanvasSpec, modifier: Modifier = Modifier) {
+fun GalleryThumbnail(
+    item: GalleryImage,
+    saved: SavedPuzzle?,
+    canvas: CanvasSpec,
+    rotatePieces: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val resource = item.image.thumbnail
     val picture = { decodeSampled(Http.getBytes(resource), MAX_SIDE) }
     when (saved) {
@@ -91,10 +97,10 @@ fun GalleryThumbnail(item: GalleryImage, saved: SavedPuzzle?, canvas: CanvasSpec
             modifier = modifier,
         )
         null -> LoadedImage(
-            key = "untouched:${resource.url}:$canvas",
+            key = "untouched:${resource.url}:$canvas:$rotatePieces",
             produce = {
                 // Seeded by the image so the scatter looks the same every time the tile is drawn.
-                renderUntouched(picture(), JigsawCut.DEFAULT_PIECES, canvas, item.key.hashCode().toLong(), MAX_SIDE)
+                renderUntouched(picture(), canvas, rotatePieces, item.key.hashCode().toLong(), MAX_SIDE)
             },
             contentDescription = item.image.name,
             contentScale = ContentScale.Fit,

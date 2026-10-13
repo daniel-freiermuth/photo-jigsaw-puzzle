@@ -185,4 +185,91 @@ class PuzzleBoardTest {
     fun `restoring a snapshot with a broken draw order is rejected`() {
         PuzzleBoard(2, 2, PuzzleBoard(2, 2).snapshot.copy(order = listOf(0, 0, 1, 2)))
     }
+
+    /** 1×2 rotatable board, pieces far apart and upright. */
+    private fun rotatableBoard(cellAspect: Float = 1f) =
+        PuzzleBoard(1, 2, cellAspect = cellAspect, rotatable = true).apply {
+            moveTo(this, 0, 10f, 10f)
+            moveTo(this, 1, 20f, 10f)
+        }
+
+    @Test
+    fun `four quarter turns bring a group back exactly`() {
+        val board = rotatableBoard(cellAspect = 1.5f)
+        moveTo(board, 1, 11f, 10f)
+        board.drop(1, snapToBoard = false)
+        val before = board.snapshot
+        repeat(4) { board.rotateGroup(1) }
+        val after = board.snapshot
+        assertEquals(before.turns, after.turns)
+        before.xs.zip(after.xs).forEach { (b, a) -> assertEquals(b, a, 1e-4f) }
+        before.ys.zip(after.ys).forEach { (b, a) -> assertEquals(b, a, 1e-4f) }
+    }
+
+    @Test
+    fun `a turned group keeps its picture proportions on non-square cells`() {
+        // Cells twice as wide as tall: the right neighbour, one cell (two units of height) to the right,
+        // ends up two rows below after a clockwise quarter turn around piece 0.
+        val board = rotatableBoard(cellAspect = 2f)
+        moveTo(board, 1, 11f, 10f)
+        board.drop(1, snapToBoard = false)
+        board.rotateGroup(0)
+        assertEquals(1, board.turns(0))
+        assertEquals(1, board.turns(1))
+        assertEquals(10f, board.x(1), 1e-5f)
+        assertEquals(12f, board.y(1), 1e-5f)
+    }
+
+    @Test
+    fun `turned neighbours join only in the same orientation and turned position`() {
+        val board = rotatableBoard()
+        board.rotateGroup(0)
+        // Piece 1 belongs to the right of 0 when upright; with both turned once it belongs below 0.
+        moveTo(board, 1, 10f, 11.1f)
+        assertFalse(board.drop(1, snapToBoard = false)) // 1 is still upright
+        board.rotateGroup(1)
+        assertTrue(board.drop(1, snapToBoard = false))
+        assertTrue(board.sameGroup(0, 1))
+        assertEquals(11f, board.y(1), 1e-5f)
+    }
+
+    @Test
+    fun `only upright groups lock onto the board or count as solved`() {
+        val board = rotatableBoard()
+        moveTo(board, 1, 11f, 10f)
+        board.drop(1, snapToBoard = false)
+        board.rotateGroup(0)
+        assertFalse(board.isSolved)
+        moveTo(board, 0, 0f, 0f)
+        assertFalse(board.drop(0, snapToBoard = true))
+        repeat(3) { board.rotateGroup(0) }
+        assertTrue(board.isSolved)
+        moveTo(board, 0, 0.1f, 0f)
+        assertTrue(board.drop(0, snapToBoard = true))
+        assertTrue(board.isLocked(0))
+    }
+
+    @Test
+    fun `boards without rotation ignore rotate requests and scatter upright`() {
+        val board = PuzzleBoard(2, 3)
+        board.scatter(Bounds(0f, 0f, 10f, 10f), Random(1))
+        board.rotateGroup(0)
+        assertTrue(board.snapshot.turns.all { it == 0 })
+        val rotatable = PuzzleBoard(2, 3, rotatable = true)
+        rotatable.scatter(Bounds(0f, 0f, 10f, 10f), Random(1))
+        assertTrue(rotatable.snapshot.turns.any { it != 0 })
+    }
+
+    @Test
+    fun `restoring keeps rotations, and saves from before rotation restore upright`() {
+        val board = rotatableBoard()
+        board.rotateGroup(1)
+        assertEquals(board.snapshot, PuzzleBoard(1, 2, board.snapshot).snapshot)
+        val legacy = PuzzleBoard(1, 2).snapshot.copy(turns = emptyList())
+        assertEquals(listOf(0, 0), PuzzleBoard(1, 2, legacy).snapshot.turns)
+    }
+
+    private fun PuzzleBoard.isLocked(i: Int) = snapshot.locked[i]
+
+    private fun PuzzleBoard.sameGroup(a: Int, b: Int) = snapshot.groups[a] == snapshot.groups[b]
 }

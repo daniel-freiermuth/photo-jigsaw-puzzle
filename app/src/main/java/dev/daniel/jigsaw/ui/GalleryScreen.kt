@@ -41,6 +41,7 @@ import dev.daniel.jigsaw.puzzle.SavedPuzzle
 fun GalleryScreen(
     state: Load<GalleryContent>,
     tiles: Map<String, SavedPuzzle>,
+    rotatePieces: Boolean,
     hasSources: Boolean,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -76,14 +77,19 @@ fun GalleryScreen(
                 state is Load.Failed -> Message("Couldn't list images:\n${state.message}", "Retry", onRefresh)
                 state is Load.Ready && state.value.images.isEmpty() && state.value.failures.isEmpty() ->
                     Message("No images found in your sources.", "Refresh", onRefresh)
-                state is Load.Ready -> ImageGrid(state.value, tiles, onPick)
+                state is Load.Ready -> ImageGrid(state.value, tiles, rotatePieces, onPick)
             }
         }
     }
 }
 
 @Composable
-private fun ImageGrid(content: GalleryContent, tiles: Map<String, SavedPuzzle>, onPick: (GalleryImage) -> Unit) {
+private fun ImageGrid(
+    content: GalleryContent,
+    tiles: Map<String, SavedPuzzle>,
+    rotatePieces: Boolean,
+    onPick: (GalleryImage) -> Unit,
+) {
     val canvas = puzzleCanvasSpec()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(110.dp),
@@ -108,6 +114,7 @@ private fun ImageGrid(content: GalleryContent, tiles: Map<String, SavedPuzzle>, 
                 item,
                 saved = tiles[item.key],
                 canvas = canvas,
+                rotatePieces = rotatePieces,
                 modifier = Modifier
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(8.dp))

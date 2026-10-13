@@ -5,29 +5,45 @@ import kotlin.random.Random
 
 /**
  * Pure game state for a rows × cols jigsaw, in grid units relative to the board's top-left corner.
- * Piece `i` sits at row `i / cols`, column `i % cols`; its solved position is (col, row).
+ * Piece `i` sits at row `i / cols`, column `i % cols`; its solved position is (col, row). Positions
+ * are the top-left of the piece's unrotated cell; a rotated piece turns around its cell centre.
  *
- * Pieces dragged next to a matching neighbour join it into a group that moves as one. Optionally,
- * a group dropped near its solved spot snaps onto the board and becomes locked.
+ * Pieces dragged next to a matching neighbour (in the same orientation) join it into a group that
+ * moves and turns as one. Optionally, an upright group dropped near its solved spot snaps onto the
+ * board and becomes locked. If [rotatable], pieces start out turned by quarter turns.
+ *
+ * [cellAspect] is cell width / cell height: rotating a group must turn real picture distances, and
+ * one grid unit across is not the same length as one grid unit down.
  */
-class PuzzleBoard(val rows: Int, val cols: Int) {
+class PuzzleBoard(
+    val rows: Int,
+    val cols: Int,
+    private val cellAspect: Float = 1f,
+    val rotatable: Boolean = false,
+) {
     val size = rows * cols
     private val xs = FloatArray(size) { col(it).toFloat() }
     private val ys = FloatArray(size) { row(it).toFloat() }
+
+    /** Clockwise quarter turns, 0..3. */
+    private val turns = IntArray(size)
     private val groupOf = IntArray(size) { it }
     private val locked = BooleanArray(size)
     private val order = MutableList(size) { it }
 
     /** Restores a board saved with [snapshot]; throws [IllegalArgumentException] if it doesn't fit. */
-    constructor(rows: Int, cols: Int, snapshot: BoardSnapshot) : this(rows, cols) {
+    constructor(rows: Int, cols: Int, snapshot: BoardSnapshot, cellAspect: Float = 1f) :
+        this(rows, cols, cellAspect, snapshot.rotatable) {
         val n = rows * cols
         require(
             listOf(snapshot.xs, snapshot.ys, snapshot.groups, snapshot.locked, snapshot.order).all { it.size == n },
         ) { "Snapshot does not match a $rows×$cols board" }
+        require(snapshot.turns.isEmpty() || snapshot.turns.size == n) { "Snapshot rotations don't match the board" }
         require(snapshot.order.sorted() == (0 until n).toList()) { "Snapshot draw order is not a permutation" }
         require(snapshot.groups.all { it in 0 until n }) { "Snapshot group ids out of range" }
         snapshot.xs.forEachIndexed { i, v -> xs[i] = v }
         snapshot.ys.forEachIndexed { i, v -> ys[i] = v }
+        snapshot.turns.forEachIndexed { i, v -> turns[i] = v.mod(QUARTERS) }
         snapshot.groups.forEachIndexed { i, v -> groupOf[i] = v }
         snapshot.locked.forEachIndexed { i, v -> locked[i] = v }
         order.clear()
@@ -41,21 +57,11 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
 
     fun y(i: Int) = ys[i]
 
-    fun isLocked(i: Int) = locked[i]
+    /** Clockwise quarter turns of piece [i], 0..3. */
+    fun turns(i: Int) = turns[i]
 
-    /** Every piece joined into one group, whether or not it sits on the board. */
-    val isSolved get() = groupOf.all { it == groupOf[0] }
-
-    fun sameGroup(a: Int, b: Int) = groupOf[a] == groupOf[b]
-
-    /** Places every piece at a random spot so that its cell lies within [bounds]. */
-    fun scatter(bounds: Bounds, random: Random) {
-        for (i in 0 until size) {
-            xs[i] = randomIn(bounds.minX, bounds.maxX - 1f, random)
-            ys[i] = randomIn(bounds.minY, bounds.maxY - 1f, random)
-        }
-        order.shuffle(random)
-    }
+    /** Every piece joined into one group, upright, whether or not it sits on the board. */
+    val isSolved get() = groupOf.all { it == groupOf[0] } && turns[0] == 0
 
     /** Copy of the full mutable state (a fresh copy on every read), for persisting a puzzle in progress. */
     val snapshot
@@ -65,7 +71,19 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
             groups = groupOf.toList(),
             locked = locked.toList(),
             order = order.toList(),
+            turns = turns.toList(),
+            rotatable = rotatable,
         )
+
+    /** Places every piece at a random spot so that its cell lies within [bounds], turned at random if [rotatable]. */
+    fun scatter(bounds: Bounds, random: Random) {
+        for (i in 0 until size) {
+            xs[i] = randomIn(bounds.minX, bounds.maxX - 1f, random)
+            ys[i] = randomIn(bounds.minY, bounds.maxY - 1f, random)
+            if (rotatable) turns[i] = random.nextInt(QUARTERS)
+        }
+        order.shuffle(random)
+    }
 
     /** Topmost movable piece for which [hit] is true. */
     fun pieceAt(hit: (Int) -> Boolean): Int? = order.asReversed().firstOrNull { !locked[it] && hit(it) }
@@ -81,6 +99,22 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
         for (m in members(i)) {
             xs[m] += dx
             ys[m] += dy
+        }
+    }
+
+    /**
+     * Turns piece [i]'s group a quarter turn clockwise around [i]'s centre. Does nothing unless the
+     * board is [rotatable] and the group is loose.
+     */
+    fun rotateGroup(i: Int) {
+        if (!rotatable || locked[i]) return
+        val pivotX = xs[i]
+        val pivotY = ys[i]
+        for (m in members(i)) {
+            val (dx, dy) = turned(xs[m] - pivotX, ys[m] - pivotY, 1)
+            xs[m] = pivotX + dx
+            ys[m] = pivotY + dy
+            turns[m] = (turns[m] + 1) % QUARTERS
         }
     }
 
@@ -110,7 +144,8 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
 
     /**
      * Resolves a drop of piece [i]'s group: joins matching neighbours and, if [snapToBoard],
-     * locks the group onto the board when it is near its solved spot. Returns true if anything snapped.
+     * locks the group onto the board when it is upright and near its solved spot. Returns true if
+     * anything snapped.
      */
     fun drop(i: Int, snapToBoard: Boolean, tolerance: Float = SNAP_TOLERANCE): Boolean {
         var snappedAny = false
@@ -126,7 +161,9 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
         val (p, n) = members(i).asSequence()
             .flatMap { piece -> neighbours(piece).asSequence().map { piece to it } }
             .firstOrNull { (piece, other) ->
-                !sameGroup(piece, other) && distance(misalignment(piece, other)) <= tolerance
+                !sameGroup(piece, other) &&
+                    turns[piece] == turns[other] &&
+                    distance(misalignment(piece, other)) <= tolerance
             }
             ?: return false
         val (dx, dy) = misalignment(p, n)
@@ -136,21 +173,42 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
         return true
     }
 
-    /** How far neighbour [n] sits from where it belongs relative to piece [p]. */
-    private fun misalignment(p: Int, n: Int): Pair<Float, Float> =
-        xs[n] - (xs[p] + col(n) - col(p)) to ys[n] - (ys[p] + row(n) - row(p))
+    /** How far neighbour [n] sits from where it belongs relative to piece [p], given [p]'s orientation. */
+    private fun misalignment(p: Int, n: Int): Pair<Float, Float> {
+        val (ex, ey) = turned((col(n) - col(p)).toFloat(), (row(n) - row(p)).toFloat(), turns[p])
+        return xs[n] - (xs[p] + ex) to ys[n] - (ys[p] + ey)
+    }
+
+    /** Grid offset ([dx], [dy]) turned [quarters] clockwise, as the picture would turn (respecting [cellAspect]). */
+    private fun turned(dx: Float, dy: Float, quarters: Int): Pair<Float, Float> {
+        // Work in picture proportions (x scaled by the cell aspect), where a quarter turn is (x, y) → (-y, x).
+        var x = dx * cellAspect
+        var y = dy
+        repeat(quarters) {
+            val nx = -y
+            y = x
+            x = nx
+        }
+        return x / cellAspect to y
+    }
 
     private fun distance(offset: Pair<Float, Float>) = hypot(offset.first, offset.second)
 
     private fun lockIfPlaced(i: Int, tolerance: Float): Boolean {
         val m = members(i)
-        val anchor = if (locked[i]) null else m.firstOrNull { hypot(xs[it] - col(it), ys[it] - row(it)) <= tolerance }
+        val anchor = if (locked[i] || turns[i] != 0) {
+            null
+        } else {
+            m.firstOrNull { hypot(xs[it] - col(it), ys[it] - row(it)) <= tolerance }
+        }
         anchor?.let {
             moveGroup(i, col(it) - xs[it], row(it) - ys[it])
             lock(m)
         }
         return anchor != null
     }
+
+    private fun sameGroup(a: Int, b: Int) = groupOf[a] == groupOf[b]
 
     private fun row(i: Int) = i / cols
 
@@ -191,6 +249,8 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
 
         /** Cells of a group that must stay on-screen after a drop so it can be grabbed again. */
         const val MIN_REACHABLE_OVERLAP = 0.5f
+
+        const val QUARTERS = 4
     }
 }
 
@@ -202,4 +262,7 @@ data class BoardSnapshot(
     val locked: List<Boolean>,
     /** Piece indices bottom → top. */
     val order: List<Int>,
+    /** Clockwise quarter turns per piece; empty for saves from before rotation existed (all upright). */
+    val turns: List<Int> = emptyList(),
+    val rotatable: Boolean = false,
 )

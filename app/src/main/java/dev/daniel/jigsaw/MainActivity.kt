@@ -37,6 +37,7 @@ internal fun App(vm: AppViewModel = viewModel()) {
         Screen.Gallery -> GalleryScreen(
             state = vm.gallery,
             tiles = vm.tiles,
+            rotatePieces = vm.settings.rotatePieces,
             hasSources = vm.sources.isNotEmpty(),
             onRefresh = vm::refreshGallery,
             onOpenSettings = vm::openSettings,
@@ -46,8 +47,8 @@ internal fun App(vm: AppViewModel = viewModel()) {
             sources = vm.sources,
             onAdd = vm::addSource,
             onRemove = vm::removeSource,
-            snapToBoard = vm.snapToBoard,
-            onSnapToBoardChange = vm::updateSnapToBoard,
+            settings = vm.settings,
+            onSettingsChange = vm::updateSettings,
             onBack = vm::back,
         )
         is Screen.Puzzle -> PuzzleScreen(
@@ -57,7 +58,7 @@ internal fun App(vm: AppViewModel = viewModel()) {
             onAnotherImage = vm::openRandomImage,
             onPlayAgain = vm::restartPuzzle,
             onMoveEnd = vm::saveCurrentPuzzle,
-            snapToBoard = vm.snapToBoard,
+            snapToBoard = vm.settings.snapToBoard,
         )
     }
 }

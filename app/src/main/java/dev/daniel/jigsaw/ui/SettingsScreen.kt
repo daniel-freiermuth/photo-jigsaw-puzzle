@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
@@ -50,8 +51,8 @@ fun SettingsScreen(
     sources: List<SourceConfig>,
     onAdd: (SourceConfig) -> String?,
     onRemove: (String) -> Unit,
-    snapToBoard: Boolean,
-    onSnapToBoardChange: (Boolean) -> Unit,
+    settings: PuzzleSettings,
+    onSettingsChange: (PuzzleSettings) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -86,8 +87,7 @@ fun SettingsScreen(
                     Text("Add source", Modifier.padding(start = 8.dp))
                 }
             }
-            item { SectionHeader("Puzzle", Modifier.padding(top = 16.dp)) }
-            item { SnapToBoardRow(snapToBoard, onSnapToBoardChange) }
+            puzzleSettingsItems(settings, onSettingsChange)
         }
     }
 
@@ -106,6 +106,26 @@ fun SettingsScreen(
                 pendingDelete = null
             },
             onDismiss = { pendingDelete = null },
+        )
+    }
+}
+
+private fun LazyListScope.puzzleSettingsItems(settings: PuzzleSettings, onChange: (PuzzleSettings) -> Unit) {
+    item { SectionHeader("Puzzle", Modifier.padding(top = 16.dp)) }
+    item {
+        SwitchRow(
+            title = "Snap pieces onto board",
+            description = "Pieces dropped near their spot lock in place. Makes puzzles much easier.",
+            checked = settings.snapToBoard,
+            onCheckedChange = { onChange(settings.copy(snapToBoard = it)) },
+        )
+    }
+    item {
+        SwitchRow(
+            title = "Rotate pieces",
+            description = "New puzzles start with pieces turned. Tap a piece to turn it.",
+            checked = settings.rotatePieces,
+            onCheckedChange = { onChange(settings.copy(rotatePieces = it)) },
         )
     }
 }
@@ -148,7 +168,13 @@ private fun SourceRow(source: SourceConfig, onRemove: () -> Unit, modifier: Modi
 }
 
 @Composable
-private fun SnapToBoardRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier) {
+private fun SwitchRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier
             .fillMaxWidth()
@@ -157,11 +183,8 @@ private fun SnapToBoardRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text("Snap pieces onto board", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "Pieces dropped near their spot lock in place. Makes puzzles much easier.",
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(description, style = MaterialTheme.typography.bodySmall)
         }
         Switch(checked = checked, onCheckedChange = null)
     }

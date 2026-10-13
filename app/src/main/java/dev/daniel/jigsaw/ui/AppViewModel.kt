@@ -63,6 +63,9 @@ sealed interface PuzzleContent {
     class Finished(val picture: ImageBitmap) : PuzzleContent
 }
 
+/** Puzzle preferences from Settings; [PuzzleSettings.rotatePieces] applies to puzzles started afterwards. */
+data class PuzzleSettings(val snapToBoard: Boolean, val rotatePieces: Boolean)
+
 /**
  * A puzzle in progress. [seed] regenerates the same cut on resume. [version] bumps on every board
  * mutation so Compose redraws. [scattered] is false until the pieces got their starting positions.
@@ -79,7 +82,7 @@ class AppViewModel @JvmOverloads constructor(
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : AndroidViewModel(app) {
     private val store = SourceStore(app)
-    private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val puzzles = PuzzleStore(File(app.filesDir, "puzzles"))
 
     /** All puzzle-file access runs here, one at a time, so a load always sees the latest save. */
@@ -98,8 +101,12 @@ class AppViewModel @JvmOverloads constructor(
     var tiles by mutableStateOf<Map<String, SavedPuzzle>>(emptyMap())
         private set
 
-    /** Lock pieces placed near their solved spot onto the board. Off by default: it makes puzzles much easier. */
-    var snapToBoard by mutableStateOf(settings.getBoolean(KEY_SNAP_TO_BOARD, false))
+    var settings by mutableStateOf(
+        PuzzleSettings(
+            snapToBoard = prefs.getBoolean(KEY_SNAP_TO_BOARD, false),
+            rotatePieces = prefs.getBoolean(KEY_ROTATE_PIECES, false),
+        ),
+    )
         private set
 
     private var galleryJob: Job? = null
@@ -110,9 +117,12 @@ class AppViewModel @JvmOverloads constructor(
         refreshGallery()
     }
 
-    fun updateSnapToBoard(enabled: Boolean) {
-        snapToBoard = enabled
-        settings.edit { putBoolean(KEY_SNAP_TO_BOARD, enabled) }
+    fun updateSettings(new: PuzzleSettings) {
+        settings = new
+        prefs.edit {
+            putBoolean(KEY_SNAP_TO_BOARD, new.snapToBoard)
+            putBoolean(KEY_ROTATE_PIECES, new.rotatePieces)
+        }
     }
 
     /** Validates [config] (URL shape) and saves it; returns an error message on failure. */
@@ -246,37 +256,43 @@ class AppViewModel @JvmOverloads constructor(
     }
 
     private suspend fun loadPuzzle(image: GalleryImage): PuzzleContent {
+        val rotatePieces = settings.rotatePieces
         val saved = withContext(puzzleIo) { puzzles.load(image.source.id, image.image.id) }
         val bytes = withContext(ioDispatcher) { Http.getBytes(image.image.full) }
         return withContext(computeDispatcher) {
             val bitmap = decodeSampled(bytes, maxSide = MAX_PUZZLE_SIDE)
             when (saved) {
                 SavedPuzzle.Solved -> PuzzleContent.Finished(bitmap.asImageBitmap())
-                is SavedPuzzle.InProgress -> resume(image, bitmap, saved) ?: newGame(image, bitmap)
-                null -> newGame(image, bitmap)
+                is SavedPuzzle.InProgress -> resume(image, bitmap, saved) ?: newGame(image, bitmap, rotatePieces)
+                null -> newGame(image, bitmap, rotatePieces)
             }
         }
     }
 
-    private fun newGame(image: GalleryImage, bitmap: Bitmap): PuzzleContent.Playing {
+    private fun newGame(image: GalleryImage, bitmap: Bitmap, rotatePieces: Boolean): PuzzleContent.Playing {
         val (rows, cols) = JigsawCut.gridFor(bitmap.width, bitmap.height, JigsawCut.DEFAULT_PIECES)
         val seed = Random.nextLong()
-        val cut = cutPuzzle(bitmap, JigsawCut(rows, cols, Random(seed)))
+        val board = PuzzleBoard(rows, cols, cellAspect(bitmap, rows, cols), rotatable = rotatePieces)
+        val cut = cutPuzzle(bitmap, JigsawCut(rows, cols, Random(seed)), board)
         return PuzzleContent.Playing(PuzzleGame(image, seed, cut, scattered = false))
     }
 
     /** Null if the save doesn't fit (e.g. written by an incompatible version); the caller starts afresh. */
     private fun resume(image: GalleryImage, bitmap: Bitmap, saved: SavedPuzzle.InProgress): PuzzleContent.Playing? =
         try {
-            val board = PuzzleBoard(saved.rows, saved.cols, saved.board)
+            val board = PuzzleBoard(saved.rows, saved.cols, saved.board, cellAspect(bitmap, saved.rows, saved.cols))
             val cut = cutPuzzle(bitmap, JigsawCut(saved.rows, saved.cols, Random(saved.seed)), board)
             PuzzleContent.Playing(PuzzleGame(image, saved.seed, cut, scattered = true))
         } catch (_: IllegalArgumentException) {
             null
         }
 
+    private fun cellAspect(bitmap: Bitmap, rows: Int, cols: Int) =
+        (bitmap.width.toFloat() / cols) / (bitmap.height.toFloat() / rows)
+
     private companion object {
         const val MAX_PUZZLE_SIDE = 1600
         const val KEY_SNAP_TO_BOARD = "snapToBoard"
+        const val KEY_ROTATE_PIECES = "rotatePieces"
     }
 }

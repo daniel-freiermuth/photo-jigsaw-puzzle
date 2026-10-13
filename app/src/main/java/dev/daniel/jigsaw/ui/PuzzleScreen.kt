@@ -3,6 +3,7 @@ package dev.daniel.jigsaw.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -196,44 +198,62 @@ private fun PuzzleBoardView(
     }
 }
 
-/** Drag handling: pick up the touched group, move it, then resolve the drop on release. */
+/**
+ * Drag handling: pick up the touched group, move it, then resolve the drop on release. On rotatable
+ * boards a tap turns the tapped group a quarter turn clockwise.
+ */
 private fun Modifier.puzzleGestures(
     game: PuzzleGame,
     layout: State<BoardLayout?>,
     snapToBoard: State<Boolean>,
     haptics: HapticFeedback,
     onMoveEnd: State<() -> Unit>,
-): Modifier = pointerInput(game) {
+): Modifier {
     val board = game.cut.board
-    var dragging: Int? = null
-    fun finish() {
-        val i = dragging ?: return
-        dragging = null
+
+    /** After any move: keep the group reachable, join neighbours, maybe solve, then persist. */
+    fun settle(i: Int) {
         layout.value?.let { board.keepGroupReachable(i, it.screen) }
         if (board.drop(i, snapToBoard.value)) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         if (board.isSolved) game.solved = true
         game.version++
         onMoveEnd.value()
     }
-    detectDragGestures(
-        onDragStart = { pos ->
-            dragging = layout.value?.let { hitTest(game.cut, it, pos) }?.also {
+    return pointerInput(game) {
+        var dragging: Int? = null
+        fun finish() {
+            dragging?.let(::settle)
+            dragging = null
+        }
+        detectDragGestures(
+            onDragStart = { pos ->
+                dragging = layout.value?.let { hitTest(game.cut, it, pos) }?.also {
+                    board.bringToFront(it)
+                    game.version++
+                }
+            },
+            onDragEnd = { finish() },
+            onDragCancel = { finish() },
+            onDrag = { change, amount ->
+                val i = dragging
+                val l = layout.value
+                if (i != null && l != null) {
+                    change.consume()
+                    board.moveGroup(i, amount.x / l.cellSize.x, amount.y / l.cellSize.y)
+                    game.version++
+                }
+            },
+        )
+    }.pointerInput(game) {
+        detectTapGestures { pos ->
+            if (!board.rotatable) return@detectTapGestures
+            layout.value?.let { hitTest(game.cut, it, pos) }?.let {
                 board.bringToFront(it)
-                game.version++
+                board.rotateGroup(it)
+                settle(it)
             }
-        },
-        onDragEnd = { finish() },
-        onDragCancel = { finish() },
-        onDrag = { change, amount ->
-            val i = dragging
-            val l = layout.value
-            if (i != null && l != null) {
-                change.consume()
-                board.moveGroup(i, amount.x / l.cellSize.x, amount.y / l.cellSize.y)
-                game.version++
-            }
-        },
-    )
+        }
+    }
 }
 
 private fun DrawScope.drawPuzzle(game: PuzzleGame, layout: BoardLayout, colors: PuzzleColors) {
@@ -256,24 +276,42 @@ private fun DrawScope.drawPuzzle(game: PuzzleGame, layout: BoardLayout, colors: 
             (board.x(i) * cut.cellWidth - cut.padX) * layout.scale,
             (board.y(i) * cut.cellHeight - cut.padY) * layout.scale,
         )
+        val center = layout.originOffset + Offset(
+            (board.x(i) + HALF) * cut.cellWidth * layout.scale,
+            (board.y(i) + HALF) * cut.cellHeight * layout.scale,
+        )
         val dstSize = IntSize(
             (piece.image.width * layout.scale).roundToInt(),
             (piece.image.height * layout.scale).roundToInt(),
         )
-        drawImage(piece.image, dstOffset = topLeft.round(), dstSize = dstSize)
-        drawImage(piece.outline, dstOffset = topLeft.round(), dstSize = dstSize, colorFilter = colors.pieceOutline)
+        rotate(degrees = board.turns(i) * QUARTER_TURN_DEGREES, pivot = center) {
+            drawImage(piece.image, dstOffset = topLeft.round(), dstSize = dstSize)
+            drawImage(piece.outline, dstOffset = topLeft.round(), dstSize = dstSize, colorFilter = colors.pieceOutline)
+        }
     }
 }
 
 private fun Offset.round() = IntOffset(x.roundToInt(), y.roundToInt())
 
-/** Topmost loose piece whose actual (tabbed) shape contains the screen point. */
+/** Topmost loose piece whose actual (tabbed, turned) shape contains the screen point. */
 private fun hitTest(cut: CutPuzzle, layout: BoardLayout, pos: Offset): Int? {
     val sx = (pos.x - layout.origin.x) / layout.scale
     val sy = (pos.y - layout.origin.y) / layout.scale
-    return cut.board.pieceAt { i ->
-        val lx = sx - (cut.board.x(i) * cut.cellWidth - cut.padX)
-        val ly = sy - (cut.board.y(i) * cut.cellHeight - cut.padY)
+    val board = cut.board
+    return board.pieceAt { i ->
+        // Offset from the piece centre, turned back to the piece's upright frame (counter-clockwise).
+        var dx = sx - (board.x(i) + HALF) * cut.cellWidth
+        var dy = sy - (board.y(i) + HALF) * cut.cellHeight
+        repeat(board.turns(i)) {
+            val nx = dy
+            dy = -dx
+            dx = nx
+        }
+        val lx = dx + cut.padX + cut.cellWidth * HALF
+        val ly = dy + cut.padY + cut.cellHeight * HALF
         cut.pieces[i].region.contains(lx.toInt(), ly.toInt())
     }
 }
+
+private const val HALF = 0.5f
+private const val QUARTER_TURN_DEGREES = 90f
