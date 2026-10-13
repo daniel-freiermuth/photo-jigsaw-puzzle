@@ -12,8 +12,11 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlin.math.ceil
 
-/** A pre-cut piece: its masked image and a hit-test region, both in source-bitmap pixels. */
-class PieceImage(val image: ImageBitmap, val region: Region)
+/**
+ * A pre-cut piece, all in source-bitmap pixels: its masked image, an alpha-only outline mask
+ * (tinted at draw time so it can follow the theme), and a hit-test region.
+ */
+class PieceImage(val image: ImageBitmap, val outline: ImageBitmap, val region: Region)
 
 /** Everything needed to draw a puzzle; positions live in [board]. */
 class CutPuzzle(
@@ -40,10 +43,9 @@ fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut): CutPuzzle {
 
     val shader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
     val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.shader = shader }
-    val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = maxOf(1f, minOf(cellW, cellH) * 0.012f)
-        color = 0x66000000
     }
     val clip = Region(0, 0, pieceW, pieceH)
     val matrix = Matrix()
@@ -57,11 +59,10 @@ fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut): CutPuzzle {
         val piece = Bitmap.createBitmap(pieceW, pieceH, Bitmap.Config.ARGB_8888)
         matrix.setTranslate(-(col - pad) * cellW, -(row - pad) * cellH)
         shader.setLocalMatrix(matrix)
-        Canvas(piece).apply {
-            drawPath(path, fill)
-            drawPath(path, outline)
-        }
-        PieceImage(piece.asImageBitmap(), Region().apply { setPath(path, clip) })
+        Canvas(piece).drawPath(path, fill)
+        val outline = Bitmap.createBitmap(pieceW, pieceH, Bitmap.Config.ALPHA_8)
+        Canvas(outline).drawPath(path, stroke)
+        PieceImage(piece.asImageBitmap(), outline.asImageBitmap(), Region().apply { setPath(path, clip) })
     }
     return CutPuzzle(bitmap.asImageBitmap(), PuzzleBoard(rows, cols), pieces, cellW, cellH)
 }

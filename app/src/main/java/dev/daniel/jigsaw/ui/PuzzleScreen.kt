@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -164,6 +165,8 @@ private fun PuzzleBoardView(game: PuzzleGame) {
 
     val boardColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
     val boardStroke = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+    // onSurface is dark in light mode and light in dark mode, so edges stay visible on either background.
+    val pieceOutline = ColorFilter.tint(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
 
     Canvas(
         Modifier
@@ -215,14 +218,13 @@ private fun PuzzleBoardView(game: PuzzleGame) {
             )
         }
         for (i in board.drawOrder) {
-            val image = cut.pieces[i].image
+            val piece = cut.pieces[i]
             val left = l.originX + (board.x(i) * cut.cellWidth - cut.padX) * l.scale
             val top = l.originY + (board.y(i) * cut.cellHeight - cut.padY) * l.scale
-            drawImage(
-                image,
-                dstOffset = IntOffset(left.roundToInt(), top.roundToInt()),
-                dstSize = IntSize((image.width * l.scale).roundToInt(), (image.height * l.scale).roundToInt()),
-            )
+            val dstOffset = IntOffset(left.roundToInt(), top.roundToInt())
+            val dstSize = IntSize((piece.image.width * l.scale).roundToInt(), (piece.image.height * l.scale).roundToInt())
+            drawImage(piece.image, dstOffset = dstOffset, dstSize = dstSize)
+            drawImage(piece.outline, dstOffset = dstOffset, dstSize = dstSize, colorFilter = pieceOutline)
         }
     }
 }
