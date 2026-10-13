@@ -18,12 +18,15 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
 
 ## Gameplay
 
-- Pick a source → pick an image from the thumbnail gallery → ~24 pieces with classic tab/blank cuts.
+- The main view shows every image from all configured sources; a source that fails to load is reported
+  above the grid without hiding the others.
+- **Settings** (gear icon) holds the image sources (add/remove) and puzzle preferences.
+- Tap an image → ~24 pieces with classic tab/blank cuts.
 - Drag pieces; touching uses the real piece outline (tabs included).
 - Drop a piece next to its true neighbour and they join and move as a group.
 - The puzzle is solved once every piece is joined into one group; the board outline is just a guide.
 - Groups can hang partly off-screen (half a cell always stays grabbable), so big halves can meet edge to edge.
-- Optional **Snap pieces onto board** (⋮ menu, off by default): pieces dropped near their spot lock in place.
+- Optional **Snap pieces onto board** (Settings, off by default): pieces dropped near their spot lock in place.
 - **Hint** shows a faint copy of the picture on the board.
 
 ## Build
@@ -41,5 +44,5 @@ Requires JDK 17 and an Android SDK (compileSdk 36) referenced by `local.properti
 app/src/main/java/dev/daniel/jigsaw/
   source/   ImageSource + Nextcloud / Immich / URL-list implementations, persisted SourceStore
   puzzle/   JigsawCut (tab geometry), PuzzleBoard (pure game state), PieceRenderer, ImageDecoding
-  ui/       Compose screens: sources, gallery, puzzle canvas; AppViewModel
+  ui/       Compose screens: gallery (main view), settings, puzzle canvas; AppViewModel
 ```
