@@ -15,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PuzzleBoard
+import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.cutPuzzle
@@ -63,14 +64,18 @@ sealed interface PuzzleContent {
     class Finished(val picture: ImageBitmap) : PuzzleContent
 }
 
-/** Puzzle preferences from Settings; [PuzzleSettings.rotatePieces] applies to puzzles started afterwards. */
-data class PuzzleSettings(val snapToBoard: Boolean, val rotatePieces: Boolean)
-
 /**
  * A puzzle in progress. [seed] regenerates the same cut on resume. [version] bumps on every board
  * mutation so Compose redraws. [scattered] is false until the pieces got their starting positions.
  */
-class PuzzleGame(val image: GalleryImage, val seed: Long, val cut: CutPuzzle, var scattered: Boolean) {
+class PuzzleGame(
+    val image: GalleryImage,
+    val seed: Long,
+    /** The piece count setting this puzzle was cut for. */
+    val pieces: Int,
+    val cut: CutPuzzle,
+    var scattered: Boolean,
+) {
     var version by mutableIntStateOf(0)
     var showHint by mutableStateOf(false)
     var solved by mutableStateOf(false)
@@ -105,6 +110,8 @@ class AppViewModel @JvmOverloads constructor(
         PuzzleSettings(
             snapToBoard = prefs.getBoolean(KEY_SNAP_TO_BOARD, false),
             rotatePieces = prefs.getBoolean(KEY_ROTATE_PIECES, false),
+            pieces = prefs.getInt(KEY_PIECES, JigsawCut.DEFAULT_PIECES)
+                .takeIf { it in JigsawCut.PIECE_COUNTS } ?: JigsawCut.DEFAULT_PIECES,
         ),
     )
         private set
@@ -122,6 +129,7 @@ class AppViewModel @JvmOverloads constructor(
         prefs.edit {
             putBoolean(KEY_SNAP_TO_BOARD, new.snapToBoard)
             putBoolean(KEY_ROTATE_PIECES, new.rotatePieces)
+            putInt(KEY_PIECES, new.pieces)
         }
     }
 
@@ -228,7 +236,7 @@ class AppViewModel @JvmOverloads constructor(
         val saved = if (board.isSolved) {
             SavedPuzzle.Solved
         } else {
-            SavedPuzzle.InProgress(board.rows, board.cols, game.seed, board.snapshot)
+            SavedPuzzle.InProgress(board.rows, board.cols, game.seed, board.snapshot, game.pieces)
         }
         val image = game.image
         // The gallery renders its tile from this state, so it is current even before the write lands.
@@ -256,26 +264,28 @@ class AppViewModel @JvmOverloads constructor(
     }
 
     private suspend fun loadPuzzle(image: GalleryImage): PuzzleContent {
-        val rotatePieces = settings.rotatePieces
+        // Read on the main thread: the settings in force when the puzzle was opened.
+        val chosen = settings
         val saved = withContext(puzzleIo) { puzzles.load(image.source.id, image.image.id) }
         val bytes = withContext(ioDispatcher) { Http.getBytes(image.image.full) }
         return withContext(computeDispatcher) {
             val bitmap = decodeSampled(bytes, maxSide = MAX_PUZZLE_SIDE)
             when (saved) {
                 SavedPuzzle.Solved -> PuzzleContent.Finished(bitmap.asImageBitmap())
-                is SavedPuzzle.InProgress ->
-                    resume(image, bitmap, saved, rotatePieces) ?: newGame(image, bitmap, rotatePieces)
-                null -> newGame(image, bitmap, rotatePieces)
+                is SavedPuzzle.InProgress -> saved.takeUnless { it.needsRecut(chosen) }
+                    ?.let { resume(image, bitmap, it, chosen.rotatePieces) }
+                    ?: newGame(image, bitmap, chosen)
+                null -> newGame(image, bitmap, chosen)
             }
         }
     }
 
-    private fun newGame(image: GalleryImage, bitmap: Bitmap, rotatePieces: Boolean): PuzzleContent.Playing {
-        val (rows, cols) = JigsawCut.gridFor(bitmap.width, bitmap.height, JigsawCut.DEFAULT_PIECES)
+    private fun newGame(image: GalleryImage, bitmap: Bitmap, chosen: PuzzleSettings): PuzzleContent.Playing {
+        val (rows, cols) = JigsawCut.gridFor(bitmap.width, bitmap.height, chosen.pieces)
         val seed = Random.nextLong()
-        val board = PuzzleBoard(rows, cols, cellAspect(bitmap, rows, cols), rotatable = rotatePieces)
+        val board = PuzzleBoard(rows, cols, cellAspect(bitmap, rows, cols), rotatable = chosen.rotatePieces)
         val cut = cutPuzzle(bitmap, JigsawCut(rows, cols, Random(seed)), board)
-        return PuzzleContent.Playing(PuzzleGame(image, seed, cut, scattered = false))
+        return PuzzleContent.Playing(PuzzleGame(image, seed, chosen.pieces, cut, scattered = false))
     }
 
     /**
@@ -292,7 +302,7 @@ class AppViewModel @JvmOverloads constructor(
         val current = saved.withRotation(rotatePieces, aspect)
         val board = PuzzleBoard(current.rows, current.cols, current.board, aspect)
         val cut = cutPuzzle(bitmap, JigsawCut(current.rows, current.cols, Random(current.seed)), board)
-        PuzzleContent.Playing(PuzzleGame(image, current.seed, cut, scattered = true))
+        PuzzleContent.Playing(PuzzleGame(image, current.seed, current.pieces, cut, scattered = true))
     } catch (_: IllegalArgumentException) {
         null
     }
@@ -304,5 +314,6 @@ class AppViewModel @JvmOverloads constructor(
         const val MAX_PUZZLE_SIDE = 1600
         const val KEY_SNAP_TO_BOARD = "snapToBoard"
         const val KEY_ROTATE_PIECES = "rotatePieces"
+        const val KEY_PIECES = "pieces"
     }
 }

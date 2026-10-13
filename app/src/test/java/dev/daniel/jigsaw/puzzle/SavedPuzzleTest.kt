@@ -55,4 +55,15 @@ class SavedPuzzleTest {
         assertTrue(onBoard.started)
         assertSame(onBoard, onBoard.withRotation(rotatePieces = true, cellAspect = 1f))
     }
+
+    @Test
+    fun `only an unstarted puzzle cut for another piece count needs a fresh cut`() {
+        val saved = unstarted(rotatable = false).copy(pieces = 24)
+        assertFalse(saved.needsRecut(PuzzleSettings(pieces = 24)))
+        assertTrue(saved.needsRecut(PuzzleSettings(pieces = 48)))
+        val onBoard = saved.copy(
+            board = saved.board.copy(xs = listOf(0f) + saved.board.xs.drop(1), ys = listOf(0f) + saved.board.ys.drop(1))
+        )
+        assertFalse(onBoard.needsRecut(PuzzleSettings(pieces = 48)))
+    }
 }

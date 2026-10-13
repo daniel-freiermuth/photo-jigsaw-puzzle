@@ -13,10 +13,22 @@ sealed interface SavedPuzzle {
     /** Finished: only the fact is kept, the board is dropped. */
     data object Solved : SavedPuzzle
 
-    /** [seed] regenerates the identical cut for a [rows] × [cols] grid; [board] holds the piece state. */
-    data class InProgress(val rows: Int, val cols: Int, val seed: Long, val board: BoardSnapshot) : SavedPuzzle {
+    /**
+     * [seed] regenerates the identical cut for a [rows] × [cols] grid, which was chosen for about
+     * [pieces] pieces; [board] holds the piece state.
+     */
+    data class InProgress(
+        val rows: Int,
+        val cols: Int,
+        val seed: Long,
+        val board: BoardSnapshot,
+        val pieces: Int = JigsawCut.DEFAULT_PIECES,
+    ) : SavedPuzzle {
         /** Whether a piece has been placed on the board yet. */
         val started get() = board.anyOnBoard(rows, cols)
+
+        /** A puzzle not [started] yet counts as new: if cut for another piece count, it is cut afresh. */
+        fun needsRecut(settings: PuzzleSettings) = !started && pieces != settings.pieces
 
         /**
          * A puzzle not [started] yet still counts as new, so it follows the current rotation setting
@@ -91,6 +103,7 @@ class PuzzleStore(private val root: File) {
                     put("rows", puzzle.rows)
                     put("cols", puzzle.cols)
                     put("seed", puzzle.seed)
+                    put("pieces", puzzle.pieces)
                     put("xs", JSONArray(puzzle.board.xs.map { it.toDouble() }))
                     put("ys", JSONArray(puzzle.board.ys.map { it.toDouble() }))
                     put("groups", JSONArray(puzzle.board.groups))
@@ -122,6 +135,8 @@ class PuzzleStore(private val root: File) {
                         turns = o.optJSONArray("turns")?.map { getInt(it) }.orEmpty(),
                         rotatable = o.optBoolean("rotatable", false),
                     ),
+                    // Absent in saves from before the setting existed: those were all cut for the default.
+                    pieces = o.optInt("pieces", JigsawCut.DEFAULT_PIECES),
                 )
             }
         } catch (_: JSONException) {

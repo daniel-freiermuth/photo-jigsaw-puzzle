@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import dev.daniel.jigsaw.puzzle.CanvasSpec
+import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.puzzle.renderProgress
@@ -65,23 +66,24 @@ private sealed interface ThumbState {
 }
 
 /**
- * Gallery tile, by the state of the image's puzzle: never opened → what opening it would show (a
- * fresh scatter of pieces, laid out for [canvas] and turned if [rotatePieces]); in progress → its
- * saved layout; solved → the picture. Puzzle tiles are cut from the thumbnail, so they stay cheap
- * and always match the save.
+ * Gallery tile, by the state of the image's puzzle: never opened (or not started and cut for another
+ * piece count) → what opening it would show, a fresh scatter laid out for [canvas] per [settings];
+ * in progress → its saved layout; solved → the picture. Puzzle tiles are cut from the thumbnail, so
+ * they stay cheap and always match the save.
  */
 @Composable
 fun GalleryThumbnail(
     item: GalleryImage,
     saved: SavedPuzzle?,
     canvas: CanvasSpec,
-    rotatePieces: Boolean,
+    settings: PuzzleSettings,
     modifier: Modifier = Modifier,
 ) {
     val resource = item.image.thumbnail
     val picture = { decodeSampled(Http.getBytes(resource), MAX_SIDE) }
-    when (saved) {
-        SavedPuzzle.Solved -> LoadedImage(
+    val inProgress = (saved as? SavedPuzzle.InProgress)?.takeUnless { it.needsRecut(settings) }
+    when {
+        saved == SavedPuzzle.Solved -> LoadedImage(
             key = resource.url,
             produce = picture,
             contentDescription = item.image.name,
@@ -89,18 +91,18 @@ fun GalleryThumbnail(
             modifier = modifier,
         )
         // The data class hash changes with every move, so each layout gets its own cache entry.
-        is SavedPuzzle.InProgress -> LoadedImage(
-            key = "progress:${resource.url}:${saved.hashCode()}:$rotatePieces",
-            produce = { renderProgress(picture(), saved, rotatePieces, MAX_SIDE) },
+        inProgress != null -> LoadedImage(
+            key = "progress:${resource.url}:${inProgress.hashCode()}:${settings.rotatePieces}",
+            produce = { renderProgress(picture(), inProgress, settings, MAX_SIDE) },
             contentDescription = item.image.name,
             contentScale = ContentScale.Fit,
             modifier = modifier,
         )
-        null -> LoadedImage(
-            key = "untouched:${resource.url}:$canvas:$rotatePieces",
+        else -> LoadedImage(
+            key = "untouched:${resource.url}:$canvas:${settings.rotatePieces}:${settings.pieces}",
             produce = {
                 // Seeded by the image so the scatter looks the same every time the tile is drawn.
-                renderUntouched(picture(), canvas, rotatePieces, item.key.hashCode().toLong(), MAX_SIDE)
+                renderUntouched(picture(), canvas, settings, item.key.hashCode().toLong(), MAX_SIDE)
             },
             contentDescription = item.image.name,
             contentScale = ContentScale.Fit,

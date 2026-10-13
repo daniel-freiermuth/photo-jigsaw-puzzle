@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 
 /** Main view: every image from every configured source. */
@@ -41,7 +42,7 @@ import dev.daniel.jigsaw.puzzle.SavedPuzzle
 fun GalleryScreen(
     state: Load<GalleryContent>,
     tiles: Map<String, SavedPuzzle>,
-    rotatePieces: Boolean,
+    settings: PuzzleSettings,
     hasSources: Boolean,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -77,7 +78,7 @@ fun GalleryScreen(
                 state is Load.Failed -> Message("Couldn't list images:\n${state.message}", "Retry", onRefresh)
                 state is Load.Ready && state.value.images.isEmpty() && state.value.failures.isEmpty() ->
                     Message("No images found in your sources.", "Refresh", onRefresh)
-                state is Load.Ready -> ImageGrid(state.value, tiles, rotatePieces, onPick)
+                state is Load.Ready -> ImageGrid(state.value, tiles, settings, onPick)
             }
         }
     }
@@ -87,7 +88,7 @@ fun GalleryScreen(
 private fun ImageGrid(
     content: GalleryContent,
     tiles: Map<String, SavedPuzzle>,
-    rotatePieces: Boolean,
+    settings: PuzzleSettings,
     onPick: (GalleryImage) -> Unit,
 ) {
     val canvas = puzzleCanvasSpec()
@@ -114,7 +115,7 @@ private fun ImageGrid(
                 item,
                 saved = tiles[item.key],
                 canvas = canvas,
-                rotatePieces = rotatePieces,
+                settings = settings,
                 modifier = Modifier
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(8.dp))

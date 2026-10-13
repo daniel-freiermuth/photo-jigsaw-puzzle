@@ -14,13 +14,13 @@ import kotlin.random.Random
  * Gallery image of a puzzle in progress, drawn by re-cutting [picture] (typically the thumbnail)
  * with the saved seed and laying the pieces out as saved. Once any piece sits on the board (its
  * centre inside the target area) only the board is shown; before that, just the loose pieces, turned
- * per [rotatePieces] since an unstarted puzzle follows the current setting.
+ * per [settings] since an unstarted puzzle follows the current rotation setting.
  */
-fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, rotatePieces: Boolean, maxSide: Int): Bitmap {
+fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, settings: PuzzleSettings, maxSide: Int): Bitmap {
     val rows = saved.rows
     val cols = saved.cols
     val cut = cutPuzzle(picture, JigsawCut(rows, cols, Random(saved.seed)))
-    val board = saved.withRotation(rotatePieces, cut.cellWidth / cut.cellHeight).board
+    val board = saved.withRotation(settings.rotatePieces, cut.cellWidth / cut.cellHeight).board
     return if (saved.started) {
         render(cut, board, Bounds(0f, 0f, cols.toFloat(), rows.toFloat()), maxSide, drawBoard = true)
     } else {
@@ -30,15 +30,15 @@ fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, rotatePieces:
 
 /**
  * Gallery image of a puzzle that was never opened: what opening it and leaving straight away would
- * look like. [picture] is cut like a new puzzle, scattered over the tray exactly as the puzzle
- * screen would on [canvas] (turned at random if [rotatable]), and framed on the pieces. [seed]
- * keeps it stable between renders.
+ * look like. [picture] is cut like a new puzzle per [settings], scattered over the tray exactly as
+ * the puzzle screen would on [canvas], and framed on the pieces. [seed] keeps it stable between renders.
  */
-fun renderUntouched(picture: Bitmap, canvas: CanvasSpec, rotatable: Boolean, seed: Long, maxSide: Int): Bitmap {
-    val (rows, cols) = JigsawCut.gridFor(picture.width, picture.height, JigsawCut.DEFAULT_PIECES)
+fun renderUntouched(picture: Bitmap, canvas: CanvasSpec, settings: PuzzleSettings, seed: Long, maxSide: Int): Bitmap {
+    val (rows, cols) = JigsawCut.gridFor(picture.width, picture.height, settings.pieces)
     val random = Random(seed)
     val aspect = (picture.width.toFloat() / cols) / (picture.height.toFloat() / rows)
-    val cut = cutPuzzle(picture, JigsawCut(rows, cols, random), PuzzleBoard(rows, cols, aspect, rotatable))
+    val board = PuzzleBoard(rows, cols, aspect, settings.rotatePieces)
+    val cut = cutPuzzle(picture, JigsawCut(rows, cols, random), board)
     val layout = boardLayout(canvas, picture.width.toFloat(), picture.height.toFloat(), rows, cols)
     cut.board.scatter(layout.scatter, random)
     return renderPile(cut, cut.board.snapshot, maxSide)

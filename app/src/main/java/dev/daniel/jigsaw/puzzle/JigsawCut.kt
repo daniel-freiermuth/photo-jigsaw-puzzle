@@ -94,8 +94,11 @@ class JigsawCut(val rows: Int, val cols: Int, random: Random) {
         /** How far (in cell units) a tab can stick out past its cell: 3·t + jitter, plus slack. */
         const val PAD = 0.35f
 
-        /** Pieces per puzzle (approximate: the grid adapts to the picture's aspect ratio). */
+        /** Pieces per puzzle unless set otherwise (approximate: the grid adapts to the picture's aspect ratio). */
         const val DEFAULT_PIECES = 24
+
+        /** Piece counts offered in Settings. */
+        val PIECE_COUNTS = listOf(12, DEFAULT_PIECES, 48, 96)
 
         /** Picks rows × cols ≈ [target] pieces with cells as close to square as possible. */
         fun gridFor(imageWidth: Int, imageHeight: Int, target: Int): Pair<Int, Int> {

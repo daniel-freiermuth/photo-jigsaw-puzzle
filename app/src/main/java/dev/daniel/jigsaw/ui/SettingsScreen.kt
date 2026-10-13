@@ -41,6 +41,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.daniel.jigsaw.puzzle.JigsawCut
+import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.source.SourceConfig
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.util.UUID
@@ -112,6 +114,7 @@ fun SettingsScreen(
 
 private fun LazyListScope.puzzleSettingsItems(settings: PuzzleSettings, onChange: (PuzzleSettings) -> Unit) {
     item { SectionHeader("Puzzle", Modifier.padding(top = 16.dp)) }
+    item { PieceCountRow(settings.pieces, onSelect = { onChange(settings.copy(pieces = it)) }) }
     item {
         SwitchRow(
             title = "Snap pieces onto board",
@@ -127,6 +130,26 @@ private fun LazyListScope.puzzleSettingsItems(settings: PuzzleSettings, onChange
             checked = settings.rotatePieces,
             onCheckedChange = { onChange(settings.copy(rotatePieces = it)) },
         )
+    }
+}
+
+@Composable
+private fun PieceCountRow(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
+        Text("Pieces", style = MaterialTheme.typography.bodyLarge)
+        Text(
+            "About this many, depending on the picture's shape. Applies to puzzles with nothing on the board yet.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            JigsawCut.PIECE_COUNTS.forEach { count ->
+                FilterChip(
+                    selected = count == selected,
+                    onClick = { onSelect(count) },
+                    label = { Text(count.toString()) },
+                )
+            }
+        }
     }
 }
 

@@ -37,7 +37,7 @@ internal fun App(vm: AppViewModel = viewModel()) {
         Screen.Gallery -> GalleryScreen(
             state = vm.gallery,
             tiles = vm.tiles,
-            rotatePieces = vm.settings.rotatePieces,
+            settings = vm.settings,
             hasSources = vm.sources.isNotEmpty(),
             onRefresh = vm::refreshGallery,
             onOpenSettings = vm::openSettings,

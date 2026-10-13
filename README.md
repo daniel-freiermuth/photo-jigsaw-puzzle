@@ -21,7 +21,9 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
 - The main view shows every image from all configured sources; a source that fails to load is reported
   above the grid without hiding the others.
 - **Settings** (gear icon) holds the image sources (add/remove) and puzzle preferences.
-- Tap an image → ~24 pieces with classic tab/blank cuts.
+- Tap an image → a puzzle with classic tab/blank cuts. **Pieces** (Settings: about 12, 24, 48 or 96; the grid
+  adapts to the picture's shape) applies to new puzzles and to ones with nothing on the board yet, which are cut
+  afresh.
 - Drag pieces; touching uses the real piece outline (tabs included).
 - Drop a piece next to its true neighbour and they join and move as a group.
 - The puzzle is solved once every piece is joined into one group; the board outline is just a guide.
