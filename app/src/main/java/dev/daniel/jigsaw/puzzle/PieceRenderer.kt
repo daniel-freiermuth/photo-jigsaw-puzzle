@@ -1,0 +1,89 @@
+package dev.daniel.jigsaw.puzzle
+
+import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.Canvas
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.Region
+import android.graphics.Shader
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import kotlin.math.ceil
+
+/** A pre-cut piece: its masked image and a hit-test region, both in source-bitmap pixels. */
+class PieceImage(val image: ImageBitmap, val region: Region)
+
+/** Everything needed to draw a puzzle; positions live in [board]. */
+class CutPuzzle(
+    val source: ImageBitmap,
+    val board: PuzzleBoard,
+    val pieces: List<PieceImage>,
+    /** Cell size in source-bitmap pixels. */
+    val cellWidth: Float,
+    val cellHeight: Float,
+) {
+    val padX get() = JigsawCut.PAD * cellWidth
+    val padY get() = JigsawCut.PAD * cellHeight
+}
+
+/** Cuts [bitmap] into rows × cols pieces following [cut]. CPU-heavy: run off the main thread. */
+fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut): CutPuzzle {
+    val rows = cut.rows
+    val cols = cut.cols
+    val cellW = bitmap.width.toFloat() / cols
+    val cellH = bitmap.height.toFloat() / rows
+    val pad = JigsawCut.PAD
+    val pieceW = ceil(cellW * (1 + 2 * pad)).toInt()
+    val pieceH = ceil(cellH * (1 + 2 * pad)).toInt()
+
+    val shader = BitmapShader(bitmap, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.shader = shader }
+    val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = maxOf(1f, minOf(cellW, cellH) * 0.012f)
+        color = 0x66000000
+    }
+    val clip = Region(0, 0, pieceW, pieceH)
+    val matrix = Matrix()
+
+    val pieces = (0 until rows * cols).map { i ->
+        val row = i / cols
+        val col = i % cols
+        val path = piecePath(cut.outline(row, col)) { p ->
+            ((p.x - col + pad) * cellW) to ((p.y - row + pad) * cellH)
+        }
+        val piece = Bitmap.createBitmap(pieceW, pieceH, Bitmap.Config.ARGB_8888)
+        matrix.setTranslate(-(col - pad) * cellW, -(row - pad) * cellH)
+        shader.setLocalMatrix(matrix)
+        Canvas(piece).apply {
+            drawPath(path, fill)
+            drawPath(path, outline)
+        }
+        PieceImage(piece.asImageBitmap(), Region().apply { setPath(path, clip) })
+    }
+    return CutPuzzle(bitmap.asImageBitmap(), PuzzleBoard(rows, cols), pieces, cellW, cellH)
+}
+
+private inline fun piecePath(edges: List<Edge>, toPx: (Pt) -> Pair<Float, Float>): Path {
+    val path = Path()
+    val (sx, sy) = toPx(edges.first().start)
+    path.moveTo(sx, sy)
+    for (edge in edges) {
+        val pts = edge.points.map(toPx)
+        if (edge.isStraight) {
+            path.lineTo(pts[1].first, pts[1].second)
+        } else {
+            for (k in 1 until pts.size step 3) {
+                path.cubicTo(
+                    pts[k].first, pts[k].second,
+                    pts[k + 1].first, pts[k + 1].second,
+                    pts[k + 2].first, pts[k + 2].second,
+                )
+            }
+        }
+    }
+    path.close()
+    return path
+}
