@@ -10,9 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,6 +60,8 @@ fun PuzzleScreen(
     state: Load<PuzzleGame>,
     onBack: () -> Unit,
     onAnotherImage: () -> Unit,
+    snapToBoard: Boolean,
+    onSnapToBoardChange: (Boolean) -> Unit,
 ) {
     val game = (state as? Load.Ready)?.value
     Scaffold(
@@ -72,6 +78,17 @@ fun PuzzleScreen(
                         TextButton(onClick = { game.showHint = !game.showHint }) {
                             Text(if (game.showHint) "Hide hint" else "Hint")
                         }
+                        var menuOpen by remember { mutableStateOf(false) }
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Snap pieces onto board") },
+                                onClick = { onSnapToBoardChange(!snapToBoard) },
+                                trailingIcon = { Checkbox(checked = snapToBoard, onCheckedChange = onSnapToBoardChange) },
+                            )
+                        }
                     }
                 },
             )
@@ -82,7 +99,7 @@ fun PuzzleScreen(
                 Load.Loading -> CircularProgressIndicator()
                 is Load.Failed -> Text("Couldn't load image:\n${state.message}", Modifier.padding(24.dp))
                 is Load.Ready -> {
-                    PuzzleBoardView(state.value)
+                    PuzzleBoardView(state.value, snapToBoard)
                     if (state.value.solved) SolvedCard(onBack, onAnotherImage, Modifier.align(Alignment.BottomCenter))
                 }
             }
@@ -111,7 +128,9 @@ private class BoardLayout(
     val scale: Float,
     val cellPxW: Float,
     val cellPxH: Float,
-    val visible: GridRect,
+    /** The whole canvas; groups must keep a grabbable part inside it. */
+    val screen: GridRect,
+    /** Where pieces start out, kept clear of the screen edges so tabs aren't clipped. */
     val scatter: GridRect,
 )
 
@@ -133,20 +152,21 @@ private fun computeLayout(size: IntSize, cut: CutPuzzle, margin: Float): BoardLa
     val cellPxW = cut.cellWidth * scale
     val cellPxH = cut.cellHeight * scale
     val pad = JigsawCut.PAD
-    fun toGrid(left: Float, top: Float, right: Float, bottom: Float) = GridRect(
-        minX = (left - ox) / cellPxW + pad,
-        minY = (top - oy) / cellPxH + pad,
-        maxX = (right - ox) / cellPxW - pad,
-        maxY = (bottom - oy) / cellPxH - pad,
+    fun toGrid(left: Float, top: Float, right: Float, bottom: Float, inset: Float) = GridRect(
+        minX = (left - ox) / cellPxW + inset,
+        minY = (top - oy) / cellPxH + inset,
+        maxX = (right - ox) / cellPxW - inset,
+        maxY = (bottom - oy) / cellPxH - inset,
     )
-    val visible = toGrid(0f, 0f, w, h)
-    val tray = if (portrait) toGrid(0f, oy + ih * scale + margin, w, h)
-    else toGrid(ox + iw * scale + margin, 0f, w, h)
-    return BoardLayout(ox, oy, scale, cellPxW, cellPxH, visible, if (tray.fitsPiece) tray else visible)
+    val screen = toGrid(0f, 0f, w, h, inset = 0f)
+    val tray = if (portrait) toGrid(0f, oy + ih * scale + margin, w, h, pad)
+    else toGrid(ox + iw * scale + margin, 0f, w, h, pad)
+    val scatter = if (tray.fitsPiece) tray else toGrid(0f, 0f, w, h, pad)
+    return BoardLayout(ox, oy, scale, cellPxW, cellPxH, screen, scatter)
 }
 
 @Composable
-private fun PuzzleBoardView(game: PuzzleGame) {
+private fun PuzzleBoardView(game: PuzzleGame, snapToBoard: Boolean) {
     val cut = game.cut
     val board = cut.board
     val haptics = LocalHapticFeedback.current
@@ -162,6 +182,7 @@ private fun PuzzleBoardView(game: PuzzleGame) {
         }
     }
     val currentLayout by rememberUpdatedState(layout)
+    val currentSnapToBoard by rememberUpdatedState(snapToBoard)
 
     val boardColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
     val boardStroke = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
@@ -178,8 +199,8 @@ private fun PuzzleBoardView(game: PuzzleGame) {
                     val i = dragging ?: return
                     val l = currentLayout ?: return
                     dragging = null
-                    with(l.visible) { board.keepGroupInside(i, minX, minY, maxX, maxY) }
-                    if (board.drop(i)) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    with(l.screen) { board.keepGroupReachable(i, minX, minY, maxX, maxY) }
+                    if (board.drop(i, currentSnapToBoard)) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     if (board.isSolved) game.solved = true
                     game.version++
                 }

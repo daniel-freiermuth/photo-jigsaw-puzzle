@@ -51,6 +51,8 @@ private fun App(vm: AppViewModel = viewModel()) {
             state = vm.puzzle,
             onBack = vm::back,
             onAnotherImage = vm::openRandomImage,
+            snapToBoard = vm.snapToBoard,
+            onSnapToBoardChange = vm::updateSnapToBoard,
         )
     }
 }

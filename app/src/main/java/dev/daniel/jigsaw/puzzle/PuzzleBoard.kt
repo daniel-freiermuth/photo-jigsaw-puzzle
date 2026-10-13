@@ -7,8 +7,8 @@ import kotlin.random.Random
  * Pure game state for a rows × cols jigsaw, in grid units relative to the board's top-left corner.
  * Piece `i` sits at row `i / cols`, column `i % cols`; its solved position is (col, row).
  *
- * Pieces dragged next to a matching neighbour join it into a group that moves as one; a group
- * dropped near its solved spot snaps onto the board and becomes locked.
+ * Pieces dragged next to a matching neighbour join it into a group that moves as one. Optionally,
+ * a group dropped near its solved spot snaps onto the board and becomes locked.
  */
 class PuzzleBoard(val rows: Int, val cols: Int) {
     val size = rows * cols
@@ -26,7 +26,8 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
     fun x(i: Int) = xs[i]
     fun y(i: Int) = ys[i]
     fun isLocked(i: Int) = locked[i]
-    val isSolved get() = locked.all { it }
+    /** Every piece joined into one group, whether or not it sits on the board. */
+    val isSolved get() = groupOf.all { it == groupOf[0] }
     fun sameGroup(a: Int, b: Int) = groupOf[a] == groupOf[b]
     fun members(i: Int): List<Int> = (0 until size).filter { groupOf[it] == groupOf[i] }
 
@@ -56,35 +57,39 @@ class PuzzleBoard(val rows: Int, val cols: Int) {
         }
     }
 
-    /** Shifts the group so its cells' bounding box stays inside the bounds (top-left wins if too big). */
-    fun keepGroupInside(i: Int, minX: Float, minY: Float, maxX: Float, maxY: Float) {
+    /**
+     * Shifts the group just enough that at least [overlap] cells of its bounding box stay within
+     * the bounds on each axis, so it can always be grabbed again. The rest may hang off-screen:
+     * large groups must be able to sit flush against an edge to meet their counterparts.
+     */
+    fun keepGroupReachable(i: Int, minX: Float, minY: Float, maxX: Float, maxY: Float, overlap: Float = 0.5f) {
         val m = members(i)
         val left = m.minOf { xs[it] }
         val top = m.minOf { ys[it] }
         val right = m.maxOf { xs[it] } + 1f
         val bottom = m.maxOf { ys[it] } + 1f
         val dx = when {
-            left < minX -> minX - left
-            right > maxX -> maxOf(maxX - right, minX - left)
+            right < minX + overlap -> minX + overlap - right
+            left > maxX - overlap -> maxX - overlap - left
             else -> 0f
         }
         val dy = when {
-            top < minY -> minY - top
-            bottom > maxY -> maxOf(maxY - bottom, minY - top)
+            bottom < minY + overlap -> minY + overlap - bottom
+            top > maxY - overlap -> maxY - overlap - top
             else -> 0f
         }
         moveGroup(i, dx, dy)
     }
 
     /**
-     * Resolves a drop of piece [i]'s group: joins matching neighbours and snaps onto the board.
-     * Returns true if anything snapped.
+     * Resolves a drop of piece [i]'s group: joins matching neighbours and, if [snapToBoard],
+     * locks the group onto the board when it is near its solved spot. Returns true if anything snapped.
      */
-    fun drop(i: Int, tolerance: Float = SNAP_TOLERANCE): Boolean {
+    fun drop(i: Int, snapToBoard: Boolean, tolerance: Float = SNAP_TOLERANCE): Boolean {
         var snappedAny = false
         var changed = true
         while (changed) {
-            changed = joinNeighbour(i, tolerance) || lockIfPlaced(i, tolerance)
+            changed = joinNeighbour(i, tolerance) || (snapToBoard && lockIfPlaced(i, tolerance))
             snappedAny = snappedAny || changed
         }
         return snappedAny

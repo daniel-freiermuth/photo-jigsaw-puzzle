@@ -24,7 +24,7 @@ class PuzzleBoardTest {
     fun `dropping next to the matching neighbour joins and aligns exactly`() {
         val board = scatteredBoard()
         moveTo(board, 1, 11.1f, 9.9f) // right neighbour of piece 0, slightly off
-        assertTrue(board.drop(1))
+        assertTrue(board.drop(1, snapToBoard = false))
         assertTrue(board.sameGroup(0, 1))
         assertEquals(board.x(0) + 1f, board.x(1), 1e-5f)
         assertEquals(board.y(0), board.y(1), 1e-5f)
@@ -35,9 +35,9 @@ class PuzzleBoardTest {
     fun `pieces beyond tolerance or in the wrong slot stay separate`() {
         val board = scatteredBoard()
         moveTo(board, 1, 11.5f, 10f)
-        assertFalse(board.drop(1))
+        assertFalse(board.drop(1, snapToBoard = false))
         moveTo(board, 1, 9f, 10f) // left of piece 0, but piece 1 belongs on its right
-        assertFalse(board.drop(1))
+        assertFalse(board.drop(1, snapToBoard = false))
         assertFalse(board.sameGroup(0, 1))
     }
 
@@ -45,19 +45,29 @@ class PuzzleBoardTest {
     fun `joined group moves as one`() {
         val board = scatteredBoard()
         moveTo(board, 2, 10f, 11f)
-        board.drop(2)
+        board.drop(2, snapToBoard = false)
         board.moveGroup(0, 3f, -2f)
         assertEquals(13f, board.x(2), 1e-5f)
         assertEquals(9f, board.y(2), 1e-5f)
     }
 
     @Test
-    fun `group dropped near its solved spot locks onto the board`() {
+    fun `without board snapping a piece on its solved spot stays loose`() {
+        val board = scatteredBoard()
+        moveTo(board, 0, 0.1f, -0.1f)
+        assertFalse(board.drop(0, snapToBoard = false))
+        assertFalse(board.isLocked(0))
+        assertEquals(0.1f, board.x(0), 1e-5f)
+        assertEquals(0, board.pieceAt { it == 0 })
+    }
+
+    @Test
+    fun `with board snapping a group near its solved spot locks onto the board`() {
         val board = scatteredBoard()
         moveTo(board, 1, 11f, 10f)
-        board.drop(1)
+        board.drop(1, snapToBoard = true)
         moveTo(board, 0, 0.1f, -0.1f) // drags piece 1 along
-        assertTrue(board.drop(0))
+        assertTrue(board.drop(0, snapToBoard = true))
         assertTrue(board.isLocked(0) && board.isLocked(1))
         assertEquals(1f, board.x(1), 1e-5f)
         assertEquals(0f, board.y(1), 1e-5f)
@@ -70,9 +80,9 @@ class PuzzleBoardTest {
     fun `joining a locked group locks the newcomer without moving the board`() {
         val board = scatteredBoard()
         moveTo(board, 0, 0f, 0f)
-        board.drop(0)
+        board.drop(0, snapToBoard = true)
         moveTo(board, 2, 0.15f, 1.1f)
-        assertTrue(board.drop(2))
+        assertTrue(board.drop(2, snapToBoard = true))
         assertTrue(board.isLocked(2))
         assertEquals(0f, board.x(0), 0f)
         assertEquals(0f, board.x(2), 1e-5f)
@@ -80,25 +90,49 @@ class PuzzleBoardTest {
     }
 
     @Test
-    fun `solved once every piece is locked`() {
+    fun `solved once every piece is in one group, wherever it lies`() {
         val board = scatteredBoard()
+        val offsets = listOf(0f to 0f, 1f to 0f, 0f to 1f, 1f to 1f)
         for (i in 0 until board.size) {
             assertFalse(board.isSolved)
-            moveTo(board, i, board.col(i).toFloat(), board.row(i).toFloat())
-            board.drop(i)
+            val (dx, dy) = offsets[i]
+            moveTo(board, i, 30f + dx, 40f + dy)
+            board.drop(i, snapToBoard = false)
         }
         assertTrue(board.isSolved)
+        assertFalse(board.isLocked(0))
     }
 
     @Test
-    fun `keepGroupInside pulls an out-of-bounds group back by its bounding box`() {
+    fun `two halves can be joined flush against the screen edge`() {
+        // Screen exactly as wide as the puzzle: the solved image must still fit edge to edge.
+        val board = PuzzleBoard(1, 4)
+        for (i in 0 until 4) moveTo(board, i, 10f * i + 10f, 5f + 3f * i)
+        moveTo(board, 0, 0f, 5f)
+        moveTo(board, 1, 1.05f, 5f)
+        board.drop(1, snapToBoard = false)
+        moveTo(board, 2, 20f, 5f)
+        moveTo(board, 3, 21.05f, 5f)
+        board.drop(3, snapToBoard = false)
+        moveTo(board, 2, 2.1f, 5.05f) // right half pokes 0.1 past the right edge
+        board.keepGroupReachable(2, 0f, 0f, 4f, 10f)
+        board.drop(2, snapToBoard = false)
+        assertTrue(board.isSolved)
+        assertEquals(0f, board.x(0), 1e-5f)
+        assertEquals(3f, board.x(3), 1e-5f)
+    }
+
+    @Test
+    fun `keepGroupReachable only pulls back groups that left the screen`() {
         val board = scatteredBoard()
         moveTo(board, 1, 11f, 10f)
-        board.drop(1) // group spans x 10..12
-        board.keepGroupInside(0, 0f, 0f, 11.5f, 30f)
-        assertEquals(9.5f, board.x(0), 1e-5f)
-        board.keepGroupInside(0, 10f, 0f, 30f, 30f)
-        assertEquals(10f, board.x(0), 1e-5f)
+        board.drop(1, snapToBoard = false) // group spans x 10..12, y 10..11
+        board.keepGroupReachable(0, 0f, 0f, 11.5f, 30f)
+        assertEquals(10f, board.x(0), 1e-5f) // partly off-screen is fine
+        board.keepGroupReachable(0, 0f, 0f, 9f, 30f)
+        assertEquals(8.5f, board.x(0), 1e-5f) // fully off the right edge: half a cell comes back
+        board.keepGroupReachable(0, 0f, 12f, 30f, 30f)
+        assertEquals(11.5f, board.y(0), 1e-5f) // above the top edge
     }
 
     @Test
@@ -116,7 +150,7 @@ class PuzzleBoardTest {
         val board = scatteredBoard()
         moveTo(board, 3, 31f, 31f)
         moveTo(board, 1, 31f, 30f)
-        board.drop(1)
+        board.drop(1, snapToBoard = false)
         assertTrue(board.sameGroup(1, 3))
         board.bringToFront(3)
         assertEquals(setOf(1, 3), board.drawOrder.takeLast(2).toSet())

@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +58,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private var galleryJob: Job? = null
     private var puzzleJob: Job? = null
+
+    private val settings = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    /** Lock pieces placed near their solved spot onto the board. Off by default: it makes puzzles much easier. */
+    var snapToBoard by mutableStateOf(settings.getBoolean(KEY_SNAP_TO_BOARD, false))
+        private set
+
+    fun updateSnapToBoard(enabled: Boolean) {
+        snapToBoard = enabled
+        settings.edit().putBoolean(KEY_SNAP_TO_BOARD, enabled).apply()
+    }
 
     /** Validates [config] (URL shape) and saves it; returns an error message on failure. */
     fun addSource(config: SourceConfig): String? {
@@ -146,5 +158,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private companion object {
         const val MAX_PUZZLE_SIDE = 1600
         const val TARGET_PIECES = 24
+        const val KEY_SNAP_TO_BOARD = "snapToBoard"
     }
 }
