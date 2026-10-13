@@ -34,14 +34,16 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
 Requires JDK 17 and an Android SDK (compileSdk 36) referenced by `local.properties` (`sdk.dir=…`) or `ANDROID_HOME`.
 
 ```sh
-./gradlew check                    # everything below; must pass before committing
+just check-all                     # = ./gradlew check; must pass before committing (CI runs the same)
 ./gradlew :app:installDebug        # build + install on a connected device/emulator
 ./gradlew :app:detekt --auto-correct  # apply ktlint formatting fixes
 ```
 
 ## Checks
 
-`./gradlew check` runs, with every warning treated as an error:
+`just check-all` (`./gradlew check`) runs, with every warning treated as an error. GitHub Actions runs it on
+every push to `master` and every pull request (`.github/workflows/check.yml`; lint/detekt reports are
+uploaded as an artifact when it fails):
 
 - **Kotlin compiler**: `allWarningsAsErrors`, `extraWarnings`, `progressiveMode`.
 - **Android Lint**: all checks enabled (`checkAllWarnings`), including test sources and dependencies.
