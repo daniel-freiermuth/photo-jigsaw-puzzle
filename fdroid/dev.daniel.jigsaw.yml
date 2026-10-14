@@ -1,0 +1,28 @@
+Categories:
+  - Puzzle Game
+License: AGPL-3.0-or-later
+AuthorName: Daniel Freiermuth
+SourceCode: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle
+IssueTracker: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle/issues
+Changelog: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle/releases
+
+AutoName: Jigsaw
+
+RepoType: git
+Repo: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle.git
+Binaries: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle/releases/download/v%v/jigsaw-%v.apk
+
+Builds:
+  - versionName: 0.1.0
+    versionCode: 1
+    commit: v0.1.0
+    subdir: app
+    gradle:
+      - yes
+
+AllowedAPKSigningKeys: 5f60894478e1fc3548e45516057bdf8cd6d457240038a9cdbfe081c64132e229
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+CurrentVersion: 0.1.0
+CurrentVersionCode: 1

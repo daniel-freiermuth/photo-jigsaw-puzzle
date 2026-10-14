@@ -1,0 +1,27 @@
+Mach aus deinen eigenen Fotos Puzzles. Puzzle zeigt die Bilder geteilter Alben und Ordner, die du hinzufügst – eine öffentliche Nextcloud-Freigabe, einen Immich-Freigabelink oder eine einfache Liste von Bild-URLs – auf einer gemeinsamen Zeitleiste, neueste zuerst. Tippe ein Bild an, um es zu puzzeln.
+
+<b>Puzzeln</b>
+<ul>
+<li>Klassische Teile mit Nasen und Buchten, etwa 12, 24, 48 oder 96 Stück</li>
+<li>Teile aufs Brett ziehen; passende Nachbarn rasten zusammen und bewegen sich als Gruppe</li>
+<li>Optional: Teile rasten auf dem Brett ein, wenn sie nahe ihrem Platz abgelegt werden</li>
+<li>Optional: gedrehte Teile – tippe ein Teil an, um es zu drehen</li>
+<li>Die Vorlage zeigt das Bild blass auf dem Brett</li>
+</ul>
+
+<b>Deine Fotos bleiben deine</b>
+<ul>
+<li>Kein Konto, kein Tracking, keine Werbung: die App spricht nur mit den Servern, die du hinzufügst</li>
+<li>Jedes Puzzle behält seinen Fortschritt; die Galerie zeigt jedes so, wie du es verlassen hast</li>
+<li>Bilder werden zwischengespeichert, angefangene Puzzles funktionieren also auch offline</li>
+<li>Neue Fotos erscheinen von selbst: die Galerie bleibt aktuell, solange sie offen ist</li>
+</ul>
+
+<b>Quellen</b>
+<ul>
+<li>Öffentliche Nextcloud-Freigaben (mit oder ohne Passwort), einschließlich Unterordnern</li>
+<li>Immich-Freigabelinks zu Alben oder einzelnen Fotos</li>
+<li>Eine Text- oder JSON-Datei mit Bild-URLs</li>
+</ul>
+
+Auf Deutsch und Englisch verfügbar.
