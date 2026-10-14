@@ -32,6 +32,28 @@ class CutPuzzle(
     val padY get() = JigsawCut.PAD * cellHeight
 }
 
+/** A decoded picture to cut puzzles from, [width] × [height] pixels. */
+interface PuzzlePicture {
+    val width: Int
+    val height: Int
+
+    /** The whole picture, as shown once its puzzle is solved. */
+    fun asImageBitmap(): ImageBitmap
+
+    /** Cuts the picture following [cut], with pieces placed per [board]; see [cutPuzzle]. */
+    fun cut(cut: JigsawCut, board: PuzzleBoard): CutPuzzle
+}
+
+/** A [PuzzlePicture] backed by [bitmap]. */
+class BitmapPicture(private val bitmap: Bitmap) : PuzzlePicture {
+    override val width get() = bitmap.width
+    override val height get() = bitmap.height
+
+    override fun asImageBitmap() = bitmap.asImageBitmap()
+
+    override fun cut(cut: JigsawCut, board: PuzzleBoard) = cutPuzzle(bitmap, cut, board)
+}
+
 /**
  * Cuts [bitmap] into rows × cols pieces following [cut], with pieces placed per [board] (a fresh,
  * solved-layout board by default). CPU-heavy: run off the main thread.
