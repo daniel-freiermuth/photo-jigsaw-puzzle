@@ -31,17 +31,17 @@ class SourceParsingTest {
         val xml = """
             <?xml version="1.0"?>
             <d:multistatus xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns">
-              <d:response><d:href>/public.php/webdav/</d:href>
+              <d:response><d:href>/public.php/dav/files/tok/</d:href>
                 <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
-              <d:response><d:href>/public.php/webdav/Holiday%202024/</d:href>
+              <d:response><d:href>/public.php/dav/files/tok/Holiday%202024/</d:href>
                 <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
-              <d:response><d:href>/public.php/webdav/beach.jpg</d:href>
+              <d:response><d:href>/public.php/dav/files/tok/beach.jpg</d:href>
                 <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>image/jpeg</d:getcontenttype>
                   <d:getlastmodified>Tue, 13 Oct 2026 19:39:24 GMT</d:getlastmodified>
                   <nc:metadata-photos-original_date_time>1714564800</nc:metadata-photos-original_date_time>
                   <d:getetag>"5f1c0e"</d:getetag>
                 </d:prop></d:propstat></d:response>
-              <d:response><d:href>/public.php/webdav/notes.txt</d:href>
+              <d:response><d:href>/public.php/dav/files/tok/notes.txt</d:href>
                 <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>text/plain</d:getcontenttype>
                   <d:getlastmodified>Tue, 13 Oct 2026 19:39:24 GMT</d:getlastmodified>
                 </d:prop></d:propstat></d:response>
@@ -50,17 +50,17 @@ class SourceParsingTest {
         val entries = NextcloudShareSource.parseMultistatus(StringReader(xml), KXmlParser())
         assertEquals(
             listOf(
-                NextcloudShareSource.DavEntry("/public.php/webdav/", true, ""),
-                NextcloudShareSource.DavEntry("/public.php/webdav/Holiday%202024/", true, ""),
+                NextcloudShareSource.DavEntry("/public.php/dav/files/tok/", true, ""),
+                NextcloudShareSource.DavEntry("/public.php/dav/files/tok/Holiday%202024/", true, ""),
                 NextcloudShareSource.DavEntry(
-                    "/public.php/webdav/beach.jpg",
+                    "/public.php/dav/files/tok/beach.jpg",
                     false,
                     "image/jpeg",
                     millis("2024-05-01T12:00:00Z"),
                     "\"5f1c0e\"",
                 ),
                 NextcloudShareSource.DavEntry(
-                    "/public.php/webdav/notes.txt",
+                    "/public.php/dav/files/tok/notes.txt",
                     false,
                     "text/plain",
                     millis("2026-10-13T19:39:24Z"),
