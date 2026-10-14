@@ -26,9 +26,9 @@ fun decodeSampled(bytes: ByteArray, maxSide: Int): Bitmap {
     val exif = readExif(bytes)
     val matrix = Matrix().apply {
         postScale(scale, scale)
-        // EXIF orientations are a rotation optionally followed by a horizontal mirror.
-        exif?.let { postRotate(it.rotationDegrees.toFloat()) }
+        // ExifInterface describes each orientation as an optional horizontal mirror followed by a rotation.
         if (exif?.isFlipped == true) postScale(-1f, 1f)
+        exif?.let { postRotate(it.rotationDegrees.toFloat()) }
     }
     if (matrix.isIdentity) return decoded
     return Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
