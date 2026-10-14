@@ -297,6 +297,7 @@ private fun Modifier.puzzleGestures(
     return pointerInput(game) {
         var dragging: Int? = null
         var downAt = Offset.Zero
+        var caughtUp = false
         fun finish() {
             dragging?.let(::settle)
             dragging = null
@@ -306,6 +307,7 @@ private fun Modifier.puzzleGestures(
             launch { awaitEachGesture { downAt = awaitFirstDown(requireUnconsumed = false).position } }
             detectDragGestures(
                 onDragStart = { _ ->
+                    caughtUp = false
                     dragging = layout.value?.let { hitTest(game.cut, it, downAt) }?.also {
                         board.bringToFront(it)
                         game.version++
@@ -318,7 +320,10 @@ private fun Modifier.puzzleGestures(
                     val l = layout.value
                     if (i != null && l != null) {
                         change.consume()
-                        board.moveGroup(i, amount.x / l.cellSize.x, amount.y / l.cellSize.y)
+                        // The first call only reports the movement past the touch slop, so it moves from the touch.
+                        val move = if (caughtUp) amount else change.position - downAt
+                        caughtUp = true
+                        board.moveGroup(i, move.x / l.cellSize.x, move.y / l.cellSize.y)
                         game.version++
                     }
                 },
