@@ -2,6 +2,8 @@ package dev.daniel.jigsaw.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -61,6 +63,8 @@ import dev.daniel.jigsaw.puzzle.CanvasSpec
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.boardLayout
 import dev.daniel.jigsaw.puzzle.keepAllReachable
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private const val BOARD_FILL_ALPHA = 0.06f
@@ -282,29 +286,34 @@ private fun Modifier.puzzleGestures(
     }
     return pointerInput(game) {
         var dragging: Int? = null
+        var downAt = Offset.Zero
         fun finish() {
             dragging?.let(::settle)
             dragging = null
         }
-        detectDragGestures(
-            onDragStart = { pos ->
-                dragging = layout.value?.let { hitTest(game.cut, it, pos) }?.also {
-                    board.bringToFront(it)
-                    game.version++
-                }
-            },
-            onDragEnd = { finish() },
-            onDragCancel = { finish() },
-            onDrag = { change, amount ->
-                val i = dragging
-                val l = layout.value
-                if (i != null && l != null) {
-                    change.consume()
-                    board.moveGroup(i, amount.x / l.cellSize.x, amount.y / l.cellSize.y)
-                    game.version++
-                }
-            },
-        )
+        coroutineScope {
+            // detectDragGestures reports where the touch slop was crossed (~8dp from the touch); remember the touch.
+            launch { awaitEachGesture { downAt = awaitFirstDown(requireUnconsumed = false).position } }
+            detectDragGestures(
+                onDragStart = { _ ->
+                    dragging = layout.value?.let { hitTest(game.cut, it, downAt) }?.also {
+                        board.bringToFront(it)
+                        game.version++
+                    }
+                },
+                onDragEnd = { finish() },
+                onDragCancel = { finish() },
+                onDrag = { change, amount ->
+                    val i = dragging
+                    val l = layout.value
+                    if (i != null && l != null) {
+                        change.consume()
+                        board.moveGroup(i, amount.x / l.cellSize.x, amount.y / l.cellSize.y)
+                        game.version++
+                    }
+                },
+            )
+        }
     }.pointerInput(game) {
         detectTapGestures { pos ->
             if (!board.rotatable) return@detectTapGestures
