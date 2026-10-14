@@ -122,8 +122,7 @@ class NextcloudShareSource(
             .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code, dir.toString())
-            val body = response.body ?: throw UnexpectedResponseException("Empty PROPFIND response")
-            return parseResponse(body.charStream(), dir)
+            return parseResponse(response.body.charStream(), dir)
         }
     }
 

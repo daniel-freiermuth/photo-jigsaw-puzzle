@@ -165,7 +165,7 @@ object Http {
     private fun execute(client: OkHttpClient, request: Request, url: String): ByteArray =
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code, url)
-            response.body?.bytes() ?: throw UnexpectedResponseException("Empty body for $url")
+            response.body.bytes()
         }
 
     /** Request tag: the response is pinned in the cache (see [HttpResource.revision]). */
