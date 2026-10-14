@@ -17,15 +17,21 @@ import java.util.concurrent.TimeUnit
 /**
  * An HTTP GET target plus any headers (e.g. auth) needed to fetch it. [revision] identifies the
  * content (an ETag, Immich's thumbhash, …): when set, the response is cached for good, and a changed
- * picture is fetched anew because it comes with a new revision.
+ * picture is fetched anew because it comes with a new revision. Serializable for [ImageListStore].
  */
-data class HttpResource(val url: String, val headers: Map<String, String> = emptyMap(), val revision: String? = null)
+@Serializable
+data class HttpResource(
+    val url: String,
+    @EncodeDefault val headers: Map<String, String> = emptyMap(),
+    val revision: String? = null,
+)
 
 /**
  * One picture available from a source. [thumbnail] is used by the gallery, [full] by the puzzle.
  * [takenAt] (epoch milliseconds; capture time where the source knows it, otherwise modification
- * time) orders the gallery newest first; null sorts last.
+ * time) orders the gallery newest first; null sorts last. Serializable for [ImageListStore].
  */
+@Serializable
 data class RemoteImage(
     val id: String,
     val name: String,
