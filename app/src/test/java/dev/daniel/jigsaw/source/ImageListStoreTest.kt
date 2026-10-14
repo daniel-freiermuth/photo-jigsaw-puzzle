@@ -1,5 +1,7 @@
 package dev.daniel.jigsaw.source
 
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -11,7 +13,7 @@ class ImageListStoreTest {
     val tmp = TemporaryFolder()
 
     @Test
-    fun `saved listings come back intact, including auth headers, revisions and missing dates`() {
+    fun `saved listings come back intact, including auth headers, revisions and missing dates`() = runTest {
         val listings = mapOf(
             "nc" to listOf(
                 RemoteImage(
@@ -25,16 +27,17 @@ class ImageListStoreTest {
             "urls" to listOf(RemoteImage("u", "u", HttpResource("https://e/u.png"), HttpResource("https://e/u.png"))),
             "empty" to emptyList(),
         )
-        val store = ImageListStore(File(tmp.root, "gallery/listings.json"))
+        val store = ImageListStore(File(tmp.root, "gallery/listings.json"), StandardTestDispatcher(testScheduler))
         store.save(listings)
         assertEquals(listings, store.load())
     }
 
     @Test
-    fun `a missing or corrupt file means no saved listings`() {
+    fun `a missing or corrupt file means no saved listings`() = runTest {
         val file = File(tmp.root, "listings.json")
-        assertEquals(emptyMap<String, List<RemoteImage>>(), ImageListStore(file).load())
+        val store = ImageListStore(file, StandardTestDispatcher(testScheduler))
+        assertEquals(emptyMap<String, List<RemoteImage>>(), store.load())
         file.writeText("{not json")
-        assertEquals(emptyMap<String, List<RemoteImage>>(), ImageListStore(file).load())
+        assertEquals(emptyMap<String, List<RemoteImage>>(), store.load())
     }
 }

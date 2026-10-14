@@ -1,5 +1,7 @@
 package dev.daniel.jigsaw.source
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -10,17 +12,19 @@ import java.io.IOException
  * The last listing of every source, so the gallery appears at once on start and still shows a
  * source's pictures while it can't be reached. Keyed by [SourceConfig.id].
  */
-class ImageListStore(private val file: File) {
+class ImageListStore(private val file: File, private val ioDispatcher: CoroutineDispatcher) {
 
-    /** Blocking. Empty when nothing was saved yet or the file is unreadable. */
-    fun load(): Map<String, List<RemoteImage>> = try {
-        if (file.exists()) decode(file.readText()) else emptyMap()
-    } catch (_: IOException) {
-        emptyMap()
+    /** Empty when nothing was saved yet or the file is unreadable. */
+    suspend fun load(): Map<String, List<RemoteImage>> = withContext(ioDispatcher) {
+        try {
+            if (file.exists()) decode(file.readText()) else emptyMap()
+        } catch (_: IOException) {
+            emptyMap()
+        }
     }
 
-    /** Blocking. Written to a temporary file first, so a crash never leaves a half-written list. */
-    fun save(listings: Map<String, List<RemoteImage>>) {
+    /** Written to a temporary file first, so a crash never leaves a half-written list. */
+    suspend fun save(listings: Map<String, List<RemoteImage>>) = withContext(ioDispatcher) {
         file.parentFile?.mkdirs()
         val tmp = File(file.path + ".tmp")
         tmp.writeText(encode(listings))

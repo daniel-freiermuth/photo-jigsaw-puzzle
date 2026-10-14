@@ -22,8 +22,12 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
   time; Nextcloud: capture time where the server provides it — Nextcloud 28+ — else modification time; URL lists
   have no dates and go last). A source that fails to load is reported above the grid without hiding the others.
 - Updating the gallery:
-  - **When:** the sources are listed on app start, with ⟳ or pull-to-refresh, after adding a source, and
-    when the app comes back to the foreground more than 10 minutes after the last refresh.
+  - **Never older than a minute while visible:** while the gallery is on screen and the app is in the
+    foreground, the sources are listed again whenever the list reaches one minute old. Coming back to it
+    (cold start, from Settings, from a puzzle, from the background) lists them at once if the list is
+    older than that, otherwise when it gets there. While the gallery isn't visible, nothing is listed.
+  - **Adding a source** makes the list due at once.
+  - **Progress:** ⟳ and pull-to-refresh show it; the automatic refreshes run silently.
   - **During a refresh** the current images stay on screen.
   - **Last known list:** each source's last listing is saved (`files/gallery/listings.json`). The gallery
     appears at once on start, and a source that can't be reached keeps showing its last known pictures,
@@ -114,7 +118,8 @@ app/src/main/java/dev/daniel/jigsaw/
   source/   ImageSource + Nextcloud / Immich / URL-list implementations; Http (disk cache, revisions,
             offline fallback); persisted SourceStore and ImageListStore (last listings)
   puzzle/   JigsawCut (tab geometry), PuzzleBoard (pure game state), PieceRenderer, ImageDecoding
-  ui/       Compose screens: gallery (main view), settings, puzzle canvas; AppViewModel; UiText (localised errors)
+  ui/       Compose screens: gallery (main view), settings, puzzle canvas; AppViewModel; GalleryFeed
+            (listing, refresh timing, saved lists); UiText (localised errors)
 app/src/main/res/values/strings.xml      English text (default)
 app/src/main/res/values-de/strings.xml   German text; Lint fails if a translation is missing or extra
 ```

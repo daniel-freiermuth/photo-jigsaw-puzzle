@@ -143,6 +143,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
@@ -151,6 +152,7 @@ dependencies {
     testImplementation("org.json:json:20250517")
     testImplementation("net.sf.kxml:kxml2:2.3.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
 
     detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8")
     detektPlugins("io.nlopez.compose.rules:detekt:0.4.27")

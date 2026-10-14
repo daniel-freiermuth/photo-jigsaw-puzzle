@@ -15,7 +15,11 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import dev.daniel.jigsaw.ui.AppViewModel
 import dev.daniel.jigsaw.ui.GalleryScreen
 import dev.daniel.jigsaw.ui.PuzzleScreen
@@ -35,11 +39,6 @@ class MainActivity : ComponentActivity() {
         val language = AppLocale.current(this)
         setContent { AppTheme { App(language, onLanguageChange = { AppLocale.set(this, it) }, vm = vm) } }
     }
-
-    override fun onResume() {
-        super.onResume()
-        vm.refreshGallery(onlyIfStale = true)
-    }
 }
 
 // Not private: called from the Activity's lambda, which would otherwise need a synthetic accessor.
@@ -51,16 +50,23 @@ internal fun App(
 ) {
     BackHandler(enabled = vm.screen != Screen.Gallery) { vm.back() }
     when (val screen = vm.screen) {
-        Screen.Gallery -> GalleryScreen(
-            state = vm.gallery,
-            tiles = vm.tiles,
-            settings = vm.settings,
-            refreshing = vm.refreshing,
-            hasSources = vm.sources.isNotEmpty(),
-            onRefresh = { vm.refreshGallery() },
-            onOpenSettings = vm::openSettings,
-            onPick = vm::openImage,
-        )
+        Screen.Gallery -> {
+            // Keeps the gallery current exactly while it is visible: on screen, app in the foreground.
+            val lifecycle = LocalLifecycleOwner.current
+            LaunchedEffect(lifecycle) {
+                lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.feed.keepFresh() }
+            }
+            GalleryScreen(
+                state = vm.feed.state,
+                tiles = vm.tiles,
+                settings = vm.settings,
+                refreshing = vm.feed.refreshing,
+                hasSources = vm.sources.isNotEmpty(),
+                onRefresh = vm.feed::refresh,
+                onOpenSettings = vm::openSettings,
+                onPick = vm::openImage,
+            )
+        }
         Screen.Settings -> SettingsScreen(
             sources = vm.sources,
             onAdd = vm::addSource,
