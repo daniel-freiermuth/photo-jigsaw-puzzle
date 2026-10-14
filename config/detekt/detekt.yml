@@ -1,6 +1,5 @@
-# Built on detekt's default config with `allRules = true` (every rule, including inactive and
-# experimental ones) plus ktlint (detekt-formatting) and Compose rules. Only deviations are listed
-# here, each with a reason.
+# Built on detekt's default config (its default-active rules) plus ktlint (detekt-rules-ktlint-wrapper)
+# and Compose rules. Only deviations are listed here, each with a reason.
 
 naming:
   FunctionNaming:
