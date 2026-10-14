@@ -28,4 +28,28 @@ class GalleryOrderTest {
             merged.newestFirst().map { it.image.id },
         )
     }
+
+    @Test
+    fun `a source that fails keeps its last known images and is reported, removed sources disappear`() {
+        val urls = SourceConfig.UrlList("u", "Urls", "https://e/list.txt")
+        fun remote(id: String, takenAt: Long) = RemoteImage(id, id, HttpResource(id), HttpResource(id), takenAt)
+        val previous = mapOf(
+            "nc" to listOf(remote("nc-old", 100)),
+            "im" to listOf(remote("im-stale", 200)),
+            "gone" to listOf(remote("gone-1", 999)),
+        )
+        val merged = mergeListings(
+            sources = listOf(nextcloud, immich, urls),
+            results = listOf(
+                Result.success(listOf(remote("nc-new", 300))),
+                Result.failure(java.net.UnknownHostException("p")),
+                null,
+            ),
+            previous = previous,
+        )
+        assertEquals(listOf("nc-new", "im-stale"), merged.content.images.map { it.image.id })
+        assertEquals(listOf("Immich"), merged.content.failures.map { it.label })
+        assertEquals(setOf("nc", "im", "u"), merged.listings.keys)
+        assertEquals(listOf("im-stale"), merged.listings.getValue("im").map { it.id })
+    }
 }

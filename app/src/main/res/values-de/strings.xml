@@ -12,7 +12,7 @@
     <string name="gallery_list_failed">Bilder konnten nicht geladen werden:</string>
     <string name="gallery_retry">Erneut versuchen</string>
     <string name="gallery_empty">In deinen Quellen wurden keine Bilder gefunden.</string>
-    <string name="gallery_some_failed">Einige Quellen konnten nicht geladen werden:</string>
+    <string name="gallery_some_failed">Einige Quellen konnten nicht aktualisiert werden:</string>
     <string name="gallery_source_failure">%1$s: %2$s</string>
 
     <!-- Puzzle -->

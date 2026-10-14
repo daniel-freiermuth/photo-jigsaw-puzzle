@@ -2,7 +2,6 @@ package dev.daniel.jigsaw.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
@@ -27,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +45,7 @@ fun GalleryScreen(
     state: Load<GalleryContent>,
     tiles: Map<String, SavedPuzzle>,
     settings: PuzzleSettings,
+    refreshing: Boolean,
     hasSources: Boolean,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -69,24 +70,43 @@ fun GalleryScreen(
             )
         },
     ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
+        // While refreshing, the current images stay; the pull indicator shows that a refresh is running.
+        PullToRefreshBox(
+            isRefreshing = refreshing && state is Load.Ready,
+            onRefresh = onRefresh,
+            modifier = Modifier.padding(padding).fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
             when {
                 !hasSources -> Message(
                     stringResource(R.string.gallery_no_sources),
                     action = stringResource(R.string.gallery_open_settings),
                     onAction = onOpenSettings,
                 )
-                state is Load.Loading -> CircularProgressIndicator()
-                state is Load.Ready && state.value.images.isEmpty() && state.value.failures.isNotEmpty() -> Message(
-                    stringResource(R.string.gallery_list_failed) + "\n" + failureLines(state.value.failures),
-                    stringResource(R.string.gallery_retry),
-                    onRefresh,
-                )
-                state is Load.Ready && state.value.images.isEmpty() ->
-                    Message(stringResource(R.string.gallery_empty), stringResource(R.string.action_refresh), onRefresh)
-                state is Load.Ready -> ImageGrid(state.value, tiles, settings, onPick)
+                state is Load.Ready -> GalleryContentView(state.value, tiles, settings, onRefresh, onPick)
+                else -> CircularProgressIndicator()
             }
         }
+    }
+}
+
+@Composable
+private fun GalleryContentView(
+    content: GalleryContent,
+    tiles: Map<String, SavedPuzzle>,
+    settings: PuzzleSettings,
+    onRefresh: () -> Unit,
+    onPick: (GalleryImage) -> Unit,
+) {
+    when {
+        content.images.isEmpty() && content.failures.isNotEmpty() -> Message(
+            stringResource(R.string.gallery_list_failed) + "\n" + failureLines(content.failures),
+            stringResource(R.string.gallery_retry),
+            onRefresh,
+        )
+        content.images.isEmpty() ->
+            Message(stringResource(R.string.gallery_empty), stringResource(R.string.action_refresh), onRefresh)
+        else -> ImageGrid(content, tiles, settings, onPick)
     }
 }
 

@@ -27,7 +27,7 @@ class SourceParsingTest {
     }
 
     @Test
-    fun `webdav multistatus distinguishes folders and content types and prefers capture over modified time`() {
+    fun `webdav multistatus distinguishes folders and content types, prefers capture time, keeps the etag`() {
         val xml = """
             <?xml version="1.0"?>
             <d:multistatus xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns">
@@ -39,6 +39,7 @@ class SourceParsingTest {
                 <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>image/jpeg</d:getcontenttype>
                   <d:getlastmodified>Tue, 13 Oct 2026 19:39:24 GMT</d:getlastmodified>
                   <nc:metadata-photos-original_date_time>1714564800</nc:metadata-photos-original_date_time>
+                  <d:getetag>"5f1c0e"</d:getetag>
                 </d:prop></d:propstat></d:response>
               <d:response><d:href>/public.php/webdav/notes.txt</d:href>
                 <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>text/plain</d:getcontenttype>
@@ -55,7 +56,8 @@ class SourceParsingTest {
                     "/public.php/webdav/beach.jpg",
                     false,
                     "image/jpeg",
-                    millis("2024-05-01T12:00:00Z")
+                    millis("2024-05-01T12:00:00Z"),
+                    "\"5f1c0e\"",
                 ),
                 NextcloudShareSource.DavEntry(
                     "/public.php/webdav/notes.txt",
@@ -85,15 +87,15 @@ class SourceParsingTest {
     }
 
     @Test
-    fun `immich assets keep images only, with their capture time`() {
+    fun `immich assets keep images only, with their capture time and thumbnail digest`() {
         val assets = JSONArray(
-            """[{"id":"a","type":"IMAGE","originalFileName":"a.jpg","fileCreatedAt":"2024-05-01T12:00:00.000Z"},
+            """[{"id":"a","type":"IMAGE","originalFileName":"a.jpg","fileCreatedAt":"2024-05-01T12:00:00.000Z","thumbhash":"h1"},
                 {"id":"v","type":"VIDEO","originalFileName":"v.mp4"},
                 {"id":"b","type":"IMAGE"}]"""
         )
         assertEquals(
             listOf(
-                ImmichShareSource.ImmichAsset("a", "a.jpg", millis("2024-05-01T12:00:00Z")),
+                ImmichShareSource.ImmichAsset("a", "a.jpg", millis("2024-05-01T12:00:00Z"), "h1"),
                 ImmichShareSource.ImmichAsset("b", "b", null),
             ),
             ImmichShareSource.parseAssets(assets),
@@ -119,11 +121,12 @@ class SourceParsingTest {
             """{"id":["a","v","t","b"],
                 "isImage":[true,false,true,true],
                 "isTrashed":[false,false,true,false],
-                "fileCreatedAt":["2026-10-13T09:58:52.749",null,"2026-10-01T00:00:00","x"]}"""
+                "fileCreatedAt":["2026-10-13T09:58:52.749",null,"2026-10-01T00:00:00","x"],
+                "thumbhash":["h1",null,"h3",null]}"""
         )
         assertEquals(
             listOf(
-                ImmichShareSource.ImmichAsset("a", "2026-10-13 09:58", millis("2026-10-13T09:58:52.749Z")),
+                ImmichShareSource.ImmichAsset("a", "2026-10-13 09:58", millis("2026-10-13T09:58:52.749Z"), "h1"),
                 ImmichShareSource.ImmichAsset("b", "b", null),
             ),
             ImmichShareSource.parseTimelineBucket(bucket),

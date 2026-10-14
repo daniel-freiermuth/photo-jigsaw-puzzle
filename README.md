@@ -21,6 +21,20 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
 - The main view shows every image from all configured sources on one timeline, newest first (Immich: capture
   time; Nextcloud: capture time where the server provides it — Nextcloud 28+ — else modification time; URL lists
   have no dates and go last). A source that fails to load is reported above the grid without hiding the others.
+- Updating the gallery:
+  - **When:** the sources are listed on app start, with ⟳ or pull-to-refresh, after adding a source, and
+    when the app comes back to the foreground more than 10 minutes after the last refresh.
+  - **During a refresh** the current images stay on screen.
+  - **Last known list:** each source's last listing is saved (`files/gallery/listings.json`). The gallery
+    appears at once on start, and a source that can't be reached keeps showing its last known pictures,
+    with the reason in the card above the grid.
+- Downloaded pictures are kept in a 250 MB disk cache (`cache/http`), so thumbnails aren't downloaded again
+  on every start and opening a puzzle doesn't download its picture again.
+  - **Revisions:** Immich pictures are versioned by their thumbhash, Nextcloud files by their ETag. A
+    picture is reused until it changes on the server, whatever caching headers the server sends.
+  - **URL lists** follow the image server's own caching headers.
+  - **Offline:** cached pictures are used, so started puzzles stay playable. Listings are always fetched
+    from the server.
 - **Settings** (gear icon) holds the image sources (add/remove; tap a share link to open it in the browser) and
   puzzle preferences.
 - Tap an image → a puzzle with classic tab/blank cuts. **Pieces** (Settings: about 12, 24, 48 or 96; the grid
@@ -97,7 +111,8 @@ uploaded as an artifact when it fails):
 
 ```
 app/src/main/java/dev/daniel/jigsaw/
-  source/   ImageSource + Nextcloud / Immich / URL-list implementations, persisted SourceStore
+  source/   ImageSource + Nextcloud / Immich / URL-list implementations; Http (disk cache, revisions,
+            offline fallback); persisted SourceStore and ImageListStore (last listings)
   puzzle/   JigsawCut (tab geometry), PuzzleBoard (pure game state), PieceRenderer, ImageDecoding
   ui/       Compose screens: gallery (main view), settings, puzzle canvas; AppViewModel; UiText (localised errors)
 app/src/main/res/values/strings.xml      English text (default)

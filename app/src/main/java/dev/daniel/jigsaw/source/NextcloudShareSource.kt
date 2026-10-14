@@ -83,25 +83,25 @@ class NextcloudShareSource(
             children.filter { (entry, _) -> entry.isCollection }.forEach { (_, url) -> pending.addLast(url) }
             images += children
                 .filter { (entry, _) -> !entry.isCollection && entry.contentType.isPuzzleImage() }
-                .map { (entry, url) -> image(url, rootPath, endpoint.headers, entry.takenAt) }
+                .map { (entry, url) -> image(url, rootPath, endpoint.headers, entry) }
         }
         return images.sortedBy { it.id.lowercase() }
     }
 
-    private fun image(url: HttpUrl, rootPath: String, headers: Map<String, String>, takenAt: Long?): RemoteImage {
+    private fun image(url: HttpUrl, rootPath: String, headers: Map<String, String>, entry: DavEntry): RemoteImage {
         val relative = "/" + url.encodedPath.decodeUrlPath().removePrefix(rootPath).trimStart('/')
-        val full = HttpResource(url.toString(), headers)
+        val full = HttpResource(url.toString(), headers, revision = entry.etag)
         return RemoteImage(
             id = relative,
             name = relative.substringAfterLast('/'),
-            thumbnail = if (password.isEmpty()) previewResource(relative) else full,
+            thumbnail = if (password.isEmpty()) previewResource(relative, entry.etag) else full,
             full = full,
-            takenAt = takenAt,
+            takenAt = entry.takenAt,
         )
     }
 
-    private fun previewResource(relativePath: String) = HttpResource(
-        share.base.newBuilder()
+    private fun previewResource(relativePath: String, etag: String?) = HttpResource(
+        url = share.base.newBuilder()
             .addPathSegments("index.php/apps/files_sharing/publicpreview")
             .addPathSegment(share.token)
             .addQueryParameter("file", relativePath)
@@ -109,7 +109,8 @@ class NextcloudShareSource(
             .addQueryParameter("y", THUMBNAIL_SIZE)
             .addQueryParameter("a", "1")
             .build()
-            .toString()
+            .toString(),
+        revision = etag,
     )
 
     private fun propfind(dir: HttpUrl, headers: Map<String, String>): List<DavEntry> {
@@ -140,6 +141,8 @@ class NextcloudShareSource(
         val isCollection: Boolean,
         val contentType: String,
         val takenAt: Long? = null,
+        /** Changes whenever the file's content does; versions cached downloads. */
+        val etag: String? = null,
     )
 
     /** Properties of the `<d:response>` being read. */
@@ -149,8 +152,9 @@ class NextcloudShareSource(
         var contentType = ""
         var modified: Long? = null
         var captured: Long? = null
+        var etag: String? = null
 
-        fun build() = href?.let { DavEntry(it, isCollection, contentType, captured ?: modified) }
+        fun build() = href?.let { DavEntry(it, isCollection, contentType, captured ?: modified, etag) }
     }
 
     companion object {
@@ -165,7 +169,7 @@ class NextcloudShareSource(
             <?xml version="1.0" encoding="UTF-8"?>
             <d:propfind xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns">
               <d:prop>
-                <d:resourcetype/><d:getcontenttype/><d:getlastmodified/>
+                <d:resourcetype/><d:getcontenttype/><d:getlastmodified/><d:getetag/>
                 <nc:metadata-photos-original_date_time/>
               </d:prop>
             </d:propfind>
@@ -216,6 +220,7 @@ class NextcloudShareSource(
                 DAV to "collection" -> entry.isCollection = true
                 DAV to "getcontenttype" -> entry.contentType = parser.nextText().trim()
                 DAV to "getlastmodified" -> entry.modified = parseHttpDate(parser.nextText().trim())
+                DAV to "getetag" -> entry.etag = parser.nextText().trim().ifEmpty { null }
                 NEXTCLOUD to "metadata-photos-original_date_time" ->
                     entry.captured = parseEpochSeconds(parser.nextText())
             }

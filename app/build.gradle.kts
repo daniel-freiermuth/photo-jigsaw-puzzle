@@ -142,7 +142,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.9.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.9.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
@@ -150,6 +150,7 @@ dependencies {
     // Real implementations of org.json / XmlPullParser for JVM unit tests (android.jar only has stubs).
     testImplementation("org.json:json:20250517")
     testImplementation("net.sf.kxml:kxml2:2.3.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 
     detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8")
     detektPlugins("io.nlopez.compose.rules:detekt:0.4.27")

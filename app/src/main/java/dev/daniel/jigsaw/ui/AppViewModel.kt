@@ -3,6 +3,7 @@ package dev.daniel.jigsaw.ui
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +22,7 @@ import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.cutPuzzle
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.source.Http
+import dev.daniel.jigsaw.source.ImageListStore
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
 import dev.daniel.jigsaw.source.SourceStore
@@ -66,8 +68,31 @@ fun List<GalleryImage>.newestFirst(): List<GalleryImage> =
 /** A source that couldn't be listed, and why. */
 data class SourceFailure(val label: String, val reason: UiText)
 
-/** Images from every source that answered, plus a failure for each source that didn't. */
+/** Images from every source (fresh or last known), plus a failure for each source that didn't answer. */
 data class GalleryContent(val images: List<GalleryImage>, val failures: List<SourceFailure>)
+
+/** The listings to keep per source id, and the gallery they make up. */
+data class MergedListings(val listings: Map<String, List<RemoteImage>>, val content: GalleryContent)
+
+/**
+ * Combines one listing attempt per source ([results], parallel to [sources]; null = not attempted)
+ * with the [previous] listings: a source that answered shows its new images, one that failed or
+ * wasn't asked keeps its previous ones. Sources no longer configured are dropped.
+ */
+fun mergeListings(
+    sources: List<SourceConfig>,
+    results: List<Result<List<RemoteImage>>?>,
+    previous: Map<String, List<RemoteImage>>,
+): MergedListings {
+    val listings = sources.zip(results).associate { (source, result) ->
+        source.id to (result?.getOrNull() ?: previous[source.id].orEmpty())
+    }
+    val images = sources.flatMap { source -> listings.getValue(source.id).map { GalleryImage(source, it) } }
+    val failures = sources.zip(results).mapNotNull { (source, result) ->
+        result?.exceptionOrNull()?.let { SourceFailure(source.label, it.toUiText()) }
+    }
+    return MergedListings(listings, GalleryContent(images.newestFirst(), failures))
+}
 
 /** What the puzzle screen shows for an image. */
 sealed interface PuzzleContent {
@@ -101,10 +126,13 @@ class AppViewModel @JvmOverloads constructor(
     app: Application,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /** Monotonic milliseconds, for deciding when the gallery is due for a refresh. */
+    private val clock: () -> Long = SystemClock::elapsedRealtime,
 ) : AndroidViewModel(app) {
     private val store = SourceStore(app)
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val puzzles = PuzzleStore(File(app.filesDir, "puzzles"))
+    private val imageLists = ImageListStore(File(app.filesDir, "gallery/listings.json"))
 
     /** All puzzle-file access runs here, one at a time, so a load always sees the latest save. */
     private val puzzleIo = ioDispatcher.limitedParallelism(1)
@@ -132,9 +160,19 @@ class AppViewModel @JvmOverloads constructor(
     )
         private set
 
+    /** True while the sources are being listed; the gallery keeps showing what it has meanwhile. */
+    var refreshing by mutableStateOf(false)
+        private set
+
     private var galleryJob: Job? = null
     private var puzzleJob: Job? = null
     private var galleryStale = false
+
+    /** The images shown, per source id: the latest listing that succeeded (or the saved one). */
+    private var listings: Map<String, List<RemoteImage>> = emptyMap()
+
+    /** [clock] time of the last completed refresh; null before the first. */
+    private var lastRefreshed: Long? = null
 
     init {
         refreshGallery()
@@ -165,45 +203,76 @@ class AppViewModel @JvmOverloads constructor(
     fun removeSource(id: String) {
         sources = sources.filterNot { it.id == id }
         store.save(sources)
-        galleryStale = true
+        listings = listings - id
         tiles = tiles.filterKeys { !it.startsWith("$id/") }
+        (gallery as? Load.Ready)?.value?.let { content ->
+            gallery = Load.Ready(content.copy(images = content.images.filterNot { it.source.id == id }))
+        }
         viewModelScope.launch(puzzleIo) { puzzles.clearSource(id) }
+        // A listing still running would bring the removed source's images back.
+        if (refreshing) refreshGallery()
     }
 
     fun openSettings() {
         screen = Screen.Settings
     }
 
-    /** Lists every source concurrently; one unreachable source doesn't hide the others' images. */
-    fun refreshGallery() {
+    /**
+     * Lists every source concurrently; one unreachable source doesn't hide the others' images, and
+     * keeps showing its last known ones. The first refresh starts from the list saved last time.
+     * With [onlyIfStale] (the app coming back to the foreground) nothing happens unless the last
+     * refresh finished a while ago, so new pictures appear without asking but not on every switch.
+     */
+    fun refreshGallery(onlyIfStale: Boolean = false) {
+        if (onlyIfStale) {
+            val last = lastRefreshed ?: return
+            if (refreshing || clock() - last < AUTO_REFRESH_AFTER_MS) return
+        }
         galleryJob?.cancel()
         galleryStale = false
         val current = sources
-        gallery = Load.Loading
+        refreshing = true
         galleryJob = viewModelScope.launch {
+            // Shows [content], with the gallery tiles read from the saved puzzles.
+            suspend fun show(content: GalleryContent) {
+                tiles = withContext(puzzleIo) {
+                    puzzles.deleteLegacyPreviews()
+                    content.images.mapNotNull { image ->
+                        puzzles.load(image.source.id, image.image.id)?.let { image.key to it }
+                    }.toMap()
+                }
+                gallery = Load.Ready(content)
+            }
+
+            if (gallery !is Load.Ready) {
+                listings = withContext(ioDispatcher) { imageLists.load() }
+                if (current.any { listings[it.id].orEmpty().isNotEmpty() }) {
+                    show(mergeListings(current, current.map { null }, listings).content)
+                }
+            }
             val results = current.map { source ->
                 async {
                     try {
-                        Result.success(source.toImageSource().listImages().map { GalleryImage(source, it) })
+                        Result.success(source.toImageSource().listImages())
                     } catch (e: IOException) {
                         Result.failure(e)
                     }
                 }
             }.awaitAll()
-            val images = results.flatMap { it.getOrDefault(emptyList()) }.newestFirst()
-            val failures = results.zip(current).mapNotNull { (result, source) ->
-                result.exceptionOrNull()?.let { SourceFailure(source.label, it.toUiText()) }
+            val merged = mergeListings(current, results, listings)
+            listings = merged.listings
+            show(merged.content)
+            refreshing = false
+            lastRefreshed = clock()
+            withContext(ioDispatcher) {
+                try {
+                    imageLists.save(merged.listings)
+                } catch (_: IOException) {
+                    // Only costs the instant start next time.
+                }
             }
-            tiles = withContext(puzzleIo) {
-                puzzles.deleteLegacyPreviews()
-                images.mapNotNull { image -> savedPuzzle(image)?.let { image.key to it } }.toMap()
-            }
-            gallery = Load.Ready(GalleryContent(images, failures))
         }
     }
-
-    /** Blocking: the stored state of [image]'s puzzle, null if never opened. Run on [puzzleIo]. */
-    private fun savedPuzzle(image: GalleryImage): SavedPuzzle? = puzzles.load(image.source.id, image.image.id)
 
     /** Opens [image]'s puzzle where it was left, the finished picture if solved, or a new puzzle. */
     fun openImage(image: GalleryImage) = openImage(image, newSeed = image.seed)
@@ -282,7 +351,7 @@ class AppViewModel @JvmOverloads constructor(
         // Read on the main thread: the settings in force when the puzzle was opened.
         val chosen = settings
         val saved = withContext(puzzleIo) { puzzles.load(image.source.id, image.image.id) }
-        val bytes = withContext(ioDispatcher) { Http.getBytes(image.image.full) }
+        val bytes = withContext(ioDispatcher) { Http.getImage(image.image.full) }
         return withContext(computeDispatcher) {
             val bitmap = decodeSampled(bytes, maxSide = MAX_PUZZLE_SIDE)
             when (saved) {
@@ -336,5 +405,8 @@ class AppViewModel @JvmOverloads constructor(
         const val KEY_SNAP_TO_BOARD = "snapToBoard"
         const val KEY_ROTATE_PIECES = "rotatePieces"
         const val KEY_PIECES = "pieces"
+
+        /** Coming back to the app after this long lists the sources again. */
+        const val AUTO_REFRESH_AFTER_MS = 10L * 60 * 1000
     }
 }

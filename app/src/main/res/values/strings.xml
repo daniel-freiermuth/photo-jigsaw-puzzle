@@ -14,7 +14,7 @@
     <string name="gallery_list_failed">Couldn’t list images:</string>
     <string name="gallery_retry">Retry</string>
     <string name="gallery_empty">No images found in your sources.</string>
-    <string name="gallery_some_failed">Some sources couldn’t be loaded:</string>
+    <string name="gallery_some_failed">Some sources couldn’t be updated:</string>
     <!-- One line per failed source: "<source name>: <reason>" -->
     <string name="gallery_source_failure">%1$s: %2$s</string>
 

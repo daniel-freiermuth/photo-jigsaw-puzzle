@@ -39,9 +39,15 @@ class ImmichShareSource(
             RemoteImage(
                 id = asset.id,
                 name = asset.name,
-                thumbnail = HttpResource(api("assets/${asset.id}/thumbnail").withQuery("size", "thumbnail")),
+                thumbnail = HttpResource(
+                    api("assets/${asset.id}/thumbnail").withQuery("size", "thumbnail"),
+                    revision = asset.thumbhash,
+                ),
                 // "preview" is a server-rendered, EXIF-rotated JPEG (~1440px): ideal puzzle resolution.
-                full = HttpResource(api("assets/${asset.id}/thumbnail").withQuery("size", "preview")),
+                full = HttpResource(
+                    api("assets/${asset.id}/thumbnail").withQuery("size", "preview"),
+                    revision = asset.thumbhash,
+                ),
                 takenAt = asset.takenAt,
             )
         }
@@ -75,8 +81,11 @@ class ImmichShareSource(
     /** [authParam] is `key` for `/share/<key>` links and `slug` for custom `/s/<slug>` links. */
     data class Share(val base: HttpUrl, val authParam: String, val authValue: String)
 
-    /** An image in the share; [takenAt] is the capture time in epoch milliseconds, if known. */
-    data class ImmichAsset(val id: String, val name: String, val takenAt: Long?)
+    /**
+     * An image in the share; [takenAt] is the capture time in epoch milliseconds, if known. [thumbhash]
+     * is a digest of the rendered thumbnail: it changes when the picture is edited, so it versions the cache.
+     */
+    data class ImmichAsset(val id: String, val name: String, val takenAt: Long?, val thumbhash: String? = null)
 
     companion object {
         fun parseShareUrl(url: String): Share {
@@ -107,6 +116,7 @@ class ImmichShareSource(
                         id = it.getString("id"),
                         name = it.optString("originalFileName", it.getString("id")),
                         takenAt = parseIsoTimestamp(it.optString("fileCreatedAt").ifEmpty { null }),
+                        thumbhash = it.optString("thumbhash").ifEmpty { null },
                     )
                 }
 
@@ -119,6 +129,7 @@ class ImmichShareSource(
             val isImage = bucket.optJSONArray("isImage")
             val isTrashed = bucket.optJSONArray("isTrashed")
             val created = bucket.optJSONArray("fileCreatedAt")
+            val thumbhashes = bucket.optJSONArray("thumbhash")
             return (0 until ids.length())
                 .filter { isImage?.optBoolean(it, false) == true && isTrashed?.optBoolean(it, false) != true }
                 .map { i ->
@@ -129,7 +140,8 @@ class ImmichShareSource(
                         ?.take(TIMESTAMP_TO_MINUTE)
                         ?.replace('T', ' ')
                         ?: id
-                    ImmichAsset(id, name, parseIsoTimestamp(createdAt))
+                    val thumbhash = thumbhashes?.optString(i)?.takeUnless { thumbhashes.isNull(i) || it.isEmpty() }
+                    ImmichAsset(id, name, parseIsoTimestamp(createdAt), thumbhash)
                 }
         }
 

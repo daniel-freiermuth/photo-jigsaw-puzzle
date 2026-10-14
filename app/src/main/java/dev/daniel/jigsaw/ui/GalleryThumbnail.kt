@@ -80,7 +80,7 @@ fun GalleryThumbnail(
     modifier: Modifier = Modifier,
 ) {
     val resource = item.image.thumbnail
-    val picture = { decodeSampled(Http.getBytes(resource), MAX_SIDE) }
+    val picture = { decodeSampled(Http.getImage(resource), MAX_SIDE) }
     val inProgress = (saved as? SavedPuzzle.InProgress)?.takeUnless { it.needsRecut(settings) }
     when {
         saved == SavedPuzzle.Solved -> LoadedImage(

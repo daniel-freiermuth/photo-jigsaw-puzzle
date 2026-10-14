@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -15,7 +16,6 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.daniel.jigsaw.ui.AppViewModel
 import dev.daniel.jigsaw.ui.GalleryScreen
 import dev.daniel.jigsaw.ui.PuzzleScreen
@@ -23,6 +23,8 @@ import dev.daniel.jigsaw.ui.Screen
 import dev.daniel.jigsaw.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
+    private val vm: AppViewModel by viewModels()
+
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLocale.wrap(newBase))
     }
@@ -31,7 +33,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val language = AppLocale.current(this)
-        setContent { AppTheme { App(language, onLanguageChange = { AppLocale.set(this, it) }) } }
+        setContent { AppTheme { App(language, onLanguageChange = { AppLocale.set(this, it) }, vm = vm) } }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        vm.refreshGallery(onlyIfStale = true)
     }
 }
 
@@ -40,7 +47,7 @@ class MainActivity : ComponentActivity() {
 internal fun App(
     language: AppLanguage,
     onLanguageChange: (AppLanguage) -> Unit,
-    vm: AppViewModel = viewModel(),
+    vm: AppViewModel,
 ) {
     BackHandler(enabled = vm.screen != Screen.Gallery) { vm.back() }
     when (val screen = vm.screen) {
@@ -48,8 +55,9 @@ internal fun App(
             state = vm.gallery,
             tiles = vm.tiles,
             settings = vm.settings,
+            refreshing = vm.refreshing,
             hasSources = vm.sources.isNotEmpty(),
-            onRefresh = vm::refreshGallery,
+            onRefresh = { vm.refreshGallery() },
             onOpenSettings = vm::openSettings,
             onPick = vm::openImage,
         )
