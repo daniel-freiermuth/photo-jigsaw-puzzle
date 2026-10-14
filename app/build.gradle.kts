@@ -169,5 +169,5 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
 
     detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8")
-    detektPlugins("io.nlopez.compose.rules:detekt:0.4.27")
+    detektPlugins("io.nlopez.compose.rules:detekt:0.4.28")
 }
