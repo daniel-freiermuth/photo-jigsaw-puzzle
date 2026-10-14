@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.source
 
+import dev.daniel.jigsaw.map
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -43,7 +44,7 @@ class UrlListSource(
             val trimmed = body.trim()
             val entries = if (trimmed.startsWith("[")) {
                 val array = JSONArray(trimmed)
-                (0 until array.length()).map { array.getString(it) }
+                array.map { getString(it) }
             } else {
                 trimmed.lineSequence().toList()
             }

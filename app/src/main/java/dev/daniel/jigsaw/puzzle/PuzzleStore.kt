@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.puzzle
 
+import dev.daniel.jigsaw.map
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -153,7 +154,5 @@ class PuzzleStore(private val root: File) {
         } catch (_: IllegalArgumentException) {
             null
         }
-
-        private inline fun <T> JSONArray.map(read: JSONArray.(Int) -> T): List<T> = (0 until length()).map { read(it) }
     }
 }

@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.source
 
+import dev.daniel.jigsaw.map
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -55,7 +56,7 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
                 val sources = root.getJSONObject("sources")
                 sources.keys().asSequence().associateWith { id ->
                     val array = sources.getJSONArray(id)
-                    (0 until array.length()).map { decodeImage(array.getJSONObject(it)) }
+                    array.map { decodeImage(getJSONObject(it)) }
                 }
             }
         } catch (_: JSONException) {

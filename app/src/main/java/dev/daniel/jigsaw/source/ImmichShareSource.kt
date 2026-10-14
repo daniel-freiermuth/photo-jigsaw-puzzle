@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.source
 
+import dev.daniel.jigsaw.map
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -59,8 +60,7 @@ class ImmichShareSource(
         val album = JSONObject(get(api("albums/$albumId")))
         album.optJSONArray("assets")?.let { return parseAssets(it) }
         val buckets = JSONArray(get(api("timeline/buckets").withQuery("albumId", albumId)))
-        return (0 until buckets.length()).flatMap { i ->
-            val bucket = buckets.getJSONObject(i).getString("timeBucket")
+        return buckets.map { getJSONObject(it).getString("timeBucket") }.flatMap { bucket ->
             parseTimelineBucket(
                 JSONObject(
                     get(api("timeline/bucket").withQuery("albumId", albumId).withQuery("timeBucket", bucket)),
@@ -108,8 +108,7 @@ class ImmichShareSource(
 
         /** Every image asset; videos and other types are skipped. */
         fun parseAssets(assets: JSONArray): List<ImmichAsset> =
-            (0 until assets.length())
-                .map { assets.getJSONObject(it) }
+            assets.map { getJSONObject(it) }
                 .filter { it.optString("type") == "IMAGE" }
                 .map {
                     ImmichAsset(
