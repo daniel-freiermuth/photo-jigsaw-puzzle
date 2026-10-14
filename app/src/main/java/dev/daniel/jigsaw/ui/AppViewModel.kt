@@ -2,7 +2,6 @@ package dev.daniel.jigsaw.ui
 
 import android.app.Application
 import android.content.Context
-import android.graphics.Bitmap
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -10,19 +9,20 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.daniel.jigsaw.puzzle.BitmapPicture
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PuzzleBoard
+import dev.daniel.jigsaw.puzzle.PuzzlePicture
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
-import dev.daniel.jigsaw.puzzle.cutPuzzle
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.source.Http
+import dev.daniel.jigsaw.source.HttpResource
 import dev.daniel.jigsaw.source.ImageListStore
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
@@ -91,6 +91,10 @@ class AppViewModel @JvmOverloads constructor(
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
     /** Monotonic milliseconds, for deciding when the gallery is due for a refresh. */
     clock: () -> Long = SystemClock::elapsedRealtime,
+    /** Downloads a puzzle's picture; blocking, run on [ioDispatcher]. */
+    private val fetchImage: (HttpResource) -> ByteArray = Http::getImage,
+    /** Decodes downloaded bytes for cutting; CPU-heavy, run on [computeDispatcher]. */
+    private val decodePicture: (ByteArray) -> PuzzlePicture = { BitmapPicture(decodeSampled(it, MAX_PUZZLE_SIDE)) },
 ) : AndroidViewModel(app) {
     private val store = SourceStore(app)
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -262,31 +266,31 @@ class AppViewModel @JvmOverloads constructor(
         // Read on the main thread: the settings in force when the puzzle was opened.
         val chosen = settings
         val saved = withContext(puzzleIo) { puzzles.load(image.source.id, image.image.id) }
-        val bytes = withContext(ioDispatcher) { Http.getImage(image.image.full) }
+        val bytes = withContext(ioDispatcher) { fetchImage(image.image.full) }
         return withContext(computeDispatcher) {
-            val bitmap = decodeSampled(bytes, maxSide = MAX_PUZZLE_SIDE)
+            val picture = decodePicture(bytes)
             when (saved) {
-                SavedPuzzle.Solved -> PuzzleContent.Finished(bitmap.asImageBitmap())
+                SavedPuzzle.Solved -> PuzzleContent.Finished(picture.asImageBitmap())
 
                 is SavedPuzzle.InProgress -> saved.takeUnless { it.needsRecut(chosen) }
-                    ?.let { resume(image, bitmap, it, chosen.rotatePieces) }
-                    ?: newGame(image, bitmap, chosen, newSeed)
+                    ?.let { resume(image, picture, it, chosen.rotatePieces) }
+                    ?: newGame(image, picture, chosen, newSeed)
 
-                null -> newGame(image, bitmap, chosen, newSeed)
+                null -> newGame(image, picture, chosen, newSeed)
             }
         }
     }
 
     private fun newGame(
         image: GalleryImage,
-        bitmap: Bitmap,
+        picture: PuzzlePicture,
         chosen: PuzzleSettings,
         seed: Long,
     ): PuzzleContent.Playing {
-        val (rows, cols) = JigsawCut.gridFor(bitmap.width, bitmap.height, chosen.pieces)
+        val (rows, cols) = JigsawCut.gridFor(picture.width, picture.height, chosen.pieces)
         val random = Random(seed)
-        val board = PuzzleBoard(rows, cols, cellAspect(bitmap, rows, cols), rotatable = chosen.rotatePieces)
-        val cut = cutPuzzle(bitmap, JigsawCut(rows, cols, random), board)
+        val board = PuzzleBoard(rows, cols, cellAspect(picture, rows, cols), rotatable = chosen.rotatePieces)
+        val cut = picture.cut(JigsawCut(rows, cols, random), board)
         return PuzzleContent.Playing(PuzzleGame(image, seed, chosen.pieces, cut, random, scattered = false))
     }
 
@@ -296,23 +300,23 @@ class AppViewModel @JvmOverloads constructor(
      */
     private fun resume(
         image: GalleryImage,
-        bitmap: Bitmap,
+        picture: PuzzlePicture,
         saved: SavedPuzzle.InProgress,
         rotatePieces: Boolean,
     ): PuzzleContent.Playing? = try {
-        val aspect = cellAspect(bitmap, saved.rows, saved.cols)
+        val aspect = cellAspect(picture, saved.rows, saved.cols)
         val current = saved.withRotation(rotatePieces, aspect)
         val board = PuzzleBoard(current.rows, current.cols, current.board, aspect)
         val random = Random(current.seed)
-        val cut = cutPuzzle(bitmap, JigsawCut(current.rows, current.cols, random), board)
+        val cut = picture.cut(JigsawCut(current.rows, current.cols, random), board)
         PuzzleContent.Playing(PuzzleGame(image, current.seed, current.pieces, cut, random, scattered = true))
     } catch (e: IllegalArgumentException) {
         Log.w(TAG, "Saved puzzle ${image.key} does not fit, starting afresh", e)
         null
     }
 
-    private fun cellAspect(bitmap: Bitmap, rows: Int, cols: Int) =
-        (bitmap.width.toFloat() / cols) / (bitmap.height.toFloat() / rows)
+    private fun cellAspect(picture: PuzzlePicture, rows: Int, cols: Int) =
+        (picture.width.toFloat() / cols) / (picture.height.toFloat() / rows)
 
     private companion object {
         const val TAG = "AppViewModel"
