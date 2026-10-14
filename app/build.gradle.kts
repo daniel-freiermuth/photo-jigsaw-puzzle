@@ -85,8 +85,6 @@ android {
     }
 
     testOptions {
-        // org.json / XmlPullParser are used by the sources; return defaults instead of throwing in JVM tests.
-        unitTests.isReturnDefaultValues = true
         unitTests.all { it.useJUnitPlatform() }
     }
 
