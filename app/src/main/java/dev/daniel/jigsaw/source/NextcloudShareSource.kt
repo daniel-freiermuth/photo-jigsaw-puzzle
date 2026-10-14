@@ -83,12 +83,12 @@ class NextcloudShareSource(
             children.filter { (entry, _) -> entry.isCollection }.forEach { (_, url) -> pending.addLast(url) }
             images += children
                 .filter { (entry, _) -> !entry.isCollection && entry.contentType.isPuzzleImage() }
-                .map { (_, url) -> image(url, rootPath, endpoint.headers) }
+                .map { (entry, url) -> image(url, rootPath, endpoint.headers, entry.takenAt) }
         }
         return images.sortedBy { it.id.lowercase() }
     }
 
-    private fun image(url: HttpUrl, rootPath: String, headers: Map<String, String>): RemoteImage {
+    private fun image(url: HttpUrl, rootPath: String, headers: Map<String, String>, takenAt: Long?): RemoteImage {
         val relative = "/" + url.encodedPath.decodeUrlPath().removePrefix(rootPath).trimStart('/')
         val full = HttpResource(url.toString(), headers)
         return RemoteImage(
@@ -96,6 +96,7 @@ class NextcloudShareSource(
             name = relative.substringAfterLast('/'),
             thumbnail = if (password.isEmpty()) previewResource(relative) else full,
             full = full,
+            takenAt = takenAt,
         )
     }
 
@@ -135,16 +136,40 @@ class NextcloudShareSource(
 
     data class Share(val base: HttpUrl, val token: String)
 
-    data class DavEntry(val href: String, val isCollection: Boolean, val contentType: String)
+    /** One PROPFIND result; [takenAt] is the photo's capture time if Nextcloud knows it, else its modification time. */
+    data class DavEntry(
+        val href: String,
+        val isCollection: Boolean,
+        val contentType: String,
+        val takenAt: Long? = null,
+    )
+
+    /** Properties of the `<d:response>` being read. */
+    private class EntryBuilder {
+        var href: String? = null
+        var isCollection = false
+        var contentType = ""
+        var modified: Long? = null
+        var captured: Long? = null
+
+        fun build() = href?.let { DavEntry(it, isCollection, contentType, captured ?: modified) }
+    }
 
     companion object {
         private const val MAX_FOLDERS = 200
         private const val THUMBNAIL_SIZE = "400"
         private const val DAV = "DAV:"
+        private const val NEXTCLOUD = "http://nextcloud.org/ns"
+
+        // nc:metadata-photos-original_date_time is the EXIF capture time (Nextcloud 28+); older
+        // servers just omit it and getlastmodified is used instead.
         private val PROPFIND_BODY = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <d:propfind xmlns:d="DAV:">
-              <d:prop><d:resourcetype/><d:getcontenttype/></d:prop>
+            <d:propfind xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns">
+              <d:prop>
+                <d:resourcetype/><d:getcontenttype/><d:getlastmodified/>
+                <nc:metadata-photos-original_date_time/>
+              </d:prop>
             </d:propfind>
         """.trimIndent()
 
@@ -173,28 +198,29 @@ class NextcloudShareSource(
             parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
             parser.setInput(reader)
             val entries = mutableListOf<DavEntry>()
-            var href: String? = null
-            var isCollection = false
-            var contentType = ""
+            var current = EntryBuilder()
             var event = parser.eventType
             while (event != XmlPullParser.END_DOCUMENT) {
-                if (event == XmlPullParser.START_TAG && parser.namespace == DAV) {
-                    when (parser.name) {
-                        "response" -> {
-                            href = null
-                            isCollection = false
-                            contentType = ""
-                        }
-                        "href" -> href = parser.nextText().trim()
-                        "collection" -> isCollection = true
-                        "getcontenttype" -> contentType = parser.nextText().trim()
-                    }
-                } else if (event == XmlPullParser.END_TAG && parser.namespace == DAV && parser.name == "response") {
-                    href?.let { entries += DavEntry(it, isCollection, contentType) }
+                val isResponse = parser.namespace == DAV && parser.name == "response"
+                when {
+                    event == XmlPullParser.START_TAG && isResponse -> current = EntryBuilder()
+                    event == XmlPullParser.START_TAG -> readProperty(parser, current)
+                    event == XmlPullParser.END_TAG && isResponse -> current.build()?.let { entries += it }
                 }
                 event = parser.next()
             }
             return entries
+        }
+
+        private fun readProperty(parser: XmlPullParser, entry: EntryBuilder) {
+            when (parser.namespace to parser.name) {
+                DAV to "href" -> entry.href = parser.nextText().trim()
+                DAV to "collection" -> entry.isCollection = true
+                DAV to "getcontenttype" -> entry.contentType = parser.nextText().trim()
+                DAV to "getlastmodified" -> entry.modified = parseHttpDate(parser.nextText().trim())
+                NEXTCLOUD to "metadata-photos-original_date_time" ->
+                    entry.captured = parseEpochSeconds(parser.nextText())
+            }
         }
     }
 }

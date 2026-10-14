@@ -18,8 +18,9 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
 
 ## Gameplay
 
-- The main view shows every image from all configured sources; a source that fails to load is reported
-  above the grid without hiding the others.
+- The main view shows every image from all configured sources on one timeline, newest first (Immich: capture
+  time; Nextcloud: capture time where the server provides it — Nextcloud 28+ — else modification time; URL lists
+  have no dates and go last). A source that fails to load is reported above the grid without hiding the others.
 - **Settings** (gear icon) holds the image sources (add/remove) and puzzle preferences.
 - Tap an image → a puzzle with classic tab/blank cuts. **Pieces** (Settings: about 12, 24, 48 or 96; the grid
   adapts to the picture's shape) applies to new puzzles and to ones with nothing on the board yet, which are cut

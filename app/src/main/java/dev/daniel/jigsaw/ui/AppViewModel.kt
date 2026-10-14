@@ -53,6 +53,13 @@ data class GalleryImage(val source: SourceConfig, val image: RemoteImage) {
     val key get() = "${source.id}/${image.id}"
 }
 
+/**
+ * One timeline across all sources: newest [RemoteImage.takenAt] first; images without a date go
+ * last. The sort is stable, so ties and undated images keep their source order.
+ */
+fun List<GalleryImage>.newestFirst(): List<GalleryImage> =
+    sortedWith(compareByDescending(nullsFirst()) { it.image.takenAt })
+
 /** Images from every source that answered, plus a message for each source that didn't. */
 data class GalleryContent(val images: List<GalleryImage>, val failures: List<String>)
 
@@ -174,7 +181,7 @@ class AppViewModel @JvmOverloads constructor(
                     }
                 }
             }.awaitAll()
-            val images = results.flatMap { it.getOrDefault(emptyList()) }
+            val images = results.flatMap { it.getOrDefault(emptyList()) }.newestFirst()
             val failures = results.zip(current).mapNotNull { (result, source) ->
                 result.exceptionOrNull()?.let { "${source.label}: ${it.message ?: it.javaClass.simpleName}" }
             }

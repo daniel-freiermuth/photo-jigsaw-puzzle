@@ -36,20 +36,21 @@ class ImmichShareSource(
         } catch (e: JSONException) {
             throw IOException("Unexpected response from Immich", e)
         }
-        assets.map { (id, name) ->
+        assets.map { asset ->
             RemoteImage(
-                id = id,
-                name = name,
-                thumbnail = HttpResource(api("assets/$id/thumbnail").withQuery("size", "thumbnail")),
+                id = asset.id,
+                name = asset.name,
+                thumbnail = HttpResource(api("assets/${asset.id}/thumbnail").withQuery("size", "thumbnail")),
                 // "preview" is a server-rendered, EXIF-rotated JPEG (~1440px): ideal puzzle resolution.
-                full = HttpResource(api("assets/$id/thumbnail").withQuery("size", "preview")),
+                full = HttpResource(api("assets/${asset.id}/thumbnail").withQuery("size", "preview")),
+                takenAt = asset.takenAt,
             )
         }
     }
 
     private fun get(url: String) = String(Http.getBytes(HttpResource(url), client), Charsets.UTF_8)
 
-    private fun albumAssets(albumId: String): List<Pair<String, String>> {
+    private fun albumAssets(albumId: String): List<ImmichAsset> {
         val album = JSONObject(get(api("albums/$albumId")))
         album.optJSONArray("assets")?.let { return parseAssets(it) }
         val buckets = JSONArray(get(api("timeline/buckets").withQuery("albumId", albumId)))
@@ -75,6 +76,9 @@ class ImmichShareSource(
     /** [authParam] is `key` for `/share/<key>` links and `slug` for custom `/s/<slug>` links. */
     data class Share(val base: HttpUrl, val authParam: String, val authValue: String)
 
+    /** An image in the share; [takenAt] is the capture time in epoch milliseconds, if known. */
+    data class ImmichAsset(val id: String, val name: String, val takenAt: Long?)
+
     companion object {
         fun parseShareUrl(url: String): Share {
             val parsed = url.trim().toHttpUrl()
@@ -94,18 +98,24 @@ class ImmichShareSource(
             return Share(base, param, segments[index + 1])
         }
 
-        /** Returns (id, filename) for every image asset; videos and other types are skipped. */
-        fun parseAssets(assets: JSONArray): List<Pair<String, String>> =
+        /** Every image asset; videos and other types are skipped. */
+        fun parseAssets(assets: JSONArray): List<ImmichAsset> =
             (0 until assets.length())
                 .map { assets.getJSONObject(it) }
                 .filter { it.optString("type") == "IMAGE" }
-                .map { it.getString("id") to it.optString("originalFileName", it.getString("id")) }
+                .map {
+                    ImmichAsset(
+                        id = it.getString("id"),
+                        name = it.optString("originalFileName", it.getString("id")),
+                        takenAt = parseIsoTimestamp(it.optString("fileCreatedAt").ifEmpty { null }),
+                    )
+                }
 
         /**
-         * Timeline buckets are columnar: parallel arrays per field. Returns (id, capture time) for
-         * every non-trashed image; filenames aren't part of this payload.
+         * Timeline buckets are columnar: parallel arrays per field. Returns every non-trashed image,
+         * named by capture time since filenames aren't part of this payload.
          */
-        fun parseTimelineBucket(bucket: JSONObject): List<Pair<String, String>> {
+        fun parseTimelineBucket(bucket: JSONObject): List<ImmichAsset> {
             val ids = bucket.optJSONArray("id") ?: return emptyList()
             val isImage = bucket.optJSONArray("isImage")
             val isTrashed = bucket.optJSONArray("isTrashed")
@@ -114,12 +124,13 @@ class ImmichShareSource(
                 .filter { isImage?.optBoolean(it, false) == true && isTrashed?.optBoolean(it, false) != true }
                 .map { i ->
                     val id = ids.getString(i)
-                    val name = created?.optString(i)
+                    val createdAt = created?.optString(i)?.takeUnless { created.isNull(i) }
+                    val name = createdAt
                         ?.takeIf { it.length >= TIMESTAMP_TO_MINUTE }
                         ?.take(TIMESTAMP_TO_MINUTE)
                         ?.replace('T', ' ')
                         ?: id
-                    id to name
+                    ImmichAsset(id, name, parseIsoTimestamp(createdAt))
                 }
         }
 

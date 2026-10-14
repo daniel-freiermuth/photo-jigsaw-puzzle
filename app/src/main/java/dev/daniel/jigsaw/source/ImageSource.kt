@@ -8,12 +8,17 @@ import java.util.concurrent.TimeUnit
 /** An HTTP GET target plus any headers (e.g. auth) needed to fetch it. */
 data class HttpResource(val url: String, val headers: Map<String, String> = emptyMap())
 
-/** One picture available from a source. [thumbnail] is used by the gallery, [full] by the puzzle. */
+/**
+ * One picture available from a source. [thumbnail] is used by the gallery, [full] by the puzzle.
+ * [takenAt] (epoch milliseconds; capture time where the source knows it, otherwise modification
+ * time) orders the gallery newest first; null sorts last.
+ */
 data class RemoteImage(
     val id: String,
     val name: String,
     val thumbnail: HttpResource,
     val full: HttpResource,
+    val takenAt: Long? = null,
 )
 
 /** Anything that can enumerate pictures. New backends only need to implement this. */

@@ -7,6 +7,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.kxml2.io.KXmlParser
 import java.io.StringReader
+import java.time.Instant
 
 class SourceParsingTest {
 
@@ -26,18 +27,23 @@ class SourceParsingTest {
     }
 
     @Test
-    fun `webdav multistatus distinguishes folders and content types`() {
+    fun `webdav multistatus distinguishes folders and content types and prefers capture over modified time`() {
         val xml = """
             <?xml version="1.0"?>
-            <d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
+            <d:multistatus xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns">
               <d:response><d:href>/public.php/webdav/</d:href>
                 <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
               <d:response><d:href>/public.php/webdav/Holiday%202024/</d:href>
                 <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
               <d:response><d:href>/public.php/webdav/beach.jpg</d:href>
-                <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>image/jpeg</d:getcontenttype></d:prop></d:propstat></d:response>
+                <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>image/jpeg</d:getcontenttype>
+                  <d:getlastmodified>Tue, 13 Oct 2026 19:39:24 GMT</d:getlastmodified>
+                  <nc:metadata-photos-original_date_time>1714564800</nc:metadata-photos-original_date_time>
+                </d:prop></d:propstat></d:response>
               <d:response><d:href>/public.php/webdav/notes.txt</d:href>
-                <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>text/plain</d:getcontenttype></d:prop></d:propstat></d:response>
+                <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>text/plain</d:getcontenttype>
+                  <d:getlastmodified>Tue, 13 Oct 2026 19:39:24 GMT</d:getlastmodified>
+                </d:prop></d:propstat></d:response>
             </d:multistatus>
         """.trimIndent()
         val entries = NextcloudShareSource.parseMultistatus(StringReader(xml), KXmlParser())
@@ -45,8 +51,18 @@ class SourceParsingTest {
             listOf(
                 NextcloudShareSource.DavEntry("/public.php/webdav/", true, ""),
                 NextcloudShareSource.DavEntry("/public.php/webdav/Holiday%202024/", true, ""),
-                NextcloudShareSource.DavEntry("/public.php/webdav/beach.jpg", false, "image/jpeg"),
-                NextcloudShareSource.DavEntry("/public.php/webdav/notes.txt", false, "text/plain"),
+                NextcloudShareSource.DavEntry(
+                    "/public.php/webdav/beach.jpg",
+                    false,
+                    "image/jpeg",
+                    millis("2024-05-01T12:00:00Z")
+                ),
+                NextcloudShareSource.DavEntry(
+                    "/public.php/webdav/notes.txt",
+                    false,
+                    "text/plain",
+                    millis("2026-10-13T19:39:24Z")
+                ),
             ),
             entries,
         )
@@ -69,13 +85,19 @@ class SourceParsingTest {
     }
 
     @Test
-    fun `immich assets keep images only`() {
+    fun `immich assets keep images only, with their capture time`() {
         val assets = JSONArray(
-            """[{"id":"a","type":"IMAGE","originalFileName":"a.jpg"},
+            """[{"id":"a","type":"IMAGE","originalFileName":"a.jpg","fileCreatedAt":"2024-05-01T12:00:00.000Z"},
                 {"id":"v","type":"VIDEO","originalFileName":"v.mp4"},
                 {"id":"b","type":"IMAGE"}]"""
         )
-        assertEquals(listOf("a" to "a.jpg", "b" to "b"), ImmichShareSource.parseAssets(assets))
+        assertEquals(
+            listOf(
+                ImmichShareSource.ImmichAsset("a", "a.jpg", millis("2024-05-01T12:00:00Z")),
+                ImmichShareSource.ImmichAsset("b", "b", null),
+            ),
+            ImmichShareSource.parseAssets(assets),
+        )
     }
 
     @Test
@@ -92,7 +114,7 @@ class SourceParsingTest {
     }
 
     @Test
-    fun `immich timeline bucket keeps live images only, named by capture time`() {
+    fun `immich timeline bucket keeps live images only, named and dated by capture time`() {
         val bucket = JSONObject(
             """{"id":["a","v","t","b"],
                 "isImage":[true,false,true,true],
@@ -100,7 +122,10 @@ class SourceParsingTest {
                 "fileCreatedAt":["2026-10-13T09:58:52.749",null,"2026-10-01T00:00:00","x"]}"""
         )
         assertEquals(
-            listOf("a" to "2026-10-13 09:58", "b" to "b"),
+            listOf(
+                ImmichShareSource.ImmichAsset("a", "2026-10-13 09:58", millis("2026-10-13T09:58:52.749Z")),
+                ImmichShareSource.ImmichAsset("b", "b", null),
+            ),
             ImmichShareSource.parseTimelineBucket(bucket),
         )
     }
@@ -114,4 +139,6 @@ class SourceParsingTest {
         )
         assertEquals(sources, SourceStore.decode(SourceStore.encode(sources)))
     }
+
+    private fun millis(iso: String) = Instant.parse(iso).toEpochMilli()
 }
