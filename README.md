@@ -13,8 +13,8 @@ a thumbnail and a full-size version. Built in:
 | **Immich** shared link | `https://photos.example.com/share/<key>` or custom `…/s/<slug>` | `GET /api/shared-links/me`; album shares list assets via `/api/albums/{id}` on older servers, or the timeline API (`/api/timeline/buckets` + `/bucket`) on servers whose album response no longer includes assets (e.g. Immich 3.x). Gallery uses `size=thumbnail`, puzzles use the ~1440 px `size=preview`. Videos are skipped. Password-protected Immich links are not supported. |
 | **URL list** | any URL to a text file (one image URL per line, `#` comments) or a JSON array of URLs | Relative entries resolve against the list's URL. |
 
-Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and wire it in `toImageSource()`,
-`SourceStore`, and the add-source dialog.
+Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant (`@Serializable` with a new
+`@SerialName`, its stored `type`), and wire it in `toImageSource()` and the add-source dialog.
 
 ## Gameplay
 
@@ -84,7 +84,7 @@ just check-all                     # = ./gradlew check; must pass before committ
 
 ## Release APK
 
-`just release-apk` builds `app/build/outputs/apk/release/app-release.apk` (about 1.3 MB). That build uses R8
+`just release-apk` builds `app/build/outputs/apk/release/app-release.apk` (about 1.6 MB). That build uses R8
 full mode to shrink, optimise and obfuscate the code (`app/proguard-rules.pro` also drops Kotlin's interop
 null checks), removes unused resources, keeps only English and German strings, and leaves out build metadata and the
 dependency-info block. The APK is signed only when these are set: `RELEASE_KEYSTORE` (path),
