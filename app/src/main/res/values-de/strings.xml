@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared -->
+    <string name="action_back">Zurück</string>
+    <string name="action_cancel">Abbrechen</string>
+    <string name="action_refresh">Aktualisieren</string>
+    <string name="action_settings">Einstellungen</string>
+
+    <!-- Gallery -->
+    <string name="gallery_no_sources">Noch keine Bildquellen. Füge in den Einstellungen eine Nextcloud-Freigabe, einen Immich-Freigabelink oder eine URL-Liste hinzu.</string>
+    <string name="gallery_open_settings">Einstellungen öffnen</string>
+    <string name="gallery_list_failed">Bilder konnten nicht geladen werden:</string>
+    <string name="gallery_retry">Erneut versuchen</string>
+    <string name="gallery_empty">In deinen Quellen wurden keine Bilder gefunden.</string>
+    <string name="gallery_some_failed">Einige Quellen konnten nicht geladen werden:</string>
+    <string name="gallery_source_failure">%1$s: %2$s</string>
+
+    <!-- Puzzle -->
+    <string name="puzzle_load_failed">Bild konnte nicht geladen werden:</string>
+    <string name="puzzle_play_again">Nochmal spielen</string>
+    <string name="puzzle_hint">Vorlage</string>
+    <string name="puzzle_hide_hint">Vorlage ausblenden</string>
+    <string name="puzzle_more_options">Weitere Optionen</string>
+    <string name="puzzle_start_over">Neu beginnen</string>
+    <string name="puzzle_start_over_title">Neu beginnen?</string>
+    <string name="puzzle_start_over_text">Die Teile werden neu geschnitten und verteilt; der Fortschritt bei diesem Puzzle geht verloren.</string>
+    <string name="puzzle_solved">Gelöst!</string>
+    <string name="puzzle_gallery">Galerie</string>
+    <string name="puzzle_another_image">Anderes Bild</string>
+
+    <!-- Settings -->
+    <string name="settings_sources">Bildquellen</string>
+    <string name="settings_no_sources">Füge eine öffentliche Nextcloud-Freigabe, einen Immich-Freigabelink oder eine URL-Liste hinzu, um loszupuzzeln.</string>
+    <string name="settings_add_source">Quelle hinzufügen</string>
+    <string name="settings_puzzle">Puzzle</string>
+    <string name="settings_pieces">Teile</string>
+    <string name="settings_pieces_description">Ungefähr so viele, je nach Bildformat. Gilt für Puzzles, bei denen noch kein Teil auf dem Brett liegt.</string>
+    <string name="settings_snap">Teile einrasten lassen</string>
+    <string name="settings_snap_description">Teile, die nahe ihrem Platz abgelegt werden, rasten dort ein. Macht Puzzles deutlich leichter.</string>
+    <string name="settings_rotate">Teile drehen</string>
+    <string name="settings_rotate_description">Neue Puzzles beginnen mit gedrehten Teilen. Tippe ein Teil an, um es zu drehen.</string>
+    <string name="settings_remove_title">„%1$s“ entfernen?</string>
+    <string name="settings_remove">Entfernen</string>
+    <string name="settings_link_no_app">Keine App kann diesen Link öffnen</string>
+    <string name="settings_link_invalid">Kein gültiger Link</string>
+
+    <!-- Add source dialog -->
+    <string name="source_add_title">Bildquelle hinzufügen</string>
+    <string name="source_add">Hinzufügen</string>
+    <string name="source_kind_url_list">URL-Liste</string>
+    <string name="source_link">Freigabelink</string>
+    <string name="source_name">Name (optional)</string>
+    <string name="source_password">Passwort (falls nötig)</string>
+    <string name="source_invalid_nextcloud">Kein Nextcloud-Freigabelink (erwartet: …/s/&lt;Token&gt;)</string>
+    <string name="source_invalid_immich">Kein Immich-Freigabelink (erwartet: …/share/&lt;Schlüssel&gt; oder …/s/&lt;Kürzel&gt;)</string>
+    <string name="source_invalid_url_list">Keine gültige Webadresse</string>
+
+    <!-- Errors -->
+    <string name="error_access_denied">Zugriff verweigert. Stimmt das Freigabepasswort?</string>
+    <string name="error_not_found">Nicht gefunden. Die Freigabe wurde vielleicht gelöscht oder ist abgelaufen.</string>
+    <string name="error_http">Der Server antwortete mit Fehler %1$d.</string>
+    <string name="error_unknown_host">Server nicht gefunden. Prüfe die Adresse und deine Internetverbindung.</string>
+    <string name="error_timeout">Der Server hat zu lange nicht geantwortet.</string>
+    <string name="error_connect">Keine Verbindung zum Server möglich.</string>
+    <string name="error_tls">Sichere Verbindung zum Server fehlgeschlagen.</string>
+    <string name="error_unexpected_response">Die Antwort des Servers ist für die App unverständlich.</string>
+    <string name="error_not_an_image">Diese Datei ist kein Bild, das die App anzeigen kann.</string>
+    <string name="error_other">Etwas ist schiefgelaufen: %1$s</string>
+</resources>

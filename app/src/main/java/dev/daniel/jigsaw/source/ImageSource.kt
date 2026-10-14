@@ -80,7 +80,13 @@ object Http {
     /** Blocking GET returning the body bytes; throws [IOException] on non-2xx. Call from Dispatchers.IO. */
     fun getBytes(resource: HttpResource, client: OkHttpClient = this.client): ByteArray =
         client.newCall(request(resource)).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("HTTP ${response.code} for ${resource.url}")
-            response.body?.bytes() ?: throw IOException("Empty body for ${resource.url}")
+            if (!response.isSuccessful) throw HttpStatusException(response.code, resource.url)
+            response.body?.bytes() ?: throw UnexpectedResponseException("Empty body for ${resource.url}")
         }
 }
+
+/** The server answered, but not with success. */
+class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code for $url")
+
+/** The server answered successfully with something the source can't interpret. */
+class UnexpectedResponseException(message: String, cause: Throwable? = null) : IOException(message, cause)

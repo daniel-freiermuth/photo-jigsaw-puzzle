@@ -44,7 +44,7 @@ sealed interface Screen {
 
 sealed interface Load<out T> {
     data object Loading : Load<Nothing>
-    data class Failed(val message: String) : Load<Nothing>
+    data class Failed(val reason: UiText) : Load<Nothing>
     data class Ready<T>(val value: T) : Load<T>
 }
 
@@ -60,8 +60,11 @@ data class GalleryImage(val source: SourceConfig, val image: RemoteImage) {
 fun List<GalleryImage>.newestFirst(): List<GalleryImage> =
     sortedWith(compareByDescending(nullsFirst()) { it.image.takenAt })
 
-/** Images from every source that answered, plus a message for each source that didn't. */
-data class GalleryContent(val images: List<GalleryImage>, val failures: List<String>)
+/** A source that couldn't be listed, and why. */
+data class SourceFailure(val label: String, val reason: UiText)
+
+/** Images from every source that answered, plus a failure for each source that didn't. */
+data class GalleryContent(val images: List<GalleryImage>, val failures: List<SourceFailure>)
 
 /** What the puzzle screen shows for an image. */
 sealed interface PuzzleContent {
@@ -140,17 +143,17 @@ class AppViewModel @JvmOverloads constructor(
         }
     }
 
-    /** Validates [config] (URL shape) and saves it; returns an error message on failure. */
-    fun addSource(config: SourceConfig): String? {
+    /** Validates [config] (URL shape) and saves it; false if the URL isn't a link of that kind. */
+    fun addSource(config: SourceConfig): Boolean {
         try {
             config.toImageSource()
-        } catch (e: IllegalArgumentException) {
-            return e.message ?: "Invalid URL"
+        } catch (_: IllegalArgumentException) {
+            return false
         }
         sources = sources + config
         store.save(sources)
         galleryStale = true
-        return null
+        return true
     }
 
     fun removeSource(id: String) {
@@ -183,17 +186,13 @@ class AppViewModel @JvmOverloads constructor(
             }.awaitAll()
             val images = results.flatMap { it.getOrDefault(emptyList()) }.newestFirst()
             val failures = results.zip(current).mapNotNull { (result, source) ->
-                result.exceptionOrNull()?.let { "${source.label}: ${it.message ?: it.javaClass.simpleName}" }
+                result.exceptionOrNull()?.let { SourceFailure(source.label, it.toUiText()) }
             }
             tiles = withContext(puzzleIo) {
                 puzzles.deleteLegacyPreviews()
                 images.mapNotNull { image -> savedPuzzle(image)?.let { image.key to it } }.toMap()
             }
-            gallery = if (images.isEmpty() && failures.isNotEmpty()) {
-                Load.Failed(failures.joinToString("\n"))
-            } else {
-                Load.Ready(GalleryContent(images, failures))
-            }
+            gallery = Load.Ready(GalleryContent(images, failures))
         }
     }
 
@@ -210,7 +209,7 @@ class AppViewModel @JvmOverloads constructor(
             puzzle = try {
                 Load.Ready(loadPuzzle(image))
             } catch (e: IOException) {
-                Load.Failed(e.message ?: e.javaClass.simpleName)
+                Load.Failed(e.toUiText())
             }
         }
     }

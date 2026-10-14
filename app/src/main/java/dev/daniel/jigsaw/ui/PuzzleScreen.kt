@@ -51,9 +51,11 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import dev.daniel.jigsaw.R
 import dev.daniel.jigsaw.puzzle.BoardLayout
 import dev.daniel.jigsaw.puzzle.CanvasSpec
 import dev.daniel.jigsaw.puzzle.CutPuzzle
@@ -88,7 +90,10 @@ fun PuzzleScreen(
         Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
             when (state) {
                 Load.Loading -> CircularProgressIndicator()
-                is Load.Failed -> Text("Couldn't load image:\n${state.message}", Modifier.padding(24.dp))
+                is Load.Failed -> Text(
+                    stringResource(R.string.puzzle_load_failed) + "\n" + state.reason.resolve(),
+                    Modifier.padding(24.dp),
+                )
                 is Load.Ready -> when (val value = state.value) {
                     is PuzzleContent.Finished -> Image(
                         value.picture,
@@ -113,7 +118,9 @@ private fun PuzzleActions(content: PuzzleContent?, onStartOver: () -> Unit) {
     when (content) {
         is PuzzleContent.Playing -> PlayingActions(content.game, onStartOver)
         // Solved: nothing to lose, so no confirmation.
-        is PuzzleContent.Finished -> TextButton(onClick = onStartOver) { Text("Play again") }
+        is PuzzleContent.Finished -> TextButton(
+            onClick = onStartOver
+        ) { Text(stringResource(R.string.puzzle_play_again)) }
         null -> Unit
     }
 }
@@ -124,15 +131,15 @@ private fun PlayingActions(game: PuzzleGame, onStartOver: () -> Unit, modifier: 
     var confirmStartOver by remember { mutableStateOf(false) }
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = { game.showHint = !game.showHint }) {
-            Text(if (game.showHint) "Hide hint" else "Hint")
+            Text(stringResource(if (game.showHint) R.string.puzzle_hide_hint else R.string.puzzle_hint))
         }
         Box {
             IconButton(onClick = { menuOpen = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.puzzle_more_options))
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
-                    text = { Text("Start over") },
+                    text = { Text(stringResource(R.string.puzzle_start_over)) },
                     onClick = {
                         menuOpen = false
                         confirmStartOver = true
@@ -143,17 +150,19 @@ private fun PlayingActions(game: PuzzleGame, onStartOver: () -> Unit, modifier: 
         if (confirmStartOver) {
             AlertDialog(
                 onDismissRequest = { confirmStartOver = false },
-                title = { Text("Start over?") },
-                text = { Text("The pieces are cut and scattered anew; progress on this puzzle is lost.") },
+                title = { Text(stringResource(R.string.puzzle_start_over_title)) },
+                text = { Text(stringResource(R.string.puzzle_start_over_text)) },
                 confirmButton = {
                     TextButton(
                         onClick = {
                             confirmStartOver = false
                             onStartOver()
                         },
-                    ) { Text("Start over") }
+                    ) { Text(stringResource(R.string.puzzle_start_over)) }
                 },
-                dismissButton = { TextButton(onClick = { confirmStartOver = false }) { Text("Cancel") } },
+                dismissButton = {
+                    TextButton(onClick = { confirmStartOver = false }) { Text(stringResource(R.string.action_cancel)) }
+                },
             )
         }
     }
@@ -163,10 +172,10 @@ private fun PlayingActions(game: PuzzleGame, onStartOver: () -> Unit, modifier: 
 private fun SolvedCard(onBack: () -> Unit, onAnotherImage: () -> Unit, modifier: Modifier = Modifier) {
     Card(modifier.padding(24.dp)) {
         Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Solved!", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.puzzle_solved), style = MaterialTheme.typography.headlineSmall)
             Row(Modifier.padding(top = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onBack) { Text("Gallery") }
-                Button(onClick = onAnotherImage) { Text("Another image") }
+                OutlinedButton(onClick = onBack) { Text(stringResource(R.string.puzzle_gallery)) }
+                Button(onClick = onAnotherImage) { Text(stringResource(R.string.puzzle_another_image)) }
             }
         }
     }

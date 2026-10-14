@@ -9,7 +9,6 @@ import okhttp3.OkHttpClient
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
-import java.io.IOException
 
 /**
  * Lists images in an Immich shared link (album or individual-assets share).
@@ -34,7 +33,7 @@ class ImmichShareSource(
             val albumId = link.optJSONObject("album")?.getString("id")
             if (direct.length() == 0 && albumId != null) albumAssets(albumId) else parseAssets(direct)
         } catch (e: JSONException) {
-            throw IOException("Unexpected response from Immich", e)
+            throw UnexpectedResponseException("Unexpected response from Immich", e)
         }
         assets.map { asset ->
             RemoteImage(

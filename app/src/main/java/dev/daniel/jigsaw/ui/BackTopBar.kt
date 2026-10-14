@@ -10,7 +10,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import dev.daniel.jigsaw.R
 
 /** Top bar for screens below the gallery: single-line title, back arrow, and [content] as trailing actions. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,7 +28,7 @@ fun BackTopBar(
         modifier = modifier,
         navigationIcon = {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
             }
         },
         actions = content,

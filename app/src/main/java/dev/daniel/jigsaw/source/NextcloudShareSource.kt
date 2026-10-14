@@ -121,7 +121,7 @@ class NextcloudShareSource(
             .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code, dir.toString())
-            val body = response.body ?: throw IOException("Empty PROPFIND response")
+            val body = response.body ?: throw UnexpectedResponseException("Empty PROPFIND response")
             return parseResponse(body.charStream(), dir)
         }
     }
@@ -129,10 +129,8 @@ class NextcloudShareSource(
     private fun parseResponse(reader: Reader, dir: HttpUrl): List<DavEntry> = try {
         parseMultistatus(reader, Xml.newPullParser())
     } catch (e: XmlPullParserException) {
-        throw IOException("Malformed WebDAV response from $dir", e)
+        throw UnexpectedResponseException("Malformed WebDAV response from $dir", e)
     }
-
-    class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code for $url")
 
     data class Share(val base: HttpUrl, val token: String)
 

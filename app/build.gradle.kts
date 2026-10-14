@@ -21,8 +21,10 @@ android {
     }
 
     androidResources {
-        // The UI is English only; drop the translations that libraries bring along.
-        localeFilters += "en"
+        // Keep only the app's own languages; drops the many translations libraries bring along.
+        localeFilters += listOf("en", "de")
+        // Lists them in the system's per-app language setting (Android 13+); see res/resources.properties.
+        generateLocaleConfig = true
     }
 
     // Release signing comes from the environment (CI secrets); without it the release APK is unsigned.

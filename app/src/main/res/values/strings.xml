@@ -1,4 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Jigsaw</string>
+    <string name="app_name" translatable="false">Jigsaw</string>
+
+    <!-- Shared -->
+    <string name="action_back">Back</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_settings">Settings</string>
+
+    <!-- Gallery -->
+    <string name="gallery_no_sources">No image sources yet. Add a Nextcloud share, Immich shared link, or URL list in Settings.</string>
+    <string name="gallery_open_settings">Open settings</string>
+    <string name="gallery_list_failed">Couldn’t list images:</string>
+    <string name="gallery_retry">Retry</string>
+    <string name="gallery_empty">No images found in your sources.</string>
+    <string name="gallery_some_failed">Some sources couldn’t be loaded:</string>
+    <!-- One line per failed source: "<source name>: <reason>" -->
+    <string name="gallery_source_failure">%1$s: %2$s</string>
+
+    <!-- Puzzle -->
+    <string name="puzzle_load_failed">Couldn’t load image:</string>
+    <string name="puzzle_play_again">Play again</string>
+    <string name="puzzle_hint">Hint</string>
+    <string name="puzzle_hide_hint">Hide hint</string>
+    <string name="puzzle_more_options">More options</string>
+    <string name="puzzle_start_over">Start over</string>
+    <string name="puzzle_start_over_title">Start over?</string>
+    <string name="puzzle_start_over_text">The pieces are cut and scattered anew; progress on this puzzle is lost.</string>
+    <string name="puzzle_solved">Solved!</string>
+    <string name="puzzle_gallery">Gallery</string>
+    <string name="puzzle_another_image">Another image</string>
+
+    <!-- Settings -->
+    <string name="settings_sources">Image sources</string>
+    <string name="settings_no_sources">Add a Nextcloud public share, an Immich shared link, or a URL list to start puzzling.</string>
+    <string name="settings_add_source">Add source</string>
+    <string name="settings_puzzle">Puzzle</string>
+    <string name="settings_pieces">Pieces</string>
+    <string name="settings_pieces_description">About this many, depending on the picture’s shape. Applies to puzzles with nothing on the board yet.</string>
+    <string name="settings_snap">Snap pieces onto board</string>
+    <string name="settings_snap_description">Pieces dropped near their spot lock in place. Makes puzzles much easier.</string>
+    <string name="settings_rotate">Rotate pieces</string>
+    <string name="settings_rotate_description">New puzzles start with pieces turned. Tap a piece to turn it.</string>
+    <string name="settings_remove_title">Remove “%1$s”?</string>
+    <string name="settings_remove">Remove</string>
+    <string name="settings_link_no_app">No app can open this link</string>
+    <string name="settings_link_invalid">Not a valid link</string>
+
+    <!-- Add source dialog -->
+    <string name="source_add_title">Add image source</string>
+    <string name="source_add">Add</string>
+    <string name="source_kind_nextcloud" translatable="false">Nextcloud</string>
+    <string name="source_kind_immich" translatable="false">Immich</string>
+    <string name="source_kind_url_list">URL list</string>
+    <string name="source_link">Share link</string>
+    <string name="source_name">Name (optional)</string>
+    <string name="source_password">Share password (if any)</string>
+    <string name="source_invalid_nextcloud">Not a Nextcloud share link (expected …/s/&lt;token&gt;)</string>
+    <string name="source_invalid_immich">Not an Immich shared link (expected …/share/&lt;key&gt; or …/s/&lt;slug&gt;)</string>
+    <string name="source_invalid_url_list">Not a valid web address</string>
+
+    <!-- Errors -->
+    <string name="error_access_denied">Access denied. Is the share password correct?</string>
+    <string name="error_not_found">Not found. The share may have been deleted or have expired.</string>
+    <string name="error_http">The server answered with error %1$d.</string>
+    <string name="error_unknown_host">Server not found. Check the address and your internet connection.</string>
+    <string name="error_timeout">The server took too long to answer.</string>
+    <string name="error_connect">Couldn’t connect to the server.</string>
+    <string name="error_tls">Secure connection to the server failed.</string>
+    <string name="error_unexpected_response">The server sent an answer the app doesn’t understand.</string>
+    <string name="error_not_an_image">This file is not a picture the app can show.</string>
+    <string name="error_other">Something went wrong: %1$s</string>
 </resources>

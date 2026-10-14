@@ -47,6 +47,8 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
   show (its pieces freshly scattered); once opened, its loose pieces as left; as soon as a piece sits on the board,
   only the board with what has been placed; once solved, the picture. Tiles are drawn from the saved state over the
   thumbnail, so they always match the save.
+- Languages: English and German. The app follows the system language. On Android 13+ it can also be set for
+  this app alone (system Settings → Apps → Jigsaw → Language). Error messages are translated too.
 
 ## Build
 
@@ -62,7 +64,7 @@ just check-all                     # = ./gradlew check; must pass before committ
 
 `just release-apk` builds `app/build/outputs/apk/release/app-release.apk` (about 1.3 MB). That build uses R8
 full mode to shrink, optimise and obfuscate the code (`app/proguard-rules.pro` also drops Kotlin's interop
-null checks), removes unused resources, keeps only English strings, and leaves out build metadata and the
+null checks), removes unused resources, keeps only English and German strings, and leaves out build metadata and the
 dependency-info block. The APK is signed only when these are set: `RELEASE_KEYSTORE` (path),
 `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`.
 
@@ -94,5 +96,7 @@ uploaded as an artifact when it fails):
 app/src/main/java/dev/daniel/jigsaw/
   source/   ImageSource + Nextcloud / Immich / URL-list implementations, persisted SourceStore
   puzzle/   JigsawCut (tab geometry), PuzzleBoard (pure game state), PieceRenderer, ImageDecoding
-  ui/       Compose screens: gallery (main view), settings, puzzle canvas; AppViewModel
+  ui/       Compose screens: gallery (main view), settings, puzzle canvas; AppViewModel; UiText (localised errors)
+app/src/main/res/values/strings.xml      English text (default)
+app/src/main/res/values-de/strings.xml   German text; Lint fails if a translation is missing or extra
 ```

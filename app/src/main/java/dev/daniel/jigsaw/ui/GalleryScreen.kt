@@ -31,8 +31,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.daniel.jigsaw.R
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 
@@ -53,15 +55,15 @@ fun GalleryScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Jigsaw") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     if (hasSources) {
                         IconButton(onClick = onRefresh) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.action_refresh))
                         }
                     }
                     IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.action_settings))
                     }
                 },
             )
@@ -70,14 +72,18 @@ fun GalleryScreen(
         Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
             when {
                 !hasSources -> Message(
-                    "No image sources yet. Add a Nextcloud share, Immich shared link, or URL list in Settings.",
-                    action = "Open settings",
+                    stringResource(R.string.gallery_no_sources),
+                    action = stringResource(R.string.gallery_open_settings),
                     onAction = onOpenSettings,
                 )
                 state is Load.Loading -> CircularProgressIndicator()
-                state is Load.Failed -> Message("Couldn't list images:\n${state.message}", "Retry", onRefresh)
-                state is Load.Ready && state.value.images.isEmpty() && state.value.failures.isEmpty() ->
-                    Message("No images found in your sources.", "Refresh", onRefresh)
+                state is Load.Ready && state.value.images.isEmpty() && state.value.failures.isNotEmpty() -> Message(
+                    stringResource(R.string.gallery_list_failed) + "\n" + failureLines(state.value.failures),
+                    stringResource(R.string.gallery_retry),
+                    onRefresh,
+                )
+                state is Load.Ready && state.value.images.isEmpty() ->
+                    Message(stringResource(R.string.gallery_empty), stringResource(R.string.action_refresh), onRefresh)
                 state is Load.Ready -> ImageGrid(state.value, tiles, settings, onPick)
             }
         }
@@ -103,7 +109,7 @@ private fun ImageGrid(
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                     Text(
-                        "Some sources couldn't be loaded:\n" + content.failures.joinToString("\n"),
+                        stringResource(R.string.gallery_some_failed) + "\n" + failureLines(content.failures),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(12.dp),
                     )
@@ -136,3 +142,8 @@ private fun Message(text: String, action: String, onAction: () -> Unit) {
         Button(onClick = onAction) { Text(action) }
     }
 }
+
+/** One "source: reason" line per failed source. */
+@Composable
+private fun failureLines(failures: List<SourceFailure>): String =
+    failures.map { stringResource(R.string.gallery_source_failure, it.label, it.reason.resolve()) }.joinToString("\n")

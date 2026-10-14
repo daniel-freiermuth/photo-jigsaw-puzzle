@@ -7,7 +7,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import org.json.JSONArray
 import org.json.JSONException
-import java.io.IOException
 
 /**
  * Generic fallback: a manifest file hosted anywhere (static site, S3 bucket, gist…).
@@ -27,7 +26,7 @@ class UrlListSource(
         val urls = try {
             parseManifest(manifestUrl, body)
         } catch (e: JSONException) {
-            throw IOException("Malformed URL list at $manifestUrl", e)
+            throw UnexpectedResponseException("Malformed URL list at $manifestUrl", e)
         }
         urls.map { url ->
             RemoteImage(

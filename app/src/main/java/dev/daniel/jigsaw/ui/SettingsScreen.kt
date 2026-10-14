@@ -2,8 +2,10 @@ package dev.daniel.jigsaw.ui
 
 import android.content.ActivityNotFoundException
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
+import dev.daniel.jigsaw.R
 import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.source.SourceConfig
@@ -62,7 +66,7 @@ import java.util.UUID
 @Composable
 fun SettingsScreen(
     sources: List<SourceConfig>,
-    onAdd: (SourceConfig) -> String?,
+    onAdd: (SourceConfig) -> Boolean,
     onRemove: (String) -> Unit,
     settings: PuzzleSettings,
     onSettingsChange: (PuzzleSettings) -> Unit,
@@ -74,18 +78,18 @@ fun SettingsScreen(
 
     Scaffold(
         modifier = modifier,
-        topBar = { BackTopBar("Settings", onBack) },
+        topBar = { BackTopBar(stringResource(R.string.action_settings), onBack) },
     ) { padding ->
         LazyColumn(
             Modifier.padding(padding).fillMaxSize(),
             contentPadding = PaddingValues(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            item { SectionHeader("Image sources") }
+            item { SectionHeader(stringResource(R.string.settings_sources)) }
             if (sources.isEmpty()) {
                 item {
                     Text(
-                        "Add a Nextcloud public share, an Immich shared link, or a URL list to start puzzling.",
+                        stringResource(R.string.settings_no_sources),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(horizontal = 4.dp),
                     )
@@ -97,7 +101,7 @@ fun SettingsScreen(
             item {
                 OutlinedButton(onClick = { adding = true }) {
                     Icon(Icons.Default.Add, contentDescription = null)
-                    Text("Add source", Modifier.padding(start = 8.dp))
+                    Text(stringResource(R.string.settings_add_source), Modifier.padding(start = 8.dp))
                 }
             }
             puzzleSettingsItems(settings, onSettingsChange)
@@ -107,7 +111,7 @@ fun SettingsScreen(
     if (adding) {
         AddSourceDialog(
             onDismiss = { adding = false },
-            onSubmit = { config -> onAdd(config).also { if (it == null) adding = false } },
+            onSubmit = { config -> onAdd(config).also { if (it) adding = false } },
         )
     }
 
@@ -124,20 +128,20 @@ fun SettingsScreen(
 }
 
 private fun LazyListScope.puzzleSettingsItems(settings: PuzzleSettings, onChange: (PuzzleSettings) -> Unit) {
-    item { SectionHeader("Puzzle", Modifier.padding(top = 16.dp)) }
+    item { SectionHeader(stringResource(R.string.settings_puzzle), Modifier.padding(top = 16.dp)) }
     item { PieceCountRow(settings.pieces, onSelect = { onChange(settings.copy(pieces = it)) }) }
     item {
         SwitchRow(
-            title = "Snap pieces onto board",
-            description = "Pieces dropped near their spot lock in place. Makes puzzles much easier.",
+            title = stringResource(R.string.settings_snap),
+            description = stringResource(R.string.settings_snap_description),
             checked = settings.snapToBoard,
             onCheckedChange = { onChange(settings.copy(snapToBoard = it)) },
         )
     }
     item {
         SwitchRow(
-            title = "Rotate pieces",
-            description = "New puzzles start with pieces turned. Tap a piece to turn it.",
+            title = stringResource(R.string.settings_rotate),
+            description = stringResource(R.string.settings_rotate_description),
             checked = settings.rotatePieces,
             onCheckedChange = { onChange(settings.copy(rotatePieces = it)) },
         )
@@ -147,9 +151,9 @@ private fun LazyListScope.puzzleSettingsItems(settings: PuzzleSettings, onChange
 @Composable
 private fun PieceCountRow(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
-        Text("Pieces", style = MaterialTheme.typography.bodyLarge)
+        Text(stringResource(R.string.settings_pieces), style = MaterialTheme.typography.bodyLarge)
         Text(
-            "About this many, depending on the picture's shape. Applies to puzzles with nothing on the board yet.",
+            stringResource(R.string.settings_pieces_description),
             style = MaterialTheme.typography.bodySmall,
         )
         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -174,9 +178,9 @@ private fun RemoveSourceDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = modifier,
-        title = { Text("Remove “${source.label}”?") },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Remove") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        title = { Text(stringResource(R.string.settings_remove_title, source.label)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(R.string.settings_remove)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -196,7 +200,9 @@ private fun SourceRow(source: SourceConfig, onRemove: () -> Unit, modifier: Modi
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, contentDescription = "Remove") }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.settings_remove))
+            }
         }
     }
 }
@@ -206,18 +212,19 @@ private fun SourceRow(source: SourceConfig, onRemove: () -> Unit, modifier: Modi
 private fun sourceLinkText(source: SourceConfig): AnnotatedString {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    val kind = stringResource(source.kind.title)
     val linkStyle = TextLinkStyles(
         SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline),
     )
     return buildAnnotatedString {
-        append("${source.kind.title} · ")
+        append("$kind · ")
         val link = LinkAnnotation.Url(source.url, linkStyle) {
             try {
                 uriHandler.openUri(source.url)
             } catch (_: ActivityNotFoundException) {
-                Toast.makeText(context, "No app can open this link", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.settings_link_no_app, Toast.LENGTH_SHORT).show()
             } catch (_: IllegalArgumentException) {
-                Toast.makeText(context, "Not a valid link", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, R.string.settings_link_invalid, Toast.LENGTH_SHORT).show()
             }
         }
         withLink(link) { append(source.url) }
@@ -257,10 +264,14 @@ private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-private enum class SourceKind(val title: String, val hint: String) {
-    Nextcloud("Nextcloud", "https://cloud.example.com/s/AbCdEf123"),
-    Immich("Immich", "https://photos.example.com/share/…"),
-    UrlList("URL list", "https://example.com/puzzles.txt"),
+private enum class SourceKind(@param:StringRes val title: Int, @param:StringRes val invalid: Int, val hint: String) {
+    Nextcloud(
+        R.string.source_kind_nextcloud,
+        R.string.source_invalid_nextcloud,
+        "https://cloud.example.com/s/AbCdEf123"
+    ),
+    Immich(R.string.source_kind_immich, R.string.source_invalid_immich, "https://photos.example.com/share/…"),
+    UrlList(R.string.source_kind_url_list, R.string.source_invalid_url_list, "https://example.com/puzzles.txt"),
 }
 
 private val SourceConfig.kind
@@ -271,54 +282,77 @@ private val SourceConfig.kind
     }
 
 @Composable
-private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> String?, modifier: Modifier = Modifier) {
+private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> Boolean, modifier: Modifier = Modifier) {
     var kind by rememberSaveable { mutableStateOf(SourceKind.Nextcloud) }
     var label by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
+    var invalid by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = modifier,
-        title = { Text("Add image source") },
+        title = { Text(stringResource(R.string.source_add_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SourceKind.entries.forEach { k ->
-                        FilterChip(selected = kind == k, onClick = { kind = k }, label = { Text(k.title) })
-                    }
-                }
+                KindChips(
+                    kind,
+                    onSelect = {
+                        kind = it
+                        invalid = false
+                    },
+                )
                 OutlinedTextField(
                     url,
                     { input ->
                         url = input
-                        error = null
+                        invalid = false
                     },
-                    label = { Text("Share link") },
+                    label = { Text(stringResource(R.string.source_link)) },
                     placeholder = { Text(kind.hint) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 )
-                OutlinedTextField(label, { label = it }, label = { Text("Name (optional)") }, singleLine = true)
+                OutlinedTextField(
+                    label,
+                    { label = it },
+                    label = { Text(stringResource(R.string.source_name)) },
+                    singleLine = true,
+                )
                 if (kind == SourceKind.Nextcloud) {
                     OutlinedTextField(
                         password,
                         { password = it },
-                        label = { Text("Share password (if any)") },
+                        label = { Text(stringResource(R.string.source_password)) },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     )
                 }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                if (invalid) Text(stringResource(kind.invalid), color = MaterialTheme.colorScheme.error)
             }
         },
         confirmButton = {
-            TextButton(onClick = { error = onSubmit(newSourceConfig(kind, label, url, password)) }) { Text("Add") }
+            TextButton(onClick = { invalid = !onSubmit(newSourceConfig(kind, label, url, password)) }) {
+                Text(stringResource(R.string.source_add))
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+@Composable
+private fun KindChips(selected: SourceKind, onSelect: (SourceKind) -> Unit, modifier: Modifier = Modifier) {
+    // Wraps rather than squeezing labels when a translation makes the chips wider than the dialog.
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        SourceKind.entries.forEach { k ->
+            FilterChip(
+                selected = selected == k,
+                onClick = { onSelect(k) },
+                label = { Text(stringResource(k.title), maxLines = 1, softWrap = false) },
+            )
+        }
+    }
 }
 
 private fun newSourceConfig(kind: SourceKind, label: String, url: String, password: String): SourceConfig {
