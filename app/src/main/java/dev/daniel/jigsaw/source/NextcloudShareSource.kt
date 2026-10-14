@@ -9,7 +9,6 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
@@ -117,16 +116,12 @@ class NextcloudShareSource(
     )
 
     private fun propfind(dir: HttpUrl, headers: Map<String, String>): List<DavEntry> {
-        val request = Request.Builder()
-            .url(dir)
+        val url = dir.toString()
+        val request = Http.request(HttpResource(url, headers)).newBuilder()
             .method("PROPFIND", PROPFIND_BODY.toRequestBody("application/xml; charset=utf-8".toMediaType()))
             .header("Depth", "1")
-            .apply { headers.forEach { (k, v) -> header(k, v) } }
             .build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw HttpStatusException(response.code, dir.toString())
-            return parseResponse(response.body.charStream(), dir)
-        }
+        return Http.execute(client, request, url) { body -> parseResponse(body.charStream(), dir) }
     }
 
     private fun parseResponse(reader: Reader, dir: HttpUrl): List<DavEntry> = try {
