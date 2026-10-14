@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw
 
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,16 +23,25 @@ import dev.daniel.jigsaw.ui.Screen
 import dev.daniel.jigsaw.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { AppTheme { App() } }
+        val language = AppLocale.current(this)
+        setContent { AppTheme { App(language, onLanguageChange = { AppLocale.set(this, it) }) } }
     }
 }
 
 // Not private: called from the Activity's lambda, which would otherwise need a synthetic accessor.
 @Composable
-internal fun App(vm: AppViewModel = viewModel()) {
+internal fun App(
+    language: AppLanguage,
+    onLanguageChange: (AppLanguage) -> Unit,
+    vm: AppViewModel = viewModel(),
+) {
     BackHandler(enabled = vm.screen != Screen.Gallery) { vm.back() }
     when (val screen = vm.screen) {
         Screen.Gallery -> GalleryScreen(
@@ -49,6 +59,8 @@ internal fun App(vm: AppViewModel = viewModel()) {
             onRemove = vm::removeSource,
             settings = vm.settings,
             onSettingsChange = vm::updateSettings,
+            language = language,
+            onLanguageChange = onLanguageChange,
             onBack = vm::back,
         )
         is Screen.Puzzle -> PuzzleScreen(

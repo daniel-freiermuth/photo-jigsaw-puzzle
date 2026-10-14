@@ -44,6 +44,10 @@
     <string name="settings_rotate_description">New puzzles start with pieces turned. Tap a piece to turn it.</string>
     <string name="settings_remove_title">Remove “%1$s”?</string>
     <string name="settings_remove">Remove</string>
+    <string name="settings_language">Language</string>
+    <string name="language_system">System default</string>
+    <string name="language_english" translatable="false">English</string>
+    <string name="language_german" translatable="false">Deutsch</string>
     <string name="settings_link_no_app">No app can open this link</string>
     <string name="settings_link_invalid">Not a valid link</string>
 

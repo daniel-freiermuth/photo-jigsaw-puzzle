@@ -41,6 +41,8 @@
     <string name="settings_rotate_description">Neue Puzzles beginnen mit gedrehten Teilen. Tippe ein Teil an, um es zu drehen.</string>
     <string name="settings_remove_title">„%1$s“ entfernen?</string>
     <string name="settings_remove">Entfernen</string>
+    <string name="settings_language">Sprache</string>
+    <string name="language_system">Systemstandard</string>
     <string name="settings_link_no_app">Keine App kann diesen Link öffnen</string>
     <string name="settings_link_invalid">Kein gültiger Link</string>
 

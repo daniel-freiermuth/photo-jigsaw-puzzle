@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
+import dev.daniel.jigsaw.AppLanguage
 import dev.daniel.jigsaw.R
 import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
@@ -70,6 +71,8 @@ fun SettingsScreen(
     onRemove: (String) -> Unit,
     settings: PuzzleSettings,
     onSettingsChange: (PuzzleSettings) -> Unit,
+    language: AppLanguage,
+    onLanguageChange: (AppLanguage) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -105,6 +108,8 @@ fun SettingsScreen(
                 }
             }
             puzzleSettingsItems(settings, onSettingsChange)
+            item { SectionHeader(stringResource(R.string.settings_language), Modifier.padding(top = 16.dp)) }
+            item { LanguageRow(language, onLanguageChange) }
         }
     }
 
@@ -167,6 +172,30 @@ private fun PieceCountRow(selected: Int, onSelect: (Int) -> Unit, modifier: Modi
         }
     }
 }
+
+@Composable
+private fun LanguageRow(selected: AppLanguage, onSelect: (AppLanguage) -> Unit, modifier: Modifier = Modifier) {
+    FlowRow(
+        modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        AppLanguage.entries.forEach { language ->
+            FilterChip(
+                selected = language == selected,
+                onClick = { if (language != selected) onSelect(language) },
+                label = { Text(stringResource(language.label), maxLines = 1, softWrap = false) },
+            )
+        }
+    }
+}
+
+/** System default in the current language; each translation by its own name, so it can be found when unreadable. */
+private val AppLanguage.label
+    @StringRes get() = when (this) {
+        AppLanguage.System -> R.string.language_system
+        AppLanguage.English -> R.string.language_english
+        AppLanguage.German -> R.string.language_german
+    }
 
 @Composable
 private fun RemoveSourceDialog(

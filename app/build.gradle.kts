@@ -61,6 +61,11 @@ android {
         }
     }
 
+    bundle {
+        // The language can be switched in the app, so every translation must ship with it.
+        language { enableSplit = false }
+    }
+
     dependenciesInfo {
         // Google-only encrypted dependency report; not needed outside the Play Store.
         includeInApk = false
