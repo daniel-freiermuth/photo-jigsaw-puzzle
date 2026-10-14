@@ -7,6 +7,6 @@ package dev.daniel.jigsaw.puzzle
 data class PuzzleSettings(
     val snapToBoard: Boolean = false,
     val rotatePieces: Boolean = false,
-    /** Approximate piece count, one of [JigsawCut.PIECE_COUNTS]. */
-    val pieces: Int = JigsawCut.DEFAULT_PIECES,
+    /** Approximate piece count. */
+    val pieces: PieceCount = PieceCount.DEFAULT,
 )

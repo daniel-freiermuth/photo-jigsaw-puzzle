@@ -34,12 +34,12 @@ fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, settings: Puz
  * the puzzle screen would on [canvas], and framed on the pieces. [seed] keeps it stable between renders.
  */
 fun renderUntouched(picture: Bitmap, canvas: CanvasSpec, settings: PuzzleSettings, seed: Long, maxSide: Int): Bitmap {
-    val (rows, cols) = JigsawCut.gridFor(picture.width, picture.height, settings.pieces)
+    val grid = JigsawCut.gridFor(picture.width, picture.height, settings.pieces)
     val random = Random(seed)
-    val aspect = (picture.width.toFloat() / cols) / (picture.height.toFloat() / rows)
-    val board = PuzzleBoard(rows, cols, aspect, settings.rotatePieces)
-    val cut = cutPuzzle(picture, JigsawCut(rows, cols, random), board)
-    val layout = boardLayout(canvas, picture.width.toFloat(), picture.height.toFloat(), rows, cols)
+    val aspect = (picture.width.toFloat() / grid.cols) / (picture.height.toFloat() / grid.rows)
+    val board = PuzzleBoard(grid.rows, grid.cols, aspect, settings.rotatePieces)
+    val cut = cutPuzzle(picture, JigsawCut(grid.rows, grid.cols, random), board)
+    val layout = boardLayout(canvas, picture.width.toFloat(), picture.height.toFloat(), grid.rows, grid.cols)
     cut.board.scatter(layout.scatter, random)
     return renderPile(cut, cut.board.snapshot, maxSide)
 }

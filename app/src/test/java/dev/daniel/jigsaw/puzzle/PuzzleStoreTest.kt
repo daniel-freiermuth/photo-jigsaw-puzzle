@@ -24,7 +24,7 @@ class PuzzleStoreTest {
             locked = listOf(false, false, true, false),
             order = listOf(2, 3, 0, 1),
         ),
-        pieces = 48,
+        pieces = PieceCount.P48,
     )
 
     private val rotated = inProgress.copy(board = inProgress.board.copy(turns = listOf(3, 2, 0, 1), rotatable = true))
@@ -32,7 +32,7 @@ class PuzzleStoreTest {
     @Test
     fun `saves from before the piece-count setting load as cut for the default count`() {
         val legacy = JSONObject(PuzzleStore.encode(inProgress)).apply { remove("pieces") }.toString()
-        assertEquals(inProgress.copy(pieces = JigsawCut.DEFAULT_PIECES), PuzzleStore.decode(legacy))
+        assertEquals(inProgress.copy(pieces = PieceCount.DEFAULT), PuzzleStore.decode(legacy))
     }
 
     @Test

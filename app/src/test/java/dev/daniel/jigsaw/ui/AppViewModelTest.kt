@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.colorspace.ColorSpaces
 import dev.daniel.jigsaw.puzzle.Bounds
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.JigsawCut
+import dev.daniel.jigsaw.puzzle.PieceCount
 import dev.daniel.jigsaw.puzzle.PuzzleBoard
 import dev.daniel.jigsaw.puzzle.PuzzlePicture
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
@@ -190,7 +191,7 @@ class AppViewModelTest {
     @Test
     fun `an unfinished board is saved and tiled with its seed, piece count and layout`() = runTest {
         val vm = viewModel()
-        vm.updateSettings(PuzzleSettings(pieces = 48))
+        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P48))
         vm.openImage(image)
         advanceUntilIdle()
         val game = vm.game
@@ -201,7 +202,13 @@ class AppViewModelTest {
         advanceUntilIdle()
 
         val board = game.cut.board
-        val expected = SavedPuzzle.InProgress(board.rows, board.cols, image.seed, board.snapshot, pieces = 48)
+        val expected = SavedPuzzle.InProgress(
+            board.rows,
+            board.cols,
+            image.seed,
+            board.snapshot,
+            pieces = PieceCount.P48,
+        )
         assertEquals(image.seed, game.seed)
         assertEquals(expected, vm.tiles[image.key])
         assertEquals(expected, saved)
@@ -245,14 +252,14 @@ class AppViewModelTest {
         old.scatter()
         old.placeFirstPiece()
         vm.back()
-        vm.updateSettings(PuzzleSettings(pieces = 96))
+        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P96))
 
         vm.openImage(image)
         advanceUntilIdle()
 
         val resumed = vm.game
         assertTrue(resumed.scattered)
-        assertEquals(JigsawCut.DEFAULT_PIECES, resumed.pieces)
+        assertEquals(PieceCount.DEFAULT, resumed.pieces)
         assertEquals(old.cut.board.snapshot, resumed.cut.board.snapshot)
     }
 
@@ -266,14 +273,14 @@ class AppViewModelTest {
         vm.back()
         advanceUntilIdle()
         assertInstanceOf(SavedPuzzle.InProgress::class.java, saved)
-        vm.updateSettings(PuzzleSettings(pieces = 96))
+        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P96))
 
         vm.openImage(image)
         advanceUntilIdle()
 
         val recut = vm.game
         assertFalse(recut.scattered)
-        assertEquals(96, recut.pieces)
+        assertEquals(PieceCount.P96, recut.pieces)
         assertNotEquals(old.cut.board.size, recut.cut.board.size)
     }
 
