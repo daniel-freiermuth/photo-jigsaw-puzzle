@@ -147,6 +147,10 @@ object Http {
         ResponseBody::bytes,
     )
 
+    /** [getBytes] decoded as UTF-8, for JSON and text listings. */
+    fun getText(resource: HttpResource, client: OkHttpClient = this.client): String =
+        String(getBytes(resource, client), Charsets.UTF_8)
+
     /**
      * Like [getBytes], for pictures: when the server can't be reached, a cached copy is used even if
      * it is out of date, so started puzzles and seen thumbnails keep working offline.

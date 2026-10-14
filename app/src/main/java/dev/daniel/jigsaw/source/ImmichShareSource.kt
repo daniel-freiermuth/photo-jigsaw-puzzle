@@ -54,7 +54,7 @@ class ImmichShareSource(
         }
     }
 
-    private fun get(url: String) = String(Http.getBytes(HttpResource(url), client), Charsets.UTF_8)
+    private fun get(url: String) = Http.getText(HttpResource(url), client)
 
     private fun albumAssets(albumId: String): List<ImmichAsset> {
         val album = JSONObject(get(api("albums/$albumId")))
