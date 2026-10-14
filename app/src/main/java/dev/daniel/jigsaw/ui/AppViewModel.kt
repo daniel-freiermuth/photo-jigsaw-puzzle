@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -121,6 +122,9 @@ class AppViewModel @JvmOverloads constructor(
 
     private var puzzleJob: Job? = null
 
+    /** Counts [saveCurrentPuzzle] calls, so a failed save can tell whether a later one superseded it. */
+    private var saves = 0
+
     /** The gallery's images, kept current while it is on screen. */
     val feed = GalleryFeed(
         scope = viewModelScope,
@@ -222,11 +226,21 @@ class AppViewModel @JvmOverloads constructor(
         val image = game.image
         // The gallery renders its tile from this state, so it is current even before the write lands.
         tiles = tiles + (image.key to saved)
-        viewModelScope.launch(puzzleIo) {
-            try {
-                puzzles.save(image.source.id, image.image.id, saved)
-            } catch (_: IOException) {
-                // Losing one save only costs the moves since the previous one; nothing to show the user.
+        val save = ++saves
+        viewModelScope.launch {
+            val persisted = withContext(puzzleIo) {
+                try {
+                    puzzles.save(image.source.id, image.image.id, saved)
+                    saved
+                } catch (e: IOException) {
+                    // Losing one save only costs the moves since the previous one; nothing to show the user.
+                    Log.w(TAG, "Could not save puzzle ${image.key}", e)
+                    puzzles.load(image.source.id, image.image.id)
+                }
+            }
+            // Put the tile back to what is on disk, unless a later save, restart or reload replaced it.
+            if (persisted !== saved && save == saves && tiles[image.key] === saved) {
+                tiles = if (persisted == null) tiles - image.key else tiles + (image.key to persisted)
             }
         }
     }
@@ -292,7 +306,8 @@ class AppViewModel @JvmOverloads constructor(
         val random = Random(current.seed)
         val cut = cutPuzzle(bitmap, JigsawCut(current.rows, current.cols, random), board)
         PuzzleContent.Playing(PuzzleGame(image, current.seed, current.pieces, cut, random, scattered = true))
-    } catch (_: IllegalArgumentException) {
+    } catch (e: IllegalArgumentException) {
+        Log.w(TAG, "Saved puzzle ${image.key} does not fit, starting afresh", e)
         null
     }
 
@@ -300,6 +315,7 @@ class AppViewModel @JvmOverloads constructor(
         (bitmap.width.toFloat() / cols) / (bitmap.height.toFloat() / rows)
 
     private companion object {
+        const val TAG = "AppViewModel"
         const val MAX_PUZZLE_SIDE = 1600
         const val KEY_SNAP_TO_BOARD = "snapToBoard"
         const val KEY_ROTATE_PIECES = "rotatePieces"
