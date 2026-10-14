@@ -30,6 +30,8 @@ class NextcloudShareSource(
     private val password: String,
     private val client: OkHttpClient,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /** JVM unit tests pass a real parser here: android.jar's [Xml] is only a stub there. */
+    private val newParser: () -> XmlPullParser = Xml::newPullParser,
 ) : ImageSource {
 
     private val share = parseShareUrl(shareUrl)
@@ -127,7 +129,7 @@ class NextcloudShareSource(
     }
 
     private fun parseResponse(reader: Reader, dir: HttpUrl): List<DavEntry> = try {
-        parseMultistatus(reader, Xml.newPullParser())
+        parseMultistatus(reader, newParser())
     } catch (e: XmlPullParserException) {
         throw UnexpectedResponseException("Malformed WebDAV response from $dir", e)
     }
