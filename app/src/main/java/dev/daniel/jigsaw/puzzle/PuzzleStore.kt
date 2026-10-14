@@ -25,7 +25,7 @@ sealed interface SavedPuzzle {
         val cols: Int,
         val seed: Long,
         val board: BoardSnapshot,
-        val pieces: Int = JigsawCut.DEFAULT_PIECES,
+        val pieces: PieceCount = PieceCount.DEFAULT,
     ) : SavedPuzzle {
         init {
             board.requireFits(rows, cols)
@@ -111,7 +111,7 @@ class PuzzleStore(private val root: File) {
                     put("rows", puzzle.rows)
                     put("cols", puzzle.cols)
                     put("seed", puzzle.seed)
-                    put("pieces", puzzle.pieces)
+                    put("pieces", puzzle.pieces.target)
                     put("xs", JSONArray(puzzle.board.xs.map { it.toDouble() }))
                     put("ys", JSONArray(puzzle.board.ys.map { it.toDouble() }))
                     put("groups", JSONArray(puzzle.board.groups))
@@ -146,7 +146,7 @@ class PuzzleStore(private val root: File) {
                         rotatable = o.optBoolean("rotatable", false),
                     ),
                     // Absent in saves from before the setting existed: those were all cut for the default.
-                    pieces = o.optInt("pieces", JigsawCut.DEFAULT_PIECES),
+                    pieces = PieceCount.fromTarget(o.optInt("pieces", PieceCount.DEFAULT.target)),
                 )
             }
         } catch (_: JSONException) {

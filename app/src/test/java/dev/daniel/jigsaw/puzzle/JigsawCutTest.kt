@@ -72,13 +72,13 @@ class JigsawCutTest {
     @Test
     fun `gridFor targets the piece count with near-square cells`() {
         for ((w, h) in listOf(1600 to 1200, 1200 to 1600, 1600 to 900, 1000 to 1000)) {
-            val (rows, cols) = JigsawCut.gridFor(w, h, 24)
-            val cellAspect = (w.toFloat() / cols) / (h.toFloat() / rows)
-            assertTrue(abs(rows * cols - 24) <= 6, "$w×$h → $rows×$cols")
+            val grid = JigsawCut.gridFor(w, h, PieceCount.P24)
+            val cellAspect = (w.toFloat() / grid.cols) / (h.toFloat() / grid.rows)
+            assertTrue(abs(grid.rows * grid.cols - 24) <= 6, "$w×$h → $grid")
             assertTrue(cellAspect in 0.7f..1.45f, "$w×$h cell aspect $cellAspect")
         }
-        val (rows, cols) = JigsawCut.gridFor(4000, 200, 24)
-        assertFalse(rows < 2 || cols < 2)
+        val grid = JigsawCut.gridFor(4000, 200, PieceCount.P24)
+        assertFalse(grid.rows < 2 || grid.cols < 2)
     }
 
     private companion object {

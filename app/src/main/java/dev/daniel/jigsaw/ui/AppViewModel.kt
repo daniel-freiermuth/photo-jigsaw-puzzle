@@ -15,6 +15,7 @@ import androidx.lifecycle.viewModelScope
 import dev.daniel.jigsaw.puzzle.BitmapPicture
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.JigsawCut
+import dev.daniel.jigsaw.puzzle.PieceCount
 import dev.daniel.jigsaw.puzzle.PuzzleBoard
 import dev.daniel.jigsaw.puzzle.PuzzlePicture
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
@@ -75,7 +76,7 @@ class PuzzleGame(
     val image: GalleryImage,
     val seed: Long,
     /** The piece count setting this puzzle was cut for. */
-    val pieces: Int,
+    val pieces: PieceCount,
     val cut: CutPuzzle,
     val random: Random,
     var scattered: Boolean,
@@ -118,8 +119,7 @@ class AppViewModel @JvmOverloads constructor(
         PuzzleSettings(
             snapToBoard = prefs.getBoolean(KEY_SNAP_TO_BOARD, false),
             rotatePieces = prefs.getBoolean(KEY_ROTATE_PIECES, false),
-            pieces = prefs.getInt(KEY_PIECES, JigsawCut.DEFAULT_PIECES)
-                .takeIf { it in JigsawCut.PIECE_COUNTS } ?: JigsawCut.DEFAULT_PIECES,
+            pieces = PieceCount.fromTarget(prefs.getInt(KEY_PIECES, PieceCount.DEFAULT.target)),
         ),
     )
         private set
@@ -150,7 +150,7 @@ class AppViewModel @JvmOverloads constructor(
         prefs.edit {
             putBoolean(KEY_SNAP_TO_BOARD, new.snapToBoard)
             putBoolean(KEY_ROTATE_PIECES, new.rotatePieces)
-            putInt(KEY_PIECES, new.pieces)
+            putInt(KEY_PIECES, new.pieces.target)
         }
     }
 
@@ -287,10 +287,15 @@ class AppViewModel @JvmOverloads constructor(
         chosen: PuzzleSettings,
         seed: Long,
     ): PuzzleContent.Playing {
-        val (rows, cols) = JigsawCut.gridFor(picture.width, picture.height, chosen.pieces)
+        val grid = JigsawCut.gridFor(picture.width, picture.height, chosen.pieces)
         val random = Random(seed)
-        val board = PuzzleBoard(rows, cols, cellAspect(picture, rows, cols), rotatable = chosen.rotatePieces)
-        val cut = picture.cut(JigsawCut(rows, cols, random), board)
+        val board = PuzzleBoard(
+            grid.rows,
+            grid.cols,
+            cellAspect(picture, grid.rows, grid.cols),
+            rotatable = chosen.rotatePieces,
+        )
+        val cut = picture.cut(JigsawCut(grid.rows, grid.cols, random), board)
         return PuzzleContent.Playing(PuzzleGame(image, seed, chosen.pieces, cut, random, scattered = false))
     }
 

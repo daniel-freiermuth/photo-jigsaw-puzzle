@@ -43,9 +43,9 @@ class BoardLayoutTest {
 
     @Test
     fun `a tray too small for one cell falls back to the whole canvas inset by the tab padding`() {
-        val (rows, cols) = JigsawCut.gridFor(1600, 900, 12)
+        val grid = JigsawCut.gridFor(1600, 900, PieceCount.P12)
         val canvas = CanvasSpec(800f, 800f, margin)
-        val layout = boardLayout(canvas, 1600f, 900f, rows, cols)
+        val layout = boardLayout(canvas, 1600f, 900f, grid.rows, grid.cols)
         // The space below the board, minus tab padding, is less than one row tall.
         val boardBottom = layout.origin.y + 900f * layout.scale
         val trayRows = (canvas.height - boardBottom - margin) / layout.cellSize.y - 2 * JigsawCut.PAD

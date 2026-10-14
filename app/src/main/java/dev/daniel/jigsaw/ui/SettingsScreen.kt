@@ -55,7 +55,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import dev.daniel.jigsaw.AppLanguage
 import dev.daniel.jigsaw.R
-import dev.daniel.jigsaw.puzzle.JigsawCut
+import dev.daniel.jigsaw.puzzle.PieceCount
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.source.SourceConfig
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -152,7 +152,7 @@ private fun LazyListScope.puzzleSettingsItems(settings: PuzzleSettings, onChange
 }
 
 @Composable
-private fun PieceCountRow(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+private fun PieceCountRow(selected: PieceCount, onSelect: (PieceCount) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
         Text(stringResource(R.string.settings_pieces), style = MaterialTheme.typography.bodyLarge)
         Text(
@@ -160,11 +160,11 @@ private fun PieceCountRow(selected: Int, onSelect: (Int) -> Unit, modifier: Modi
             style = MaterialTheme.typography.bodySmall,
         )
         Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            JigsawCut.PIECE_COUNTS.forEach { count ->
+            PieceCount.entries.forEach { count ->
                 FilterChip(
                     selected = count == selected,
                     onClick = { onSelect(count) },
-                    label = { Text(count.toString()) },
+                    label = { Text(count.target.toString()) },
                 )
             }
         }

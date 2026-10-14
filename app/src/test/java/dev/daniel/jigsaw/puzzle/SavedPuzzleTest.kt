@@ -58,15 +58,15 @@ class SavedPuzzleTest {
 
     @Test
     fun `only an unstarted puzzle cut for another piece count needs a fresh cut`() {
-        val saved = unstarted(rotatable = false).copy(pieces = 24)
-        assertFalse(saved.needsRecut(PuzzleSettings(pieces = 24)))
-        assertTrue(saved.needsRecut(PuzzleSettings(pieces = 48)))
+        val saved = unstarted(rotatable = false).copy(pieces = PieceCount.P24)
+        assertFalse(saved.needsRecut(PuzzleSettings(pieces = PieceCount.P24)))
+        assertTrue(saved.needsRecut(PuzzleSettings(pieces = PieceCount.P48)))
         val onBoard = saved.copy(
             board = saved.board.copy(
                 xs = listOf(0f) + saved.board.xs.drop(1),
                 ys = listOf(0f) + saved.board.ys.drop(1),
             ),
         )
-        assertFalse(onBoard.needsRecut(PuzzleSettings(pieces = 48)))
+        assertFalse(onBoard.needsRecut(PuzzleSettings(pieces = PieceCount.P48)))
     }
 }
