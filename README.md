@@ -137,6 +137,10 @@ uploaded as an artifact when it fails):
   Deviations, each with a reason: `config/detekt/detekt.yml`. HTML reports land in `app/build/reports/detekt/`.
 - **Unit tests** for debug and release.
 
+Every dependency, the Gradle wrapper and every GitHub Action (by commit SHA) is pinned. Dependabot
+(`.github/dependabot.yml`) opens weekly upgrade PRs for all three, which pass through the same checks;
+versions that must move together (Kotlin plugins, detekt, OkHttp, coroutines, lifecycle) come as one PR.
+
 ## Layout
 
 ```
