@@ -13,6 +13,7 @@ buildscript {
         classpath("com.android.tools.build:gradle:9.4.1")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.2.21")
         classpath("org.jetbrains.kotlin:compose-compiler-gradle-plugin:2.2.21")
-        classpath("io.gitlab.arturbosch.detekt:detekt-gradle-plugin:1.23.8")
+        // Pinned pre-release: detekt 1.x is unmaintained; move to 2.0.0 once it is final.
+        classpath("dev.detekt:detekt-gradle-plugin:2.0.0-alpha.6")
     }
 }

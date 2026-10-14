@@ -1,11 +1,11 @@
-import io.gitlab.arturbosch.detekt.Detekt
+import dev.detekt.gradle.Detekt
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    id("io.gitlab.arturbosch.detekt")
+    id("dev.detekt")
 }
 
 android {
@@ -118,7 +118,10 @@ kotlin {
 
 detekt {
     buildUponDefaultConfig = true
-    allRules = true
+    // Default-active rules only. detekt 1.23.8 ignored `allRules = true` together with buildUponDefaultConfig
+    // (the default config's `active: false` won), so this is the rule set the build has always enforced.
+    // detekt 2 does honour allRules; switching it on is a policy change worth its own commit.
+    allRules = false
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     source.setFrom("src/main/java", "src/test/java", "build.gradle.kts", rootProject.file("build.gradle.kts"))
 }
@@ -134,10 +137,9 @@ tasks.withType<Detekt>().configureEach {
     jvmTarget = "17"
     reports {
         html.required = true
-        txt.required = false
-        xml.required = false
+        checkstyle.required = false
         sarif.required = false
-        md.required = false
+        markdown.required = false
     }
 }
 
@@ -167,6 +169,6 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver:5.5.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
 
-    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8")
-    detektPlugins("io.nlopez.compose.rules:detekt:0.4.28")
+    detektPlugins("dev.detekt:detekt-rules-ktlint-wrapper:2.0.0-alpha.6")
+    detektPlugins("io.nlopez.compose.rules:detekt:0.6.8")
 }
