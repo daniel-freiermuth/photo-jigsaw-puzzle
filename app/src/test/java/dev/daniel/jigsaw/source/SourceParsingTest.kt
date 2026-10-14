@@ -157,6 +157,7 @@ class SourceParsingTest {
               {"type": "urllist", "id": "2", "url": "https://e/l.txt"},
               42,
               {"type": "smugmug", "id": "3", "label": "Smug", "url": "https://s/g"},
+              {"id": "5", "label": "Untyped", "url": "https://u/x"},
               {"type": "nextcloud", "id": "4", "label": "NC", "url": "https://c/s/t", "password": "pw"}
             ]
         """.trimIndent()
@@ -165,6 +166,15 @@ class SourceParsingTest {
                 SourceConfig.ImmichShare("1", "Im", "https://p/share/k"),
                 SourceConfig.NextcloudShare("4", "NC", "https://c/s/t", "pw"),
             ),
+            SourceStore.decode(json),
+        )
+    }
+
+    @Test
+    fun `source store reads a nextcloud entry without a password as a public share`() {
+        val json = """[{"type": "nextcloud", "id": "1", "label": "NC", "url": "https://c/s/t"}]"""
+        assertEquals(
+            listOf(SourceConfig.NextcloudShare("1", "NC", "https://c/s/t", "")),
             SourceStore.decode(json),
         )
     }
