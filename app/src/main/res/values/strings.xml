@@ -73,6 +73,7 @@
     <string name="error_connect">Couldn’t connect to the server.</string>
     <string name="error_tls">Secure connection to the server failed.</string>
     <string name="error_unexpected_response">The server sent an answer the app doesn’t understand.</string>
+    <string name="error_too_many_folders">The share has too many folders (the limit is %1$d). Share a smaller folder.</string>
     <string name="error_not_an_image">This file is not a picture the app can show.</string>
     <string name="error_other">Something went wrong: %1$s</string>
 </resources>

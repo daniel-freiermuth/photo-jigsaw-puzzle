@@ -177,3 +177,6 @@ class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code 
 
 /** The server answered successfully with something the source can't interpret. */
 class UnexpectedResponseException(message: String, cause: Throwable? = null) : IOException(message, cause)
+
+/** The share has more folders than a source walks; listing only some of them would hide pictures without a word. */
+class TooManyFoldersException(val limit: Int) : IOException("The share has more than $limit folders")
