@@ -91,6 +91,37 @@ class PuzzleBoardTest {
     }
 
     @Test
+    fun `a piece dropped between two loose groups joins both in one drop`() {
+        val board = PuzzleBoard(1, 3)
+        moveTo(board, 0, 10f, 10f)
+        moveTo(board, 2, 12.1f, 10.05f) // slightly off from where it belongs next to piece 1
+        moveTo(board, 1, 11.1f, 10f)
+        assertTrue(board.drop(1, snapToBoard = false))
+        assertTrue(board.sameGroup(0, 1) && board.sameGroup(1, 2))
+        assertEquals(board.x(0) + 1f, board.x(1), 1e-5f)
+        assertEquals(board.x(0) + 2f, board.x(2), 1e-5f)
+        assertEquals(board.y(0), board.y(1), 1e-5f)
+        assertEquals(board.y(0), board.y(2), 1e-5f)
+        assertFalse(board.isLocked(0) || board.isLocked(1) || board.isLocked(2))
+    }
+
+    @Test
+    fun `a loose neighbour joining a group locked earlier in the same drop is pulled onto the board`() {
+        val board = PuzzleBoard(1, 3)
+        moveTo(board, 1, 10f, 10f)
+        moveTo(board, 2, 2.1f, 0.05f) // slightly off its solved cell; too far from piece 0 to join it
+        assertTrue(board.drop(0, snapToBoard = true)) // piece 0 locks on its solved cell
+        moveTo(board, 1, 1.1f, 0f)
+        // Piece 1 first joins the locked piece 0, then the now-locked group must pull piece 2 onto it.
+        assertTrue(board.drop(1, snapToBoard = true))
+        for (i in 0 until board.size) {
+            assertEquals(i.toFloat(), board.x(i), 1e-5f)
+            assertEquals(0f, board.y(i), 1e-5f)
+            assertTrue(board.isLocked(i))
+        }
+    }
+
+    @Test
     fun `solved once every piece is in one group, wherever it lies`() {
         val board = scatteredBoard()
         val offsets = listOf(0f to 0f, 1f to 0f, 0f to 1f, 1f to 1f)
