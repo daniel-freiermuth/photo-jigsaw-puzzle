@@ -10,6 +10,13 @@
   <issue id="NewerVersionAvailable" severity="ignore" />
 
   <!--
+    Fires whenever the Android Gradle plugin's lint learns of a newer API level, so a toolchain upgrade
+    would force a targetSdk bump. Raising targetSdk opts into new platform behaviour and needs its own
+    deliberate, tested change.
+  -->
+  <issue id="OldTargetApi" severity="ignore" />
+
+  <!--
     False positive with Kotlin 2 (K2): flags plain member calls such as MutableList.removeAll /
     List.indexOf as conflicting with stdlib extensions that are never imported explicitly.
   -->
