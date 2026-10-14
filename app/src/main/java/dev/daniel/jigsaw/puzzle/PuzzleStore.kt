@@ -1,9 +1,8 @@
 package dev.daniel.jigsaw.puzzle
 
-import dev.daniel.jigsaw.map
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import dev.daniel.jigsaw.WireJson
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.Serializable
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
@@ -104,58 +103,75 @@ class PuzzleStore(private val root: File) {
         private const val FORMAT_VERSION = 1
         private const val LEGACY_PREVIEW_SUFFIX = ".png"
 
-        fun encode(puzzle: SavedPuzzle): String = JSONObject().apply {
-            put("version", FORMAT_VERSION)
-            when (puzzle) {
-                SavedPuzzle.Solved -> put("solved", true)
-
-                is SavedPuzzle.InProgress -> {
-                    put("solved", false)
-                    put("rows", puzzle.rows)
-                    put("cols", puzzle.cols)
-                    put("seed", puzzle.seed)
-                    put("pieces", puzzle.pieces.target)
-                    put("xs", JSONArray(puzzle.board.xs.map { it.toDouble() }))
-                    put("ys", JSONArray(puzzle.board.ys.map { it.toDouble() }))
-                    put("groups", JSONArray(puzzle.board.groups))
-                    put("locked", JSONArray(puzzle.board.locked))
-                    put("order", JSONArray(puzzle.board.order))
-                    put("turns", JSONArray(puzzle.board.turns))
-                    put("rotatable", puzzle.board.rotatable)
-                }
-            }
-        }.toString()
+        fun encode(puzzle: SavedPuzzle): String = when (puzzle) {
+            SavedPuzzle.Solved -> WireJson.encodeToString(SaveHeader(FORMAT_VERSION, solved = true))
+            is SavedPuzzle.InProgress -> WireJson.encodeToString(InProgressSave.of(puzzle))
+        }
 
         /** Null for unreadable, unknown-format or inconsistent saves, which are then simply started afresh. */
         fun decode(json: String): SavedPuzzle? = try {
-            val o = JSONObject(json)
+            val header = WireJson.decodeFromString<SaveHeader>(json)
             when {
-                o.optInt("version") != FORMAT_VERSION -> null
-
-                o.getBoolean("solved") -> SavedPuzzle.Solved
-
-                else -> SavedPuzzle.InProgress(
-                    rows = o.getInt("rows"),
-                    cols = o.getInt("cols"),
-                    seed = o.getLong("seed"),
-                    board = BoardSnapshot(
-                        xs = o.getJSONArray("xs").map { getDouble(it).toFloat() },
-                        ys = o.getJSONArray("ys").map { getDouble(it).toFloat() },
-                        groups = o.getJSONArray("groups").map { getInt(it) },
-                        locked = o.getJSONArray("locked").map { getBoolean(it) },
-                        order = o.getJSONArray("order").map { getInt(it) },
-                        // Absent in saves from before rotation existed: all pieces upright.
-                        turns = o.optJSONArray("turns")?.map { getInt(it) }.orEmpty(),
-                        rotatable = o.optBoolean("rotatable", false),
-                    ),
-                    // Absent in saves from before the setting existed: those were all cut for the default.
-                    pieces = PieceCount.fromTarget(o.optInt("pieces", PieceCount.DEFAULT.target)),
-                )
+                header.version != FORMAT_VERSION -> null
+                header.solved -> SavedPuzzle.Solved
+                else -> WireJson.decodeFromString<InProgressSave>(json).toSavedPuzzle()
             }
-        } catch (_: JSONException) {
-            null
         } catch (_: IllegalArgumentException) {
+            // Also kotlinx.serialization's SerializationException: unreadable JSON or missing fields.
             null
+        }
+    }
+
+    /** The fields every save starts with; read first so that other format versions are never decoded further. */
+    @Serializable
+    private class SaveHeader(val version: Int, val solved: Boolean)
+
+    /**
+     * Save-file format 1 of a [SavedPuzzle.InProgress]: [SaveHeader] plus the board as flat lists. Every field is
+     * always written so that older app versions read the save; the defaults fill in what older versions left out.
+     */
+    @Serializable
+    private class InProgressSave(
+        val version: Int,
+        val solved: Boolean,
+        val rows: Int,
+        val cols: Int,
+        val seed: Long,
+        // Absent in saves from before the setting existed: those were all cut for the default.
+        @EncodeDefault val pieces: Int = PieceCount.DEFAULT.target,
+        val xs: List<Float>,
+        val ys: List<Float>,
+        val groups: List<Int>,
+        val locked: List<Boolean>,
+        val order: List<Int>,
+        // Absent in saves from before rotation existed: all pieces upright.
+        @EncodeDefault val turns: List<Int> = emptyList(),
+        @EncodeDefault val rotatable: Boolean = false,
+    ) {
+        fun toSavedPuzzle() = SavedPuzzle.InProgress(
+            rows = rows,
+            cols = cols,
+            seed = seed,
+            board = BoardSnapshot(xs, ys, groups, locked, order, turns, rotatable),
+            pieces = PieceCount.fromTarget(pieces),
+        )
+
+        companion object {
+            fun of(puzzle: SavedPuzzle.InProgress) = InProgressSave(
+                version = FORMAT_VERSION,
+                solved = false,
+                rows = puzzle.rows,
+                cols = puzzle.cols,
+                seed = puzzle.seed,
+                pieces = puzzle.pieces.target,
+                xs = puzzle.board.xs,
+                ys = puzzle.board.ys,
+                groups = puzzle.board.groups,
+                locked = puzzle.board.locked,
+                order = puzzle.board.order,
+                turns = puzzle.board.turns,
+                rotatable = puzzle.board.rotatable,
+            )
         }
     }
 }
