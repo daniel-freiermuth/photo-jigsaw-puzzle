@@ -5,6 +5,7 @@ import okhttp3.CacheControl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.ResponseBody
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -138,8 +139,12 @@ object Http {
      * Blocking GET returning the body bytes; throws [IOException] on non-2xx. Call from Dispatchers.IO.
      * For listings: never answered from the cache without asking the server, so new pictures show up.
      */
-    fun getBytes(resource: HttpResource, client: OkHttpClient = this.client): ByteArray =
-        execute(client, request(resource).newBuilder().cacheControl(CacheControl.FORCE_NETWORK).build(), resource.url)
+    fun getBytes(resource: HttpResource, client: OkHttpClient = this.client): ByteArray = execute(
+        client,
+        request(resource).newBuilder().cacheControl(CacheControl.FORCE_NETWORK).build(),
+        resource.url,
+        ResponseBody::bytes,
+    )
 
     /**
      * Like [getBytes], for pictures: when the server can't be reached, a cached copy is used even if
@@ -148,13 +153,13 @@ object Http {
     fun getImage(resource: HttpResource, client: OkHttpClient = this.client): ByteArray {
         val request = request(resource)
         return try {
-            execute(client, request, resource.url)
+            execute(client, request, resource.url, ResponseBody::bytes)
         } catch (e: HttpStatusException) {
             throw e
         } catch (e: IOException) {
             val offline = request.newBuilder().cacheControl(CacheControl.FORCE_CACHE).build()
             try {
-                execute(client, offline, resource.url)
+                execute(client, offline, resource.url, ResponseBody::bytes)
             } catch (_: HttpStatusException) {
                 // FORCE_CACHE answers 504 when nothing is cached: report the real network error.
                 throw e
@@ -162,10 +167,11 @@ object Http {
         }
     }
 
-    private fun execute(client: OkHttpClient, request: Request, url: String): ByteArray =
+    /** Blocking call handing the body to [read]; throws [HttpStatusException] on non-2xx, naming [url]. */
+    fun <T> execute(client: OkHttpClient, request: Request, url: String, read: (ResponseBody) -> T): T =
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code, url)
-            response.body.bytes()
+            read(response.body)
         }
 
     /** Request tag: the response is pinned in the cache (see [HttpResource.revision]). */
