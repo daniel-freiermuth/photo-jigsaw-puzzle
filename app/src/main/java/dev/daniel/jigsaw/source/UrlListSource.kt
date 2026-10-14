@@ -23,7 +23,7 @@ class UrlListSource(
     private val manifestUrl = manifestUrl.trim().toHttpUrl().toString()
 
     override suspend fun listImages(): List<RemoteImage> = withContext(ioDispatcher) {
-        val body = String(Http.getBytes(HttpResource(manifestUrl), client), Charsets.UTF_8)
+        val body = Http.getText(HttpResource(manifestUrl), client)
         val urls = try {
             parseManifest(manifestUrl, body)
         } catch (e: JSONException) {
