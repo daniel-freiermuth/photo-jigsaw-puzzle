@@ -279,7 +279,7 @@ class PuzzleBoardTest {
         for ((from, to) in listOf(portrait to landscape, landscape to portrait)) {
             val board = PuzzleBoard(4, 6)
             board.scatter(from.scatter, Random(1))
-            board.keepAllReachable(to.screen)
+            board.keepAllReachable(to.screen, to.scatter, Random(2))
             val s = to.screen
             for (i in 0 until board.size) {
                 val x = board.x(i)
@@ -297,7 +297,7 @@ class PuzzleBoardTest {
         val board = PuzzleBoard(4, 6)
         board.scatter(portrait.scatter, Random(1))
         for (to in listOf(landscape, portrait)) {
-            board.keepAllReachable(to.screen)
+            board.keepAllReachable(to.screen, to.scatter, Random(2))
             val t = to.scatter
             for (i in 0 until board.size) {
                 val x = board.x(i)

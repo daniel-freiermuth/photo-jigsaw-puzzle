@@ -241,8 +241,8 @@ private fun PuzzleBoardView(
                     game.scattered = true
                 } else {
                     // A new canvas shape (rotation, resize, resuming in the other orientation) moves the
-                    // tray; pull groups left on the old one back where they can be grabbed.
-                    board.keepAllReachable(it.screen)
+                    // tray; move groups left on the old one into the new one.
+                    board.keepAllReachable(it.screen, it.scatter, game.random)
                 }
             }
     }

@@ -136,6 +136,20 @@ class PuzzleBoard(
         moveGroup(i, dx, dy)
     }
 
+    /** Moves the group to a random spot with its bounding box inside [bounds] (top-left in it, if too big). */
+    fun scatterGroup(i: Int, bounds: Bounds, random: Random) {
+        val m = members(i)
+        val left = m.minOf { xs[it] }
+        val top = m.minOf { ys[it] }
+        val width = m.maxOf { xs[it] } + 1f - left
+        val height = m.maxOf { ys[it] } + 1f - top
+        moveGroup(
+            i,
+            randomIn(bounds.minX, bounds.maxX - width, random) - left,
+            randomIn(bounds.minY, bounds.maxY - height, random) - top,
+        )
+    }
+
     /**
      * Resolves a drop of piece [i]'s group: joins matching neighbours and, if [snapToBoard],
      * locks the group onto the board when it is upright and near its solved spot. Returns true if
@@ -278,10 +292,19 @@ fun BoardSnapshot.requireFits(rows: Int, cols: Int) {
     require(groups.all { it in order.indices }) { "Snapshot group ids out of range" }
 }
 
-/** [PuzzleBoard.keepGroupReachable] for every group, e.g. after the canvas changed shape and [bounds] with it. */
-fun PuzzleBoard.keepAllReachable(bounds: Bounds) {
+/**
+ * After the canvas changed shape (and [screen] with it): every group that left [screen] moves to a
+ * random spot in [tray], instead of all of them piling up along the edge nearest the old tray.
+ * Groups still reachable stay put.
+ */
+fun PuzzleBoard.keepAllReachable(screen: Bounds, tray: Bounds, random: Random) {
     val groups = snapshot.groups
-    for (i in groups.indices.distinctBy { groups[it] }) keepGroupReachable(i, bounds)
+    for (i in groups.indices.distinctBy { groups[it] }) {
+        val x = x(i)
+        val y = y(i)
+        keepGroupReachable(i, screen)
+        if (x(i) != x || y(i) != y) scatterGroup(i, tray, random)
+    }
 }
 
 /** Whether any piece's centre lies inside the target area of a rows × cols board, i.e. the puzzle has begun. */
