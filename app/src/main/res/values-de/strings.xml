@@ -69,6 +69,7 @@
     <string name="error_connect">Keine Verbindung zum Server möglich.</string>
     <string name="error_tls">Sichere Verbindung zum Server fehlgeschlagen.</string>
     <string name="error_unexpected_response">Die Antwort des Servers ist für die App unverständlich.</string>
+    <string name="error_too_many_folders">Die Freigabe hat zu viele Ordner (höchstens %1$d). Bitte einen kleineren Ordner freigeben.</string>
     <string name="error_not_an_image">Diese Datei ist kein Bild, das die App anzeigen kann.</string>
     <string name="error_other">Etwas ist schiefgelaufen: %1$s</string>
 </resources>

@@ -85,14 +85,16 @@ class NextcloudShareSourceTest {
     }
 
     @Test
-    fun `an endless folder tree is cut off after 200 folders`() {
-        fallback = { path ->
-            if (path.startsWith(LEGACY)) {
-                listing(folder(path), folder("${path}deeper/"), file("${path}p.jpg", "image/jpeg"))
-            } else {
-                status(404)
-            }
-        }
+    fun `a share with more than 200 folders is refused rather than listed in part`() {
+        serveFolderChain(depth = 201)
+        assertEquals(200, assertThrows<TooManyFoldersException> { list() }.limit)
+        // The legacy endpoint answered, so the modern one is not tried.
+        assertEquals(200, server.requestCount)
+    }
+
+    @Test
+    fun `a share with exactly 200 folders is listed in full`() {
+        serveFolderChain(depth = 200)
         assertEquals(200, list().size)
         assertEquals(200, server.requestCount)
     }
@@ -154,6 +156,18 @@ class NextcloudShareSourceTest {
             folder("${root}sub/Deep%20Folder/"),
             file("${root}sub/Deep%20Folder/d.webp", "image/webp"),
         )
+    }
+
+    /** [depth] nested folders on the legacy endpoint, each holding one picture and the next folder. */
+    private fun serveFolderChain(depth: Int) {
+        fallback = { path ->
+            val level = path.removePrefix(LEGACY).split("deeper/").size
+            when {
+                !path.startsWith(LEGACY) -> status(404)
+                level < depth -> listing(folder(path), folder("${path}deeper/"), file("${path}p.jpg", "image/jpeg"))
+                else -> listing(folder(path), file("${path}p.jpg", "image/jpeg"))
+            }
+        }
     }
 
     private fun status(code: Int) = MockResponse.Builder().code(code).build()

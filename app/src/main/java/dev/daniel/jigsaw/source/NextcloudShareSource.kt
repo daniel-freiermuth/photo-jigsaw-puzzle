@@ -87,6 +87,7 @@ class NextcloudShareSource(
                 .filter { (entry, _) -> !entry.isCollection && entry.contentType.isPuzzleImage() }
                 .map { (entry, url) -> image(url, rootPath, endpoint.headers, entry) }
         }
+        if (pending.isNotEmpty()) throw TooManyFoldersException(MAX_FOLDERS)
         return images.sortedBy { it.id.lowercase() }
     }
 
