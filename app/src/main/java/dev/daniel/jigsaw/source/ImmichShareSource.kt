@@ -95,13 +95,7 @@ class ImmichShareSource(
             require(index >= 0 && index + 1 < segments.size && segments[index + 1].isNotEmpty()) {
                 "Not an Immich shared link (expected …/share/<key> or …/s/<slug>): $url"
             }
-            val base = parsed.newBuilder()
-                .query(null)
-                .fragment(null)
-                .encodedPath("/")
-                .apply { segments.subList(0, index).filter { it.isNotEmpty() }.forEach { addPathSegment(it) } }
-                .addPathSegment("")
-                .build()
+            val base = parsed.baseWithPath(segments.subList(0, index))
             val param = if (segments[index] == "share") "key" else "slug"
             return Share(base, param, segments[index + 1])
         }

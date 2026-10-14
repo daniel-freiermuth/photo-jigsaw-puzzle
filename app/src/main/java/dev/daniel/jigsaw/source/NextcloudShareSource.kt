@@ -188,13 +188,7 @@ class NextcloudShareSource(
             val baseSegments = segments.subList(0, sIndex).let {
                 if (it.lastOrNull() == "index.php") it.dropLast(1) else it
             }
-            val base = parsed.newBuilder()
-                .query(null)
-                .fragment(null)
-                .encodedPath("/")
-                .apply { baseSegments.filter { it.isNotEmpty() }.forEach { addPathSegment(it) } }
-                .addPathSegment("") // trailing slash so path appends work uniformly
-                .build()
+            val base = parsed.baseWithPath(baseSegments)
             return Share(base, segments[sIndex + 1])
         }
 
