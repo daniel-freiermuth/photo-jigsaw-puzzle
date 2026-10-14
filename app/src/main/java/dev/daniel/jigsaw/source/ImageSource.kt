@@ -2,6 +2,7 @@ package dev.daniel.jigsaw.source
 
 import okhttp3.Cache
 import okhttp3.CacheControl
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -171,6 +172,18 @@ object Http {
     /** Request tag: the response is pinned in the cache (see [HttpResource.revision]). */
     private object Revisioned
 }
+
+/**
+ * This URL's scheme/host/port with the path replaced by the non-empty [segments] plus a trailing
+ * slash (so relative path appends work uniformly); query and fragment are dropped.
+ */
+internal fun HttpUrl.baseWithPath(segments: List<String>): HttpUrl = newBuilder()
+    .query(null)
+    .fragment(null)
+    .encodedPath("/")
+    .apply { segments.filter { it.isNotEmpty() }.forEach { addPathSegment(it) } }
+    .addPathSegment("")
+    .build()
 
 /** The server answered, but not with success. */
 class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code for $url")
