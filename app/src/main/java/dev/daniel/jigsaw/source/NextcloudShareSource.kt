@@ -216,10 +216,15 @@ class NextcloudShareSource(
         private fun readProperty(parser: XmlPullParser, entry: EntryBuilder) {
             when (parser.namespace to parser.name) {
                 DAV to "href" -> entry.href = parser.nextText().trim()
+
                 DAV to "collection" -> entry.isCollection = true
+
                 DAV to "getcontenttype" -> entry.contentType = parser.nextText().trim()
+
                 DAV to "getlastmodified" -> entry.modified = parseHttpDate(parser.nextText().trim())
+
                 DAV to "getetag" -> entry.etag = parser.nextText().trim().ifEmpty { null }
+
                 NEXTCLOUD to "metadata-photos-original_date_time" ->
                     entry.captured = parseEpochSeconds(parser.nextText())
             }

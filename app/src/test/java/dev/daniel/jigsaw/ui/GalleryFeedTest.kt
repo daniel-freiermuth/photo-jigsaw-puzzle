@@ -29,7 +29,7 @@ class GalleryFeedTest {
 
     private fun TestScope.store() = ImageListStore(
         File(tmp.root, "listings.json"),
-        StandardTestDispatcher(testScheduler)
+        StandardTestDispatcher(testScheduler),
     )
 
     /** A feed whose single source answers via [list]; times are the test's virtual milliseconds. */

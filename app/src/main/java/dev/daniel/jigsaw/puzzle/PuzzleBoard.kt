@@ -290,7 +290,7 @@ fun BoardSnapshot.withRotatable(
     rows: Int,
     cols: Int,
     cellAspect: Float,
-    random: Random
+    random: Random,
 ): BoardSnapshot {
     if (rotatable == this.rotatable) return this
     val board = PuzzleBoard(rows, cols, copy(rotatable = true), cellAspect)

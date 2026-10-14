@@ -67,6 +67,7 @@ internal fun App(
                 onPick = vm::openImage,
             )
         }
+
         Screen.Settings -> SettingsScreen(
             sources = vm.sources,
             onAdd = vm::addSource,
@@ -77,6 +78,7 @@ internal fun App(
             onLanguageChange = onLanguageChange,
             onBack = vm::back,
         )
+
         is Screen.Puzzle -> PuzzleScreen(
             title = screen.image.image.name,
             state = vm.puzzle,
@@ -96,7 +98,9 @@ internal fun AppTheme(content: @Composable () -> Unit) {
     val colors = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+
         dark -> darkColorScheme()
+
         else -> lightColorScheme()
     }
     MaterialTheme(colorScheme = colors, content = content)

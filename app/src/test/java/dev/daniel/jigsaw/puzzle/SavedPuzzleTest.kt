@@ -50,7 +50,7 @@ class SavedPuzzleTest {
         val onBoard = saved.copy(
             board = saved.board.copy(xs = listOf(0f) + saved.board.xs.drop(1)).let {
                 it.copy(ys = listOf(0f) + it.ys.drop(1))
-            }
+            },
         )
         assertTrue(onBoard.started)
         assertSame(onBoard, onBoard.withRotation(rotatePieces = true, cellAspect = 1f))
@@ -62,7 +62,10 @@ class SavedPuzzleTest {
         assertFalse(saved.needsRecut(PuzzleSettings(pieces = 24)))
         assertTrue(saved.needsRecut(PuzzleSettings(pieces = 48)))
         val onBoard = saved.copy(
-            board = saved.board.copy(xs = listOf(0f) + saved.board.xs.drop(1), ys = listOf(0f) + saved.board.ys.drop(1))
+            board = saved.board.copy(
+                xs = listOf(0f) + saved.board.xs.drop(1),
+                ys = listOf(0f) + saved.board.ys.drop(1),
+            ),
         )
         assertFalse(onBoard.needsRecut(PuzzleSettings(pieces = 48)))
     }

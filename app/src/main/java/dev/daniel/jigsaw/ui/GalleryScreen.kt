@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -87,7 +88,9 @@ fun GalleryScreen(
                     action = stringResource(R.string.gallery_open_settings),
                     onAction = onOpenSettings,
                 )
+
                 state is Load.Ready -> GalleryContentView(state.value, tiles, settings, onRefresh, onPick)
+
                 else -> CircularProgressIndicator()
             }
         }
@@ -108,8 +111,10 @@ private fun GalleryContentView(
             stringResource(R.string.gallery_retry),
             onRefresh,
         )
+
         content.images.isEmpty() ->
             Message(stringResource(R.string.gallery_empty), stringResource(R.string.action_refresh), onRefresh)
+
         else -> ImageGrid(content, tiles, settings, onPick)
     }
 }
@@ -169,5 +174,6 @@ private fun Message(text: String, action: String, onAction: () -> Unit) {
 
 /** One "source: reason" line per failed source. */
 @Composable
+@ReadOnlyComposable
 private fun failureLines(failures: List<SourceFailure>): String =
     failures.map { stringResource(R.string.gallery_source_failure, it.label, it.reason.resolve()) }.joinToString("\n")

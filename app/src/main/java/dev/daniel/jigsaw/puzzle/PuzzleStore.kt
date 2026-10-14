@@ -6,6 +6,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.Locale
 import kotlin.random.Random
 
 /** What is remembered about one image's puzzle. */
@@ -88,7 +89,7 @@ class PuzzleStore(private val root: File) {
 
     private fun hash(id: String): String = MessageDigest.getInstance("SHA-256")
         .digest(id.toByteArray())
-        .joinToString("") { "%02x".format(it) }
+        .joinToString("") { "%02x".format(Locale.ROOT, it) }
 
     companion object {
         private const val FORMAT_VERSION = 1
@@ -98,6 +99,7 @@ class PuzzleStore(private val root: File) {
             put("version", FORMAT_VERSION)
             when (puzzle) {
                 SavedPuzzle.Solved -> put("solved", true)
+
                 is SavedPuzzle.InProgress -> {
                     put("solved", false)
                     put("rows", puzzle.rows)
@@ -120,7 +122,9 @@ class PuzzleStore(private val root: File) {
             val o = JSONObject(json)
             when {
                 o.optInt("version") != FORMAT_VERSION -> null
+
                 o.getBoolean("solved") -> SavedPuzzle.Solved
+
                 else -> SavedPuzzle.InProgress(
                     rows = o.getInt("rows"),
                     cols = o.getInt("cols"),
