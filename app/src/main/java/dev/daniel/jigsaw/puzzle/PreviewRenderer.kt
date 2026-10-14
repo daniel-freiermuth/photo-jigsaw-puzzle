@@ -84,9 +84,9 @@ private fun render(cut: CutPuzzle, board: BoardSnapshot, frame: Bounds, maxSide:
             val top = board.ys[i] * cut.cellHeight - cut.padY
             val piece = cut.pieces[i]
             withRotation(
-                board.turns.getOrElse(i) { 0 } * QUARTER_TURN_DEGREES,
-                (board.xs[i] + CENTER) * cut.cellWidth,
-                (board.ys[i] + CENTER) * cut.cellHeight,
+                board.turns.getOrElse(i) { 0 } * PuzzleBoard.QUARTER_TURN_DEGREES,
+                (board.xs[i] + PuzzleBoard.PIECE_CENTER) * cut.cellWidth,
+                (board.ys[i] + PuzzleBoard.PIECE_CENTER) * cut.cellHeight,
             ) {
                 drawBitmap(piece.image.asAndroidBitmap(), left, top, piecePaint)
                 drawBitmap(piece.outline.asAndroidBitmap(), left, top, outlinePaint)
@@ -95,11 +95,6 @@ private fun render(cut: CutPuzzle, board: BoardSnapshot, frame: Bounds, maxSide:
     }
     return bitmap
 }
-
-/** Offset from a piece's cell corner to its centre, in cell units. */
-private const val CENTER = 0.5f
-
-private const val QUARTER_TURN_DEGREES = 90f
 
 // Theme-neutral greys: previews are rendered once and shown in light and dark mode alike.
 private const val BOARD_FILL = 0x22808080

@@ -259,6 +259,11 @@ class PuzzleBoard(
         const val MIN_REACHABLE_OVERLAP = 0.5f
 
         const val QUARTERS = 4
+
+        const val QUARTER_TURN_DEGREES = 90f
+
+        /** Offset from a piece's cell corner to its centre (the rotation pivot), in cell units. */
+        const val PIECE_CENTER = 0.5f
     }
 }
 
@@ -309,8 +314,8 @@ fun PuzzleBoard.keepAllReachable(screen: Bounds, tray: Bounds, random: Random) {
 
 /** Whether any piece's centre lies inside the target area of a rows × cols board, i.e. the puzzle has begun. */
 fun BoardSnapshot.anyOnBoard(rows: Int, cols: Int): Boolean = xs.indices.any { i ->
-    val cx = xs[i] + PIECE_CENTER
-    val cy = ys[i] + PIECE_CENTER
+    val cx = xs[i] + PuzzleBoard.PIECE_CENTER
+    val cy = ys[i] + PuzzleBoard.PIECE_CENTER
     cx in 0f..cols.toFloat() && cy in 0f..rows.toFloat()
 }
 
@@ -334,5 +339,3 @@ fun BoardSnapshot.withRotatable(
     }
     return board.snapshot.copy(rotatable = rotatable)
 }
-
-private const val PIECE_CENTER = 0.5f

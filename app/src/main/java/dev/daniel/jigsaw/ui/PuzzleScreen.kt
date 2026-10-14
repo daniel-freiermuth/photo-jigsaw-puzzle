@@ -60,6 +60,7 @@ import dev.daniel.jigsaw.R
 import dev.daniel.jigsaw.puzzle.BoardLayout
 import dev.daniel.jigsaw.puzzle.CanvasSpec
 import dev.daniel.jigsaw.puzzle.CutPuzzle
+import dev.daniel.jigsaw.puzzle.PuzzleBoard
 import dev.daniel.jigsaw.puzzle.boardLayout
 import dev.daniel.jigsaw.puzzle.keepAllReachable
 import kotlinx.coroutines.coroutineScope
@@ -362,14 +363,14 @@ private fun DrawScope.drawPuzzle(game: PuzzleGame, layout: BoardLayout, colors: 
             (board.y(i) * cut.cellHeight - cut.padY) * layout.scale,
         )
         val center = layout.originOffset + Offset(
-            (board.x(i) + HALF) * cut.cellWidth * layout.scale,
-            (board.y(i) + HALF) * cut.cellHeight * layout.scale,
+            (board.x(i) + PuzzleBoard.PIECE_CENTER) * cut.cellWidth * layout.scale,
+            (board.y(i) + PuzzleBoard.PIECE_CENTER) * cut.cellHeight * layout.scale,
         )
         val dstSize = IntSize(
             (piece.image.width * layout.scale).roundToInt(),
             (piece.image.height * layout.scale).roundToInt(),
         )
-        rotate(degrees = board.turns(i) * QUARTER_TURN_DEGREES, pivot = center) {
+        rotate(degrees = board.turns(i) * PuzzleBoard.QUARTER_TURN_DEGREES, pivot = center) {
             drawImage(piece.image, dstOffset = topLeft.round(), dstSize = dstSize)
             drawImage(piece.outline, dstOffset = topLeft.round(), dstSize = dstSize, colorFilter = colors.pieceOutline)
         }
@@ -385,18 +386,15 @@ private fun hitTest(cut: CutPuzzle, layout: BoardLayout, pos: Offset): Int? {
     val board = cut.board
     return board.pieceAt { i ->
         // Offset from the piece centre, turned back to the piece's upright frame (counter-clockwise).
-        var dx = sx - (board.x(i) + HALF) * cut.cellWidth
-        var dy = sy - (board.y(i) + HALF) * cut.cellHeight
+        var dx = sx - (board.x(i) + PuzzleBoard.PIECE_CENTER) * cut.cellWidth
+        var dy = sy - (board.y(i) + PuzzleBoard.PIECE_CENTER) * cut.cellHeight
         repeat(board.turns(i)) {
             val nx = dy
             dy = -dx
             dx = nx
         }
-        val lx = dx + cut.padX + cut.cellWidth * HALF
-        val ly = dy + cut.padY + cut.cellHeight * HALF
+        val lx = dx + cut.padX + cut.cellWidth * PuzzleBoard.PIECE_CENTER
+        val ly = dy + cut.padY + cut.cellHeight * PuzzleBoard.PIECE_CENTER
         cut.pieces[i].region.contains(lx.toInt(), ly.toInt())
     }
 }
-
-private const val HALF = 0.5f
-private const val QUARTER_TURN_DEGREES = 90f
