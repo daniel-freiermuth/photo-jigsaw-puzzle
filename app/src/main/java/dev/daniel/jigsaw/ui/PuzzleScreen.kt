@@ -10,10 +10,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -26,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,6 +49,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -202,17 +202,20 @@ private val TopBarHeight = 64.dp
 
 /**
  * The puzzle canvas size on this device, derived from the window: what the puzzle screen gets below
- * its top bar and inside the system bars. Lets other screens lay pieces out exactly as a puzzle would.
+ * its top bar and inside the Scaffold's content insets (system bars and display cutout, on every
+ * side). Lets other screens lay pieces out exactly as a puzzle would.
  */
 @Composable
 fun puzzleCanvasSpec(): CanvasSpec {
     val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
     val window = LocalWindowInfo.current.containerSize
-    val bars = WindowInsets.systemBars
+    val insets = ScaffoldDefaults.contentWindowInsets
     return with(density) {
         CanvasSpec(
-            width = window.width.toFloat(),
-            height = (window.height - bars.getTop(density) - bars.getBottom(density) - TopBarHeight.roundToPx())
+            width = (window.width - insets.getLeft(density, direction) - insets.getRight(density, direction))
+                .toFloat(),
+            height = (window.height - insets.getTop(density) - insets.getBottom(density) - TopBarHeight.roundToPx())
                 .toFloat(),
             margin = BoardMargin.toPx(),
         )
