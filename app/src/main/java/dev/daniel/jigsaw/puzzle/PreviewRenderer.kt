@@ -36,7 +36,7 @@ fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, settings: Puz
 fun renderUntouched(picture: Bitmap, canvas: CanvasSpec, settings: PuzzleSettings, seed: Long, maxSide: Int): Bitmap {
     val grid = JigsawCut.gridFor(picture.width, picture.height, settings.pieces)
     val random = Random(seed)
-    val aspect = (picture.width.toFloat() / grid.cols) / (picture.height.toFloat() / grid.rows)
+    val aspect = cellAspect(picture.width, picture.height, grid.rows, grid.cols)
     val board = PuzzleBoard(grid.rows, grid.cols, aspect, settings.rotatePieces)
     val cut = cutPuzzle(picture, JigsawCut(grid.rows, grid.cols, random), board)
     val layout = boardLayout(canvas, picture.width.toFloat(), picture.height.toFloat(), grid.rows, grid.cols)

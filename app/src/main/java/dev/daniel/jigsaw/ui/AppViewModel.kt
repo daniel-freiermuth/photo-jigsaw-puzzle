@@ -22,6 +22,7 @@ import dev.daniel.jigsaw.puzzle.PuzzlePicture
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
+import dev.daniel.jigsaw.puzzle.cellAspect
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.source.Http
 import dev.daniel.jigsaw.source.HttpResource
@@ -294,12 +295,8 @@ class AppViewModel @JvmOverloads constructor(
     ): PuzzleContent.Playing {
         val grid = JigsawCut.gridFor(picture.width, picture.height, chosen.pieces)
         val random = Random(seed)
-        val board = PuzzleBoard(
-            grid.rows,
-            grid.cols,
-            cellAspect(picture, grid.rows, grid.cols),
-            rotatable = chosen.rotatePieces,
-        )
+        val aspect = cellAspect(picture.width, picture.height, grid.rows, grid.cols)
+        val board = PuzzleBoard(grid.rows, grid.cols, aspect, rotatable = chosen.rotatePieces)
         val cut = picture.cut(JigsawCut(grid.rows, grid.cols, random), board)
         return PuzzleContent.Playing(PuzzleGame(image, seed, chosen.pieces, cut, random, scattered = false))
     }
@@ -314,7 +311,7 @@ class AppViewModel @JvmOverloads constructor(
         saved: SavedPuzzle.InProgress,
         rotatePieces: Boolean,
     ): PuzzleContent.Playing? = try {
-        val aspect = cellAspect(picture, saved.rows, saved.cols)
+        val aspect = cellAspect(picture.width, picture.height, saved.rows, saved.cols)
         val current = saved.withRotation(rotatePieces, aspect)
         val board = PuzzleBoard(current.rows, current.cols, current.board, aspect)
         val random = Random(current.seed)
@@ -324,9 +321,6 @@ class AppViewModel @JvmOverloads constructor(
         Log.w(TAG, "Saved puzzle ${image.key} does not fit, starting afresh", e)
         null
     }
-
-    private fun cellAspect(picture: PuzzlePicture, rows: Int, cols: Int) =
-        (picture.width.toFloat() / cols) / (picture.height.toFloat() / rows)
 
     private companion object {
         const val TAG = "AppViewModel"
