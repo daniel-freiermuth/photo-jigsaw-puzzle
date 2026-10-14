@@ -89,7 +89,7 @@ class AppViewModel @JvmOverloads constructor(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
     /** Monotonic milliseconds, for deciding when the gallery is due for a refresh. */
-    private val clock: () -> Long = SystemClock::elapsedRealtime,
+    clock: () -> Long = SystemClock::elapsedRealtime,
 ) : AndroidViewModel(app) {
     private val store = SourceStore(app)
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -238,6 +238,7 @@ class AppViewModel @JvmOverloads constructor(
                 puzzleJob?.cancel()
                 puzzle = Load.Loading
             }
+
             Screen.Settings, Screen.Gallery -> Unit
         }
         screen = Screen.Gallery
@@ -252,9 +253,11 @@ class AppViewModel @JvmOverloads constructor(
             val bitmap = decodeSampled(bytes, maxSide = MAX_PUZZLE_SIDE)
             when (saved) {
                 SavedPuzzle.Solved -> PuzzleContent.Finished(bitmap.asImageBitmap())
+
                 is SavedPuzzle.InProgress -> saved.takeUnless { it.needsRecut(chosen) }
                     ?.let { resume(image, bitmap, it, chosen.rotatePieces) }
                     ?: newGame(image, bitmap, chosen, newSeed)
+
                 null -> newGame(image, bitmap, chosen, newSeed)
             }
         }

@@ -297,7 +297,7 @@ private enum class SourceKind(@param:StringRes val title: Int, @param:StringRes 
     Nextcloud(
         R.string.source_kind_nextcloud,
         R.string.source_invalid_nextcloud,
-        "https://cloud.example.com/s/AbCdEf123"
+        "https://cloud.example.com/s/AbCdEf123",
     ),
     Immich(R.string.source_kind_immich, R.string.source_invalid_immich, "https://photos.example.com/share/…"),
     UrlList(R.string.source_kind_url_list, R.string.source_invalid_url_list, "https://example.com/puzzles.txt"),

@@ -30,7 +30,9 @@ class SourceStore(context: Context) {
                                 put("type", "nextcloud")
                                 put("password", source.password)
                             }
+
                             is SourceConfig.ImmichShare -> put("type", "immich")
+
                             is SourceConfig.UrlList -> put("type", "urllist")
                         }
                     },

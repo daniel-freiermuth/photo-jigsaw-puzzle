@@ -17,3 +17,11 @@ complexity:
   TooManyFunctions:
     # Count the public surface; private helpers don't make a class harder to use.
     ignorePrivate: true
+
+ktlint:
+  # Both collapse every signature that fits on one line. Parameter lists here are wrapped by hand, one per
+  # line with a trailing comma, wherever that reads better; detekt-formatting 1.23.8 had neither rule active.
+  ClassSignature:
+    active: false
+  FunctionSignature:
+    active: false

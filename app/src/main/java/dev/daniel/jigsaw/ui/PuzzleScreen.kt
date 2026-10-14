@@ -94,16 +94,19 @@ fun PuzzleScreen(
         Box(Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
             when (state) {
                 Load.Loading -> CircularProgressIndicator()
+
                 is Load.Failed -> Text(
                     stringResource(R.string.puzzle_load_failed) + "\n" + state.reason.resolve(),
                     Modifier.padding(24.dp),
                 )
+
                 is Load.Ready -> when (val value = state.value) {
                     is PuzzleContent.Finished -> Image(
                         value.picture,
                         contentDescription = title,
                         modifier = Modifier.fillMaxSize().padding(12.dp),
                     )
+
                     is PuzzleContent.Playing -> {
                         PuzzleBoardView(value.game, snapToBoard, onMoveEnd)
                         if (value.game.solved) {
@@ -121,10 +124,12 @@ fun PuzzleScreen(
 private fun PuzzleActions(content: PuzzleContent?, onStartOver: () -> Unit) {
     when (content) {
         is PuzzleContent.Playing -> PlayingActions(content.game, onStartOver)
+
         // Solved: nothing to lose, so no confirmation.
         is PuzzleContent.Finished -> TextButton(
-            onClick = onStartOver
+            onClick = onStartOver,
         ) { Text(stringResource(R.string.puzzle_play_again)) }
+
         null -> Unit
     }
 }

@@ -90,6 +90,7 @@ fun GalleryThumbnail(
             contentScale = ContentScale.Crop,
             modifier = modifier,
         )
+
         // The data class hash changes with every move, so each layout gets its own cache entry.
         inProgress != null -> LoadedImage(
             key = "progress:${resource.url}:${inProgress.hashCode()}:${settings.rotatePieces}",
@@ -98,6 +99,7 @@ fun GalleryThumbnail(
             contentScale = ContentScale.Fit,
             modifier = modifier,
         )
+
         else -> LoadedImage(
             key = "untouched:${resource.url}:$canvas:${settings.rotatePieces}:${settings.pieces}",
             produce = {
@@ -133,7 +135,9 @@ private fun LoadedImage(
     Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
         when (val s = state) {
             ThumbState.Failed -> Text("⚠", style = MaterialTheme.typography.titleLarge)
+
             ThumbState.Loading -> Unit
+
             is ThumbState.Ready -> Image(
                 s.image,
                 contentDescription,

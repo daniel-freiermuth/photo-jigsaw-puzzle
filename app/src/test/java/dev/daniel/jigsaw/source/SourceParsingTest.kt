@@ -63,7 +63,7 @@ class SourceParsingTest {
                     "/public.php/webdav/notes.txt",
                     false,
                     "text/plain",
-                    millis("2026-10-13T19:39:24Z")
+                    millis("2026-10-13T19:39:24Z"),
                 ),
             ),
             entries,
@@ -91,7 +91,7 @@ class SourceParsingTest {
         val assets = JSONArray(
             """[{"id":"a","type":"IMAGE","originalFileName":"a.jpg","fileCreatedAt":"2024-05-01T12:00:00.000Z","thumbhash":"h1"},
                 {"id":"v","type":"VIDEO","originalFileName":"v.mp4"},
-                {"id":"b","type":"IMAGE"}]"""
+                {"id":"b","type":"IMAGE"}]""",
         )
         assertEquals(
             listOf(
@@ -122,7 +122,7 @@ class SourceParsingTest {
                 "isImage":[true,false,true,true],
                 "isTrashed":[false,false,true,false],
                 "fileCreatedAt":["2026-10-13T09:58:52.749",null,"2026-10-01T00:00:00","x"],
-                "thumbhash":["h1",null,"h3",null]}"""
+                "thumbhash":["h1",null,"h3",null]}""",
         )
         assertEquals(
             listOf(

@@ -3,6 +3,7 @@ package dev.daniel.jigsaw.ui
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.res.stringResource
 import dev.daniel.jigsaw.R
 import dev.daniel.jigsaw.puzzle.UndecodableImageException
@@ -22,6 +23,7 @@ data class UiText(@field:StringRes val id: Int, val args: List<Any> = emptyList(
     // At most two arguments: copying them for the vararg call costs nothing worth avoiding.
     @Suppress("SpreadOperator")
     @Composable
+    @ReadOnlyComposable
     fun resolve(): String = stringResource(id, *args.toTypedArray())
 }
 
@@ -32,11 +34,18 @@ fun Throwable.toUiText(): UiText = when (this) {
         HTTP_NOT_FOUND -> UiText(R.string.error_not_found)
         else -> UiText(R.string.error_http, listOf(code))
     }
+
     is UnknownHostException -> UiText(R.string.error_unknown_host)
+
     is SocketTimeoutException -> UiText(R.string.error_timeout)
+
     is ConnectException -> UiText(R.string.error_connect)
+
     is SSLException -> UiText(R.string.error_tls)
+
     is UnexpectedResponseException -> UiText(R.string.error_unexpected_response)
+
     is UndecodableImageException -> UiText(R.string.error_not_an_image)
+
     else -> UiText(R.string.error_other, listOf(message ?: javaClass.simpleName))
 }
