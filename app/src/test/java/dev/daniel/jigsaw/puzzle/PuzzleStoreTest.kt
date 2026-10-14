@@ -42,8 +42,8 @@ class PuzzleStoreTest {
 
     @Test
     fun `rotatable boards keep their turns through save and load`() {
-        PuzzleStore(tmp).save("s", "img", rotated)
-        assertEquals(rotated, PuzzleStore(tmp).load("s", "img"))
+        PuzzleStore(tmp).save(PuzzleKey("s", "img"), rotated)
+        assertEquals(rotated, PuzzleStore(tmp).load(PuzzleKey("s", "img")))
     }
 
     @Test
@@ -63,35 +63,35 @@ class PuzzleStoreTest {
     @Test
     fun `saves are kept per source and image and survive a new store instance`() {
         PuzzleStore(tmp).apply {
-            save("source-a", "/photos/beach.jpg", inProgress)
-            save("source-a", "/photos/forest.jpg", SavedPuzzle.Solved)
+            save(PuzzleKey("source-a", "/photos/beach.jpg"), inProgress)
+            save(PuzzleKey("source-a", "/photos/forest.jpg"), SavedPuzzle.Solved)
         }
         val reopened = PuzzleStore(tmp)
-        assertEquals(inProgress, reopened.load("source-a", "/photos/beach.jpg"))
-        assertEquals(SavedPuzzle.Solved, reopened.load("source-a", "/photos/forest.jpg"))
-        assertNull(reopened.load("source-b", "/photos/beach.jpg"))
+        assertEquals(inProgress, reopened.load(PuzzleKey("source-a", "/photos/beach.jpg")))
+        assertEquals(SavedPuzzle.Solved, reopened.load(PuzzleKey("source-a", "/photos/forest.jpg")))
+        assertNull(reopened.load(PuzzleKey("source-b", "/photos/beach.jpg")))
     }
 
     @Test
     fun `a later save replaces the earlier one`() {
         val store = PuzzleStore(tmp)
-        store.save("s", "img", inProgress)
-        store.save("s", "img", SavedPuzzle.Solved)
-        assertEquals(SavedPuzzle.Solved, store.load("s", "img"))
+        store.save(PuzzleKey("s", "img"), inProgress)
+        store.save(PuzzleKey("s", "img"), SavedPuzzle.Solved)
+        assertEquals(SavedPuzzle.Solved, store.load(PuzzleKey("s", "img")))
     }
 
     @Test
     fun `clear forgets one image, clearSource forgets a whole source`() {
         val store = PuzzleStore(tmp)
-        store.save("s1", "a", inProgress)
-        store.save("s1", "b", inProgress)
-        store.save("s2", "a", inProgress)
-        store.clear("s1", "a")
-        assertNull(store.load("s1", "a"))
-        assertEquals(inProgress, store.load("s1", "b"))
+        store.save(PuzzleKey("s1", "a"), inProgress)
+        store.save(PuzzleKey("s1", "b"), inProgress)
+        store.save(PuzzleKey("s2", "a"), inProgress)
+        store.clear(PuzzleKey("s1", "a"))
+        assertNull(store.load(PuzzleKey("s1", "a")))
+        assertEquals(inProgress, store.load(PuzzleKey("s1", "b")))
         store.clearSource("s1")
-        assertNull(store.load("s1", "b"))
-        assertEquals(inProgress, store.load("s2", "a"))
+        assertNull(store.load(PuzzleKey("s1", "b")))
+        assertEquals(inProgress, store.load(PuzzleKey("s2", "a")))
     }
 
     @Test
@@ -126,11 +126,11 @@ class PuzzleStoreTest {
     @Test
     fun `legacy preview images are removed while saves stay`() {
         val store = PuzzleStore(tmp)
-        store.save("s", "img", inProgress)
+        store.save(PuzzleKey("s", "img"), inProgress)
         val sourceDir = tmp.listFiles()!!.single()
         val legacy = sourceDir.resolve("old-preview.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
         store.deleteLegacyPreviews()
         assertFalse(legacy.exists())
-        assertEquals(inProgress, store.load("s", "img"))
+        assertEquals(inProgress, store.load(PuzzleKey("s", "img")))
     }
 }

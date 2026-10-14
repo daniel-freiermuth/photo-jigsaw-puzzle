@@ -10,6 +10,7 @@ import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PieceCount
 import dev.daniel.jigsaw.puzzle.PuzzleBoard
+import dev.daniel.jigsaw.puzzle.PuzzleKey
 import dev.daniel.jigsaw.puzzle.PuzzlePicture
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.PuzzleStore
@@ -57,7 +58,7 @@ class AppViewModelTest {
     private var rejectNextCut = false
 
     /** The view model's puzzle files, read directly. */
-    private val saved get() = PuzzleStore(File(tmp, "puzzles")).load(source.id, image.image.id)
+    private val saved get() = PuzzleStore(File(tmp, "puzzles")).load(image.puzzleKey)
 
     @BeforeEach
     fun mainLikeProduction() {
@@ -130,7 +131,7 @@ class AppViewModelTest {
         assertFalse(fresh.scattered)
         assertNotEquals(old.seed, fresh.seed)
         assertNull(saved)
-        assertNull(vm.tiles[image.key])
+        assertNull(vm.tiles[image.puzzleKey])
     }
 
     @Test
@@ -144,7 +145,7 @@ class AppViewModelTest {
 
         vm.saveCurrentPuzzle()
         advanceUntilIdle()
-        assertEquals(SavedPuzzle.Solved, vm.tiles[image.key])
+        assertEquals(SavedPuzzle.Solved, vm.tiles[image.puzzleKey])
         assertEquals(SavedPuzzle.Solved, saved)
 
         vm.back()
@@ -169,7 +170,7 @@ class AppViewModelTest {
         advanceUntilIdle()
 
         assertFalse(vm.game.scattered)
-        assertNull(vm.tiles[image.key])
+        assertNull(vm.tiles[image.puzzleKey])
         assertNull(saved)
     }
 
@@ -185,7 +186,7 @@ class AppViewModelTest {
         advanceUntilIdle()
 
         assertNull(saved)
-        assertEquals(emptyMap<String, SavedPuzzle>(), vm.tiles)
+        assertEquals(emptyMap<PuzzleKey, SavedPuzzle>(), vm.tiles)
     }
 
     @Test
@@ -210,7 +211,7 @@ class AppViewModelTest {
             pieces = PieceCount.P48,
         )
         assertEquals(image.seed, game.seed)
-        assertEquals(expected, vm.tiles[image.key])
+        assertEquals(expected, vm.tiles[image.puzzleKey])
         assertEquals(expected, saved)
     }
 

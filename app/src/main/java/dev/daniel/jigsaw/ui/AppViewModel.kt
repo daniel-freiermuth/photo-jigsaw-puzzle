@@ -17,6 +17,7 @@ import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PieceCount
 import dev.daniel.jigsaw.puzzle.PuzzleBoard
+import dev.daniel.jigsaw.puzzle.PuzzleKey
 import dev.daniel.jigsaw.puzzle.PuzzlePicture
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.PuzzleStore
@@ -52,7 +53,10 @@ sealed interface Load<out T> {
 
 /** An image plus the source it came from; ids are only unique within one source. */
 data class GalleryImage(val source: SourceConfig, val image: RemoteImage) {
+    /** Plain-string id, for list item keys (which must be Bundle-saveable) and [seed]. */
     val key get() = "${source.id}/${image.id}"
+
+    val puzzleKey get() = PuzzleKey(sourceId = source.id, imageId = image.id)
 
     /** Seed of the puzzle a first opening cuts and scatters, so the untouched gallery tile can show it ahead. */
     val seed get() = key.hashCode().toLong()
@@ -111,8 +115,8 @@ class AppViewModel @JvmOverloads constructor(
     var puzzle by mutableStateOf<Load<PuzzleContent>>(Load.Loading)
         private set
 
-    /** Saved puzzle state per [GalleryImage.key], for the gallery tiles; absent means never opened. */
-    var tiles by mutableStateOf<Map<String, SavedPuzzle>>(emptyMap())
+    /** Saved puzzle state per [GalleryImage.puzzleKey], for the gallery tiles; absent means never opened. */
+    var tiles by mutableStateOf<Map<PuzzleKey, SavedPuzzle>>(emptyMap())
         private set
 
     var settings by mutableStateOf(
@@ -139,7 +143,7 @@ class AppViewModel @JvmOverloads constructor(
             tiles = withContext(puzzleIo) {
                 puzzles.deleteLegacyPreviews()
                 content.images.mapNotNull { image ->
-                    puzzles.load(image.source.id, image.image.id)?.let { image.key to it }
+                    puzzles.load(image.puzzleKey)?.let { image.puzzleKey to it }
                 }.toMap()
             }
         },
@@ -170,7 +174,7 @@ class AppViewModel @JvmOverloads constructor(
     fun removeSource(id: String) {
         sources = sources.filterNot { it.id == id }
         store.save(sources)
-        tiles = tiles.filterKeys { !it.startsWith("$id/") }
+        tiles = tiles.filterKeys { it.sourceId != id }
         feed.forgetSource(id)
         viewModelScope.launch(puzzleIo) { puzzles.clearSource(id) }
     }
@@ -209,8 +213,8 @@ class AppViewModel @JvmOverloads constructor(
     fun restartPuzzle() {
         val image = (screen as? Screen.Puzzle)?.image ?: return
         puzzle = Load.Loading // so openImage doesn't save the state being discarded
-        tiles = tiles - image.key
-        viewModelScope.launch(puzzleIo) { puzzles.clear(image.source.id, image.image.id) }
+        tiles = tiles - image.puzzleKey
+        viewModelScope.launch(puzzleIo) { puzzles.clear(image.puzzleKey) }
         openImage(image, newSeed = Random.nextLong())
     }
 
@@ -228,23 +232,24 @@ class AppViewModel @JvmOverloads constructor(
             SavedPuzzle.InProgress(board.rows, board.cols, game.seed, board.snapshot, game.pieces)
         }
         val image = game.image
+        val key = image.puzzleKey
         // The gallery renders its tile from this state, so it is current even before the write lands.
-        tiles = tiles + (image.key to saved)
+        tiles = tiles + (key to saved)
         val save = ++saves
         viewModelScope.launch {
             val persisted = withContext(puzzleIo) {
                 try {
-                    puzzles.save(image.source.id, image.image.id, saved)
+                    puzzles.save(key, saved)
                     saved
                 } catch (e: IOException) {
                     // Losing one save only costs the moves since the previous one; nothing to show the user.
                     Log.w(TAG, "Could not save puzzle ${image.key}", e)
-                    puzzles.load(image.source.id, image.image.id)
+                    puzzles.load(key)
                 }
             }
             // Put the tile back to what is on disk, unless a later save, restart or reload replaced it.
-            if (persisted !== saved && save == saves && tiles[image.key] === saved) {
-                tiles = if (persisted == null) tiles - image.key else tiles + (image.key to persisted)
+            if (persisted !== saved && save == saves && tiles[key] === saved) {
+                tiles = if (persisted == null) tiles - key else tiles + (key to persisted)
             }
         }
     }
@@ -265,7 +270,7 @@ class AppViewModel @JvmOverloads constructor(
     private suspend fun loadPuzzle(image: GalleryImage, newSeed: Long): PuzzleContent {
         // Read on the main thread: the settings in force when the puzzle was opened.
         val chosen = settings
-        val saved = withContext(puzzleIo) { puzzles.load(image.source.id, image.image.id) }
+        val saved = withContext(puzzleIo) { puzzles.load(image.puzzleKey) }
         val bytes = withContext(ioDispatcher) { fetchImage(image.image.full) }
         return withContext(computeDispatcher) {
             val picture = decodePicture(bytes)
