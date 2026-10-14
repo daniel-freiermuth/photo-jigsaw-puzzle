@@ -1,0 +1,51 @@
+# Weekly upgrade PRs. Every version stays pinned and every bump is a separate reviewed change, gated by
+# check.yml (just check-all) and release.yml (just release-apk). Lint's own "newer version" checks stay
+# off (config/lint/lint.xml): they make a commit's result depend on the date.
+version: 2
+
+registries:
+  # Dependabot only discovers Google's repository from a literal `google()`; build.gradle.kts and
+  # settings.gradle.kts use the `google { content { … } }` form, so declare it explicitly.
+  google:
+    type: maven-repository
+    url: https://dl.google.com/dl/android/maven2/
+
+updates:
+  # build.gradle.kts (buildscript classpath), app/build.gradle.kts and the Gradle wrapper.
+  - package-ecosystem: gradle
+    directory: /
+    registries:
+      - google
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      # Versions that must move together, or the build breaks.
+      kotlin:
+        patterns:
+          - "org.jetbrains.kotlin:*"
+      kotlinx-coroutines:
+        patterns:
+          - "org.jetbrains.kotlinx:kotlinx-coroutines-*"
+      detekt:
+        patterns:
+          - "dev.detekt:*"
+      okhttp:
+        patterns:
+          - "com.squareup.okhttp3:*"
+      androidx-lifecycle:
+        patterns:
+          - "androidx.lifecycle:*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+    groups:
+      # actions/upload-artifact and actions/download-artifact share an artifact format.
+      actions-artifact:
+        patterns:
+          - "actions/*-artifact"
