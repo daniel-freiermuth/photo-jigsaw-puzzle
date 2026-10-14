@@ -51,6 +51,9 @@ sealed interface Load<out T> {
 /** An image plus the source it came from; ids are only unique within one source. */
 data class GalleryImage(val source: SourceConfig, val image: RemoteImage) {
     val key get() = "${source.id}/${image.id}"
+
+    /** Seed of the puzzle a first opening cuts and scatters, so the untouched gallery tile can show it ahead. */
+    val seed get() = key.hashCode().toLong()
 }
 
 /**
@@ -72,8 +75,10 @@ sealed interface PuzzleContent {
 }
 
 /**
- * A puzzle in progress. [seed] regenerates the same cut on resume. [version] bumps on every board
- * mutation so Compose redraws. [scattered] is false until the pieces got their starting positions.
+ * A puzzle in progress. [seed] regenerates the same cut on resume. [random] made the cut; the starting
+ * scatter continues it, so a new puzzle is laid out exactly like its untouched gallery tile.
+ * [version] bumps on every board mutation so Compose redraws. [scattered] is false until the pieces
+ * got their starting positions.
  */
 class PuzzleGame(
     val image: GalleryImage,
@@ -81,6 +86,7 @@ class PuzzleGame(
     /** The piece count setting this puzzle was cut for. */
     val pieces: Int,
     val cut: CutPuzzle,
+    val random: Random,
     var scattered: Boolean,
 ) {
     var version by mutableIntStateOf(0)
@@ -201,14 +207,17 @@ class AppViewModel @JvmOverloads constructor(
     private fun savedPuzzle(image: GalleryImage): SavedPuzzle? = puzzles.load(image.source.id, image.image.id)
 
     /** Opens [image]'s puzzle where it was left, the finished picture if solved, or a new puzzle. */
-    fun openImage(image: GalleryImage) {
+    fun openImage(image: GalleryImage) = openImage(image, newSeed = image.seed)
+
+    /** Like [openImage], cutting a new puzzle from [newSeed] if there is none to resume. */
+    private fun openImage(image: GalleryImage, newSeed: Long) {
         saveCurrentPuzzle()
         screen = Screen.Puzzle(image)
         puzzleJob?.cancel()
         puzzle = Load.Loading
         puzzleJob = viewModelScope.launch {
             puzzle = try {
-                Load.Ready(loadPuzzle(image))
+                Load.Ready(loadPuzzle(image, newSeed))
             } catch (e: IOException) {
                 Load.Failed(e.message ?: e.javaClass.simpleName)
             }
@@ -229,7 +238,7 @@ class AppViewModel @JvmOverloads constructor(
         puzzle = Load.Loading // so openImage doesn't save the state being discarded
         tiles = tiles - image.key
         viewModelScope.launch(puzzleIo) { puzzles.clear(image.source.id, image.image.id) }
-        openImage(image)
+        openImage(image, newSeed = Random.nextLong())
     }
 
     /**
@@ -270,7 +279,7 @@ class AppViewModel @JvmOverloads constructor(
         screen = Screen.Gallery
     }
 
-    private suspend fun loadPuzzle(image: GalleryImage): PuzzleContent {
+    private suspend fun loadPuzzle(image: GalleryImage, newSeed: Long): PuzzleContent {
         // Read on the main thread: the settings in force when the puzzle was opened.
         val chosen = settings
         val saved = withContext(puzzleIo) { puzzles.load(image.source.id, image.image.id) }
@@ -281,18 +290,23 @@ class AppViewModel @JvmOverloads constructor(
                 SavedPuzzle.Solved -> PuzzleContent.Finished(bitmap.asImageBitmap())
                 is SavedPuzzle.InProgress -> saved.takeUnless { it.needsRecut(chosen) }
                     ?.let { resume(image, bitmap, it, chosen.rotatePieces) }
-                    ?: newGame(image, bitmap, chosen)
-                null -> newGame(image, bitmap, chosen)
+                    ?: newGame(image, bitmap, chosen, newSeed)
+                null -> newGame(image, bitmap, chosen, newSeed)
             }
         }
     }
 
-    private fun newGame(image: GalleryImage, bitmap: Bitmap, chosen: PuzzleSettings): PuzzleContent.Playing {
+    private fun newGame(
+        image: GalleryImage,
+        bitmap: Bitmap,
+        chosen: PuzzleSettings,
+        seed: Long,
+    ): PuzzleContent.Playing {
         val (rows, cols) = JigsawCut.gridFor(bitmap.width, bitmap.height, chosen.pieces)
-        val seed = Random.nextLong()
+        val random = Random(seed)
         val board = PuzzleBoard(rows, cols, cellAspect(bitmap, rows, cols), rotatable = chosen.rotatePieces)
-        val cut = cutPuzzle(bitmap, JigsawCut(rows, cols, Random(seed)), board)
-        return PuzzleContent.Playing(PuzzleGame(image, seed, chosen.pieces, cut, scattered = false))
+        val cut = cutPuzzle(bitmap, JigsawCut(rows, cols, random), board)
+        return PuzzleContent.Playing(PuzzleGame(image, seed, chosen.pieces, cut, random, scattered = false))
     }
 
     /**
@@ -308,8 +322,9 @@ class AppViewModel @JvmOverloads constructor(
         val aspect = cellAspect(bitmap, saved.rows, saved.cols)
         val current = saved.withRotation(rotatePieces, aspect)
         val board = PuzzleBoard(current.rows, current.cols, current.board, aspect)
-        val cut = cutPuzzle(bitmap, JigsawCut(current.rows, current.cols, Random(current.seed)), board)
-        PuzzleContent.Playing(PuzzleGame(image, current.seed, current.pieces, cut, scattered = true))
+        val random = Random(current.seed)
+        val cut = cutPuzzle(bitmap, JigsawCut(current.rows, current.cols, random), board)
+        PuzzleContent.Playing(PuzzleGame(image, current.seed, current.pieces, cut, random, scattered = true))
     } catch (_: IllegalArgumentException) {
         null
     }
