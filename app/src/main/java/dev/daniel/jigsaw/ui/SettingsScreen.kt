@@ -1,5 +1,7 @@
 package dev.daniel.jigsaw.ui
 
+import android.content.ActivityNotFoundException
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,10 +38,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
@@ -179,7 +190,7 @@ private fun SourceRow(source: SourceConfig, onRemove: () -> Unit, modifier: Modi
             Column(Modifier.weight(1f)) {
                 Text(source.label, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "${source.kind.title} · ${source.url}",
+                    sourceLinkText(source),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -187,6 +198,29 @@ private fun SourceRow(source: SourceConfig, onRemove: () -> Unit, modifier: Modi
             }
             IconButton(onClick = onRemove) { Icon(Icons.Default.Delete, contentDescription = "Remove") }
         }
+    }
+}
+
+/** "Kind · url" with the URL as a link that opens the share in the browser. */
+@Composable
+private fun sourceLinkText(source: SourceConfig): AnnotatedString {
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+    val linkStyle = TextLinkStyles(
+        SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline),
+    )
+    return buildAnnotatedString {
+        append("${source.kind.title} · ")
+        val link = LinkAnnotation.Url(source.url, linkStyle) {
+            try {
+                uriHandler.openUri(source.url)
+            } catch (_: ActivityNotFoundException) {
+                Toast.makeText(context, "No app can open this link", Toast.LENGTH_SHORT).show()
+            } catch (_: IllegalArgumentException) {
+                Toast.makeText(context, "Not a valid link", Toast.LENGTH_SHORT).show()
+            }
+        }
+        withLink(link) { append(source.url) }
     }
 }
 
