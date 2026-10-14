@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.puzzle
 
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -71,6 +72,28 @@ class PuzzleStoreTest {
         assertNull(PuzzleStore.decode("not json"))
         assertNull(PuzzleStore.decode("""{"version": 99, "solved": true}"""))
         assertNull(PuzzleStore.decode("""{"version": 1, "solved": false, "rows": 2}"""))
+    }
+
+    @Test
+    fun `saves whose board does not fit their grid decode to null`() {
+        fun tampered(edit: JSONObject.() -> Unit) =
+            PuzzleStore.decode(JSONObject(PuzzleStore.encode(inProgress)).apply(edit).toString())
+
+        fun JSONObject.noPieces() = apply {
+            for (key in listOf("xs", "ys", "groups", "locked", "order", "turns")) put(key, JSONArray())
+        }
+
+        assertNull(tampered { noPieces() })
+        assertNull(tampered { put("xs", JSONArray(listOf(0.0, 1.0, 2.0))) })
+        assertNull(tampered { put("turns", JSONArray(listOf(1, 2))) })
+        assertNull(tampered { put("order", JSONArray(listOf(0, 1, 2, 4))) })
+        assertNull(tampered { put("order", JSONArray(listOf(0, 1, 1, 2))) })
+        assertNull(tampered { put("groups", JSONArray(listOf(0, 0, 2, 4))) })
+        // −2 × −2 = 4 matches the list sizes, but is no grid.
+        assertNull(tampered { put("rows", -2).put("cols", -2) })
+        assertNull(tampered { noPieces().put("rows", 0) })
+        // 65536 × 65536 overflows Int to 0, which must not pass for empty lists.
+        assertNull(tampered { noPieces().put("rows", 65536).put("cols", 65536) })
     }
 
     @Test

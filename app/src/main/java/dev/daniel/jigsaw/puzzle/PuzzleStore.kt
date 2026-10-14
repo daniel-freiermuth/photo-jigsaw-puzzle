@@ -16,7 +16,8 @@ sealed interface SavedPuzzle {
 
     /**
      * [seed] regenerates the identical cut for a [rows] × [cols] grid, which was chosen for about
-     * [pieces] pieces; [board] holds the piece state.
+     * [pieces] pieces; [board] holds the piece state. Throws [IllegalArgumentException] if [board]
+     * does not fit that grid, so every instance is safe to render or restore.
      */
     data class InProgress(
         val rows: Int,
@@ -25,6 +26,10 @@ sealed interface SavedPuzzle {
         val board: BoardSnapshot,
         val pieces: Int = JigsawCut.DEFAULT_PIECES,
     ) : SavedPuzzle {
+        init {
+            board.requireFits(rows, cols)
+        }
+
         /** Whether a piece has been placed on the board yet. */
         val started get() = board.anyOnBoard(rows, cols)
 
@@ -117,7 +122,7 @@ class PuzzleStore(private val root: File) {
             }
         }.toString()
 
-        /** Null for unreadable or unknown-format saves, which are then simply started afresh. */
+        /** Null for unreadable, unknown-format or inconsistent saves, which are then simply started afresh. */
         fun decode(json: String): SavedPuzzle? = try {
             val o = JSONObject(json)
             when {
@@ -144,6 +149,8 @@ class PuzzleStore(private val root: File) {
                 )
             }
         } catch (_: JSONException) {
+            null
+        } catch (_: IllegalArgumentException) {
             null
         }
 

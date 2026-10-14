@@ -34,13 +34,7 @@ class PuzzleBoard(
     /** Restores a board saved with [snapshot]; throws [IllegalArgumentException] if it doesn't fit. */
     constructor(rows: Int, cols: Int, snapshot: BoardSnapshot, cellAspect: Float = 1f) :
         this(rows, cols, cellAspect, snapshot.rotatable) {
-        val n = rows * cols
-        require(
-            listOf(snapshot.xs, snapshot.ys, snapshot.groups, snapshot.locked, snapshot.order).all { it.size == n },
-        ) { "Snapshot does not match a $rows×$cols board" }
-        require(snapshot.turns.isEmpty() || snapshot.turns.size == n) { "Snapshot rotations don't match the board" }
-        require(snapshot.order.sorted() == (0 until n).toList()) { "Snapshot draw order is not a permutation" }
-        require(snapshot.groups.all { it in 0 until n }) { "Snapshot group ids out of range" }
+        snapshot.requireFits(rows, cols)
         snapshot.xs.forEachIndexed { i, v -> xs[i] = v }
         snapshot.ys.forEachIndexed { i, v -> ys[i] = v }
         snapshot.turns.forEachIndexed { i, v -> turns[i] = v.mod(QUARTERS) }
@@ -266,6 +260,23 @@ data class BoardSnapshot(
     val turns: List<Int> = emptyList(),
     val rotatable: Boolean = false,
 )
+
+/**
+ * Throws [IllegalArgumentException] unless this snapshot describes a [rows] × [cols] board: every
+ * per-piece list sized rows × cols ([turns][BoardSnapshot.turns] may be empty), the draw order a
+ * permutation of the pieces, and group ids naming pieces.
+ */
+fun BoardSnapshot.requireFits(rows: Int, cols: Int) {
+    require(rows >= 1 && cols >= 1) { "A board needs at least one row and column, not $rows×$cols" }
+    // Long: a product that overflows Int must not happen to match the list sizes.
+    val n = rows.toLong() * cols
+    require(listOf(xs, ys, groups, locked, order).all { it.size.toLong() == n }) {
+        "Snapshot does not match a $rows×$cols board"
+    }
+    require(turns.isEmpty() || turns.size.toLong() == n) { "Snapshot rotations don't match the board" }
+    require(order.sorted() == order.indices.toList()) { "Snapshot draw order is not a permutation" }
+    require(groups.all { it in order.indices }) { "Snapshot group ids out of range" }
+}
 
 /** [PuzzleBoard.keepGroupReachable] for every group, e.g. after the canvas changed shape and [bounds] with it. */
 fun PuzzleBoard.keepAllReachable(bounds: Bounds) {
