@@ -1,11 +1,10 @@
 package dev.daniel.jigsaw.source
 
-import dev.daniel.jigsaw.map
+import dev.daniel.jigsaw.WireJson
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.Serializable
 import java.io.File
 import java.io.IOException
 
@@ -35,63 +34,19 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
     companion object {
         private const val FORMAT_VERSION = 1
 
-        fun encode(listings: Map<String, List<RemoteImage>>): String = JSONObject().apply {
-            put("version", FORMAT_VERSION)
-            put(
-                "sources",
-                JSONObject().apply {
-                    listings.forEach { (sourceId, images) ->
-                        put(sourceId, JSONArray().apply { images.forEach { put(encodeImage(it)) } })
-                    }
-                },
-            )
-        }.toString()
+        fun encode(listings: Map<String, List<RemoteImage>>): String =
+            WireJson.encodeToString(ListingsFile(FORMAT_VERSION, listings))
 
         /** Anything unreadable or from another format version counts as no saved list. */
         fun decode(json: String): Map<String, List<RemoteImage>> = try {
-            val root = JSONObject(json)
-            if (root.optInt("version") != FORMAT_VERSION) {
-                emptyMap()
-            } else {
-                val sources = root.getJSONObject("sources")
-                sources.keys().asSequence().associateWith { id ->
-                    val array = sources.getJSONArray(id)
-                    array.map { decodeImage(getJSONObject(it)) }
-                }
-            }
-        } catch (_: JSONException) {
+            val saved = WireJson.decodeFromString<ListingsFile>(json)
+            if (saved.version == FORMAT_VERSION) saved.sources else emptyMap()
+        } catch (_: SerializationException) {
             emptyMap()
         }
-
-        private fun encodeImage(image: RemoteImage) = JSONObject().apply {
-            put("id", image.id)
-            put("name", image.name)
-            put("thumbnail", encodeResource(image.thumbnail))
-            put("full", encodeResource(image.full))
-            image.takenAt?.let { put("takenAt", it) }
-        }
-
-        private fun decodeImage(o: JSONObject) = RemoteImage(
-            id = o.getString("id"),
-            name = o.getString("name"),
-            thumbnail = decodeResource(o.getJSONObject("thumbnail")),
-            full = decodeResource(o.getJSONObject("full")),
-            takenAt = if (o.has("takenAt")) o.getLong("takenAt") else null,
-        )
-
-        private fun encodeResource(resource: HttpResource) = JSONObject().apply {
-            put("url", resource.url)
-            put("headers", JSONObject(resource.headers))
-            resource.revision?.let { put("revision", it) }
-        }
-
-        private fun decodeResource(o: JSONObject): HttpResource {
-            val headers = o.optJSONObject("headers") ?: JSONObject()
-            return HttpResource(
-                url = o.getString("url"),
-                headers = headers.keys().asSequence().associateWith { headers.getString(it) },
-                revision = if (o.has("revision")) o.getString("revision") else null,
-            )
-        }
     }
+
+    /** The file format: listings keyed by [SourceConfig.id], each image as a [RemoteImage]. */
+    @Serializable
+    private class ListingsFile(val version: Int, val sources: Map<String, List<RemoteImage>>)
 }
