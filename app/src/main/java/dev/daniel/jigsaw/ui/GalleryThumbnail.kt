@@ -101,8 +101,8 @@ fun GalleryThumbnail(
         else -> LoadedImage(
             key = "untouched:${resource.url}:$canvas:${settings.rotatePieces}:${settings.pieces}",
             produce = {
-                // Seeded by the image so the scatter looks the same every time the tile is drawn.
-                renderUntouched(picture(), canvas, settings, item.key.hashCode().toLong(), MAX_SIDE)
+                // The seed the first opening cuts and scatters with, so the tile shows that very pile.
+                renderUntouched(picture(), canvas, settings, item.seed, MAX_SIDE)
             },
             contentDescription = item.image.name,
             contentScale = ContentScale.Fit,

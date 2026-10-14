@@ -62,7 +62,6 @@ import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.boardLayout
 import dev.daniel.jigsaw.puzzle.keepAllReachable
 import kotlin.math.roundToInt
-import kotlin.random.Random
 
 private const val BOARD_FILL_ALPHA = 0.06f
 private const val BOARD_STROKE_ALPHA = 0.35f
@@ -227,7 +226,7 @@ private fun PuzzleBoardView(
         boardLayout(canvas, game.cut.source.width.toFloat(), game.cut.source.height.toFloat(), board.rows, board.cols)
             .also {
                 if (!game.scattered) {
-                    board.scatter(it.scatter, Random.Default)
+                    board.scatter(it.scatter, game.random)
                     game.scattered = true
                 } else {
                     // A new canvas shape (rotation, resize, resuming in the other orientation) moves the
