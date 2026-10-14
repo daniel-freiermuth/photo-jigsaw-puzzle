@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.source
 
+import kotlinx.serialization.json.Json
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -134,13 +135,18 @@ class SourceParsingTest {
     }
 
     @Test
-    fun `source store round-trips every source type`() {
+    fun `source store reads what earlier versions saved and writes the same format back`() {
         val sources = listOf(
             SourceConfig.NextcloudShare("1", "NC", "https://c/s/t", "pw"),
             SourceConfig.ImmichShare("2", "Im", "https://p/share/k"),
             SourceConfig.UrlList("3", "List", "https://e/l.txt"),
         )
-        assertEquals(sources, SourceStore.decode(SourceStore.encode(sources)))
+        // Byte for byte what the org.json encoder wrote on a device (Android escapes `/`).
+        val v1 = """[{"type":"nextcloud","id":"1","label":"NC","url":"https:\/\/c\/s\/t","password":"pw"},""" +
+            """{"type":"immich","id":"2","label":"Im","url":"https:\/\/p\/share\/k"},""" +
+            """{"type":"urllist","id":"3","label":"List","url":"https:\/\/e\/l.txt"}]"""
+        assertEquals(sources, SourceStore.decode(v1))
+        assertEquals(Json.parseToJsonElement(v1), Json.parseToJsonElement(SourceStore.encode(sources)))
     }
 
     @Test
