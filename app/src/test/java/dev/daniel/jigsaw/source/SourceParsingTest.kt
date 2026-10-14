@@ -2,9 +2,9 @@ package dev.daniel.jigsaw.source
 
 import org.json.JSONArray
 import org.json.JSONObject
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.kxml2.io.KXmlParser
 import java.io.StringReader
 import java.time.Instant
@@ -21,7 +21,7 @@ class SourceParsingTest {
             assertEquals("https://ex.org/nextcloud/", base.toString())
             assertEquals("tok", token)
         }
-        assertThrows(IllegalArgumentException::class.java) {
+        assertThrows<IllegalArgumentException> {
             NextcloudShareSource.parseShareUrl("https://cloud.example.com/apps/files")
         }
     }

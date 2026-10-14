@@ -1,10 +1,11 @@
 package dev.daniel.jigsaw.puzzle
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import kotlin.random.Random
 
 class PuzzleBoardTest {
@@ -176,14 +177,16 @@ class PuzzleBoardTest {
         assertEquals(2, restored.drawOrder.last())
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun `restoring a snapshot from another grid size is rejected`() {
-        PuzzleBoard(3, 2, PuzzleBoard(2, 2).snapshot)
+        assertThrows<IllegalArgumentException> { PuzzleBoard(3, 2, PuzzleBoard(2, 2).snapshot) }
     }
 
-    @Test(expected = IllegalArgumentException::class)
+    @Test
     fun `restoring a snapshot with a broken draw order is rejected`() {
-        PuzzleBoard(2, 2, PuzzleBoard(2, 2).snapshot.copy(order = listOf(0, 0, 1, 2)))
+        assertThrows<IllegalArgumentException> {
+            PuzzleBoard(2, 2, PuzzleBoard(2, 2).snapshot.copy(order = listOf(0, 0, 1, 2)))
+        }
     }
 
     /** 1×2 rotatable board, pieces far apart and upright. */
@@ -282,7 +285,7 @@ class PuzzleBoardTest {
                 val x = board.x(i)
                 val y = board.y(i)
                 val visible = x + 1f > s.minX && x < s.maxX && y + 1f > s.minY && y < s.maxY
-                assertTrue("piece $i at ($x, $y) is off $s", visible)
+                assertTrue(visible, "piece $i at ($x, $y) is off $s")
             }
         }
     }

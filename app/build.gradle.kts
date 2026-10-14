@@ -87,6 +87,7 @@ android {
     testOptions {
         // org.json / XmlPullParser are used by the sources; return defaults instead of throwing in JVM tests.
         unitTests.isReturnDefaultValues = true
+        unitTests.all { it.useJUnitPlatform() }
     }
 
     lint {
@@ -161,11 +162,14 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    // Gradle 9 no longer puts a launcher on the test classpath; this one follows the BOM's version.
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     // Real implementations of org.json / XmlPullParser for JVM unit tests (android.jar only has stubs).
     testImplementation("org.json:json:20250517")
     testImplementation("net.sf.kxml:kxml2:2.3.0")
-    testImplementation("com.squareup.okhttp3:mockwebserver:5.5.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver3:5.5.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
 
     detektPlugins("dev.detekt:detekt-rules-ktlint-wrapper:2.0.0-alpha.6")

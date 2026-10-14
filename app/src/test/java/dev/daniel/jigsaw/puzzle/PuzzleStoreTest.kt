@@ -1,16 +1,16 @@
 package dev.daniel.jigsaw.puzzle
 
 import org.json.JSONObject
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
-import org.junit.Rule
-import org.junit.Test
-import org.junit.rules.TemporaryFolder
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 class PuzzleStoreTest {
-    @get:Rule
-    val tmp = TemporaryFolder()
+    @TempDir
+    lateinit var tmp: File
 
     private val inProgress = SavedPuzzle.InProgress(
         rows = 2,
@@ -34,11 +34,11 @@ class PuzzleStoreTest {
 
     @Test
     fun `saves are kept per source and image and survive a new store instance`() {
-        PuzzleStore(tmp.root).apply {
+        PuzzleStore(tmp).apply {
             save("source-a", "/photos/beach.jpg", inProgress)
             save("source-a", "/photos/forest.jpg", SavedPuzzle.Solved)
         }
-        val reopened = PuzzleStore(tmp.root)
+        val reopened = PuzzleStore(tmp)
         assertEquals(inProgress, reopened.load("source-a", "/photos/beach.jpg"))
         assertEquals(SavedPuzzle.Solved, reopened.load("source-a", "/photos/forest.jpg"))
         assertNull(reopened.load("source-b", "/photos/beach.jpg"))
@@ -46,7 +46,7 @@ class PuzzleStoreTest {
 
     @Test
     fun `a later save replaces the earlier one`() {
-        val store = PuzzleStore(tmp.root)
+        val store = PuzzleStore(tmp)
         store.save("s", "img", inProgress)
         store.save("s", "img", SavedPuzzle.Solved)
         assertEquals(SavedPuzzle.Solved, store.load("s", "img"))
@@ -54,7 +54,7 @@ class PuzzleStoreTest {
 
     @Test
     fun `clear forgets one image, clearSource forgets a whole source`() {
-        val store = PuzzleStore(tmp.root)
+        val store = PuzzleStore(tmp)
         store.save("s1", "a", inProgress)
         store.save("s1", "b", inProgress)
         store.save("s2", "a", inProgress)
@@ -75,9 +75,9 @@ class PuzzleStoreTest {
 
     @Test
     fun `legacy preview images are removed while saves stay`() {
-        val store = PuzzleStore(tmp.root)
+        val store = PuzzleStore(tmp)
         store.save("s", "img", inProgress)
-        val sourceDir = tmp.root.listFiles()!!.single()
+        val sourceDir = tmp.listFiles()!!.single()
         val legacy = sourceDir.resolve("old-preview.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
         store.deleteLegacyPreviews()
         assertFalse(legacy.exists())

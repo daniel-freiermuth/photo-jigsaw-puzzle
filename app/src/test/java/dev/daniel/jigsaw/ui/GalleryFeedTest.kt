@@ -12,23 +12,22 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Rule
-import org.junit.Test
-import org.junit.rules.TemporaryFolder
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GalleryFeedTest {
-    @get:Rule
-    val tmp = TemporaryFolder()
+    @TempDir
+    lateinit var tmp: File
 
     private val source = SourceConfig.ImmichShare("im", "Immich", "https://p/share/k")
 
     private fun remote(id: String) = RemoteImage(id, id, HttpResource("https://p/$id"), HttpResource("https://p/$id"))
 
     private fun TestScope.store() = ImageListStore(
-        File(tmp.root, "listings.json"),
+        File(tmp, "listings.json"),
         StandardTestDispatcher(testScheduler),
     )
 
