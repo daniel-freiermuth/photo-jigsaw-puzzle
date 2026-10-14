@@ -65,9 +65,10 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant, and
   show (its pieces freshly scattered); once opened, its loose pieces as left; as soon as a piece sits on the board,
   only the board with what has been placed; once solved, the picture. Tiles are drawn from the saved state over the
   thumbnail, so they always match the save.
-- Languages: English and German. Settings → Language offers System default, English or Deutsch. On Android
-  13+ this is the same per-app language as system Settings → Apps → Jigsaw → Language. Older versions store
-  it in the app. Error messages are translated too.
+- Languages: English and German; the app is called "Jigsaw" in English and "Puzzle" in German. Settings →
+  Language offers System default, English or Deutsch. On Android 13+ this is the same per-app language as
+  system Settings → Apps → Jigsaw/Puzzle → Language. Older versions store it in the app. Error messages are
+  translated too.
 - Runs on Android 8.0 (API 26) and newer. Smoke-tested on Android 9, 13 and 15 (emulators) and on a Pixel 4a
   running Android 15.
 
