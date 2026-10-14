@@ -1,5 +1,8 @@
 package dev.daniel.jigsaw.source
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import okhttp3.Cache
 import okhttp3.CacheControl
 import okhttp3.HttpUrl
@@ -36,21 +39,30 @@ interface ImageSource {
     suspend fun listImages(): List<RemoteImage>
 }
 
-/** Persisted description of a source, as entered by the user. */
+/**
+ * Persisted description of a source, as entered by the user. This is also the stored format (see
+ * [SourceStore]): the `type` tag comes from the [SerialName]s and the fields from the property names.
+ */
+@Serializable
 sealed interface SourceConfig {
     val id: String
     val label: String
     val url: String
 
     /** Nextcloud public share link, e.g. `https://cloud.example.com/s/AbC123`. */
+    @Serializable
+    @SerialName("nextcloud")
     data class NextcloudShare(
         override val id: String,
         override val label: String,
         override val url: String,
-        val password: String = "",
+        // Always written; entries stored without it are public shares.
+        @EncodeDefault val password: String = "",
     ) : SourceConfig
 
     /** Immich shared link, e.g. `https://photos.example.com/share/<key>` or `/s/<slug>`. */
+    @Serializable
+    @SerialName("immich")
     data class ImmichShare(
         override val id: String,
         override val label: String,
@@ -58,6 +70,8 @@ sealed interface SourceConfig {
     ) : SourceConfig
 
     /** A text file (one image URL per line) or JSON array of image URLs. */
+    @Serializable
+    @SerialName("urllist")
     data class UrlList(
         override val id: String,
         override val label: String,
