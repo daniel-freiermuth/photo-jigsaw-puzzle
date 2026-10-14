@@ -267,6 +267,12 @@ data class BoardSnapshot(
     val rotatable: Boolean = false,
 )
 
+/** [PuzzleBoard.keepGroupReachable] for every group, e.g. after the canvas changed shape and [bounds] with it. */
+fun PuzzleBoard.keepAllReachable(bounds: Bounds) {
+    val groups = snapshot.groups
+    for (i in groups.indices.distinctBy { groups[it] }) keepGroupReachable(i, bounds)
+}
+
 /** Whether any piece's centre lies inside the target area of a rows × cols board, i.e. the puzzle has begun. */
 fun BoardSnapshot.anyOnBoard(rows: Int, cols: Int): Boolean = xs.indices.any { i ->
     val cx = xs[i] + PIECE_CENTER
