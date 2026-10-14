@@ -1,8 +1,7 @@
 package dev.daniel.jigsaw.source
 
+import dev.daniel.jigsaw.WireJson
 import kotlinx.serialization.json.Json
-import org.json.JSONArray
-import org.json.JSONObject
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -89,15 +88,18 @@ class SourceParsingTest {
 
     @Test
     fun `immich assets keep images only, with their capture time and thumbnail digest`() {
-        val assets = JSONArray(
+        val assets = WireJson.decodeFromString<List<ImmichShareSource.Asset>>(
             """[{"id":"a","type":"IMAGE","originalFileName":"a.jpg","fileCreatedAt":"2024-05-01T12:00:00.000Z","thumbhash":"h1"},
                 {"id":"v","type":"VIDEO","originalFileName":"v.mp4"},
-                {"id":"b","type":"IMAGE"}]""",
+                {"id":"b","type":"IMAGE"},
+                {"id":"c","type":"IMAGE","originalFileName":null,"fileCreatedAt":null,"thumbhash":null}]""",
         )
         assertEquals(
             listOf(
                 ImmichShareSource.ImmichAsset("a", "a.jpg", millis("2024-05-01T12:00:00Z"), "h1"),
                 ImmichShareSource.ImmichAsset("b", "b", null),
+                // Explicit nulls are absent values, not the text "null" (as Android's org.json read them).
+                ImmichShareSource.ImmichAsset("c", "c", null),
             ),
             ImmichShareSource.parseAssets(assets),
         )
@@ -118,7 +120,7 @@ class SourceParsingTest {
 
     @Test
     fun `immich timeline bucket keeps live images only, named and dated by capture time`() {
-        val bucket = JSONObject(
+        val bucket = WireJson.decodeFromString<ImmichShareSource.TimelineBucket>(
             """{"id":["a","v","t","b"],
                 "isImage":[true,false,true,true],
                 "isTrashed":[false,false,true,false],

@@ -1,15 +1,14 @@
 package dev.daniel.jigsaw.source
 
-import dev.daniel.jigsaw.map
+import dev.daniel.jigsaw.WireJson
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
 
 /**
  * Lists images in an Immich shared link (album or individual-assets share).
@@ -29,11 +28,11 @@ class ImmichShareSource(
 
     override suspend fun listImages(): List<RemoteImage> = withContext(ioDispatcher) {
         val assets = try {
-            val link = JSONObject(get(api("shared-links/me")))
-            val direct = link.optJSONArray("assets") ?: JSONArray()
-            val albumId = link.optJSONObject("album")?.getString("id")
-            if (direct.length() == 0 && albumId != null) albumAssets(albumId) else parseAssets(direct)
-        } catch (e: JSONException) {
+            val link = WireJson.decodeFromString<SharedLink>(get(api("shared-links/me")))
+            val direct = link.assets.orEmpty()
+            val albumId = link.album?.id
+            if (direct.isEmpty() && albumId != null) albumAssets(albumId) else parseAssets(direct)
+        } catch (e: SerializationException) {
             throw UnexpectedResponseException("Unexpected response from Immich", e)
         }
         assets.map { asset ->
@@ -57,15 +56,11 @@ class ImmichShareSource(
     private fun get(url: String) = Http.getText(HttpResource(url), client)
 
     private fun albumAssets(albumId: String): List<ImmichAsset> {
-        val album = JSONObject(get(api("albums/$albumId")))
-        album.optJSONArray("assets")?.let { return parseAssets(it) }
-        val buckets = JSONArray(get(api("timeline/buckets").withQuery("albumId", albumId)))
-        return buckets.map { getJSONObject(it).getString("timeBucket") }.flatMap { bucket ->
-            parseTimelineBucket(
-                JSONObject(
-                    get(api("timeline/bucket").withQuery("albumId", albumId).withQuery("timeBucket", bucket)),
-                ),
-            )
+        WireJson.decodeFromString<Album>(get(api("albums/$albumId"))).assets?.let { return parseAssets(it) }
+        val buckets = api("timeline/buckets").withQuery("albumId", albumId)
+        return WireJson.decodeFromString<List<TimeBucketKey>>(get(buckets)).flatMap { key ->
+            val bucket = api("timeline/bucket").withQuery("albumId", albumId).withQuery("timeBucket", key.timeBucket)
+            parseTimelineBucket(WireJson.decodeFromString(get(bucket)))
         }
     }
 
@@ -87,6 +82,44 @@ class ImmichShareSource(
      */
     data class ImmichAsset(val id: String, val name: String, val takenAt: Long?, val thumbhash: String? = null)
 
+    // Immich API responses, reduced to the fields read here. Every field the server may send as null or
+    // leave out is nullable, so a JSON null reads as null on the device and in tests alike.
+
+    /** `GET /api/shared-links/me`: the assets of an individual-assets share, or the album of an album share. */
+    @Serializable
+    private class SharedLink(val assets: List<Asset>? = null, val album: AlbumRef? = null)
+
+    @Serializable
+    private class AlbumRef(val id: String)
+
+    /** `GET /api/albums/{id}`; newer servers no longer embed [assets]. */
+    @Serializable
+    private class Album(val assets: List<Asset>? = null)
+
+    /** One entry of `GET /api/timeline/buckets`. */
+    @Serializable
+    private class TimeBucketKey(val timeBucket: String)
+
+    /** An `AssetResponseDto`. */
+    @Serializable
+    internal class Asset(
+        val id: String,
+        val type: String? = null,
+        val originalFileName: String? = null,
+        val fileCreatedAt: String? = null,
+        val thumbhash: String? = null,
+    )
+
+    /** `GET /api/timeline/bucket`: columnar, one parallel list per field. */
+    @Serializable
+    internal class TimelineBucket(
+        val id: List<String>? = null,
+        val isImage: List<Boolean?>? = null,
+        val isTrashed: List<Boolean?>? = null,
+        val fileCreatedAt: List<String?>? = null,
+        val thumbhash: List<String?>? = null,
+    )
+
     companion object {
         fun parseShareUrl(url: String): Share {
             val parsed = url.trim().toHttpUrl()
@@ -101,39 +134,33 @@ class ImmichShareSource(
         }
 
         /** Every image asset; videos and other types are skipped. */
-        fun parseAssets(assets: JSONArray): List<ImmichAsset> =
-            assets.map { getJSONObject(it) }
-                .filter { it.optString("type") == "IMAGE" }
-                .map {
-                    ImmichAsset(
-                        id = it.getString("id"),
-                        name = it.optString("originalFileName", it.getString("id")),
-                        takenAt = parseIsoTimestamp(it.optString("fileCreatedAt").ifEmpty { null }),
-                        thumbhash = it.optString("thumbhash").ifEmpty { null },
-                    )
-                }
+        internal fun parseAssets(assets: List<Asset>): List<ImmichAsset> =
+            assets.filter { it.type == "IMAGE" }.map {
+                ImmichAsset(
+                    id = it.id,
+                    name = it.originalFileName ?: it.id,
+                    takenAt = parseIsoTimestamp(it.fileCreatedAt),
+                    thumbhash = it.thumbhash?.ifEmpty { null },
+                )
+            }
 
         /**
          * Timeline buckets are columnar: parallel arrays per field. Returns every non-trashed image,
          * named by capture time since filenames aren't part of this payload.
          */
-        fun parseTimelineBucket(bucket: JSONObject): List<ImmichAsset> {
-            val ids = bucket.optJSONArray("id") ?: return emptyList()
-            val isImage = bucket.optJSONArray("isImage")
-            val isTrashed = bucket.optJSONArray("isTrashed")
-            val created = bucket.optJSONArray("fileCreatedAt")
-            val thumbhashes = bucket.optJSONArray("thumbhash")
-            return (0 until ids.length())
-                .filter { isImage?.optBoolean(it, false) == true && isTrashed?.optBoolean(it, false) != true }
+        internal fun parseTimelineBucket(bucket: TimelineBucket): List<ImmichAsset> {
+            val ids = bucket.id ?: return emptyList()
+            return ids.indices
+                .filter { bucket.isImage?.getOrNull(it) == true && bucket.isTrashed?.getOrNull(it) != true }
                 .map { i ->
-                    val id = ids.getString(i)
-                    val createdAt = created?.optString(i)?.takeUnless { created.isNull(i) }
+                    val id = ids[i]
+                    val createdAt = bucket.fileCreatedAt?.getOrNull(i)
                     val name = createdAt
                         ?.takeIf { it.length >= TIMESTAMP_TO_MINUTE }
                         ?.take(TIMESTAMP_TO_MINUTE)
                         ?.replace('T', ' ')
                         ?: id
-                    val thumbhash = thumbhashes?.optString(i)?.takeUnless { thumbhashes.isNull(i) || it.isEmpty() }
+                    val thumbhash = bucket.thumbhash?.getOrNull(i)?.ifEmpty { null }
                     ImmichAsset(id, name, parseIsoTimestamp(createdAt), thumbhash)
                 }
         }
