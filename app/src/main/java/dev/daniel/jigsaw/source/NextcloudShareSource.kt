@@ -21,8 +21,8 @@ import java.net.URLDecoder
 /**
  * Lists images in a Nextcloud public share (recursively) over the public WebDAV endpoint.
  *
- * Tries the legacy `public.php/webdav` endpoint first (works on all versions, supports passwords),
- * then the newer `public.php/dav/files/<token>` endpoint.
+ * Tries the documented `public.php/dav/files/<token>` endpoint first (Nextcloud 29+, password sent as
+ * `anonymous`), then the legacy `public.php/webdav` endpoint for servers older than Nextcloud 29.
  */
 class NextcloudShareSource(
     shareUrl: String,
@@ -66,7 +66,7 @@ class NextcloudShareSource(
                 common + ("Authorization" to Credentials.basic("anonymous", password))
             },
         )
-        return listOf(legacy, modern)
+        return listOf(modern, legacy)
     }
 
     private fun crawl(endpoint: Endpoint): List<RemoteImage> {

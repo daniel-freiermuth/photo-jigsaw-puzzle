@@ -41,45 +41,46 @@ class NextcloudShareSourceTest {
     fun stop() = server.close()
 
     @Test
-    fun `the legacy and the modern endpoint give every picture the same id`() {
-        serveTree(LEGACY)
-        val legacy = list()
+    fun `the modern and the legacy endpoint give every picture the same id`() {
+        serveTree(MODERN)
+        val modern = list()
         assertEquals(3, server.requestCount)
 
         routes.clear()
-        serveTree(MODERN)
-        val modern = list()
+        serveTree(LEGACY)
+        val legacy = list()
 
-        assertEquals(TREE_IDS, legacy.map { it.id })
         assertEquals(TREE_IDS, modern.map { it.id })
+        assertEquals(TREE_IDS, legacy.map { it.id })
         assertEquals(listOf("a.png", "B.jpg", "c.jpg", "d.webp"), modern.map { it.name })
         assertEquals(server.url("${MODERN}sub/Deep%20Folder/d.webp").toString(), modern.last().full.url)
+        assertEquals(server.url("${LEGACY}sub/Deep%20Folder/d.webp").toString(), legacy.last().full.url)
     }
 
     @Test
-    fun `a server without the legacy endpoint is listed through the modern one`() {
+    fun `a server older than Nextcloud 29 is listed through the legacy endpoint`() {
         for (code in listOf(404, 405)) {
             routes.clear()
-            routes[LEGACY] = status(code)
-            serveTree(MODERN)
-            assertEquals(TREE_IDS, list().map { it.id }, "legacy answering $code")
+            routes[MODERN] = status(code)
+            serveTree(LEGACY)
+            assertEquals(TREE_IDS, list().map { it.id }, "modern answering $code")
         }
     }
 
     @Test
-    fun `a wrong password or a broken server fails without trying the modern endpoint`() {
-        serveTree(MODERN)
+    fun `a wrong password or a broken server fails without trying the legacy endpoint`() {
+        serveTree(LEGACY)
         for (code in listOf(401, 500)) {
-            routes[LEGACY] = status(code)
+            routes[MODERN] = status(code)
             val before = server.requestCount
             assertEquals(code, assertThrows<HttpStatusException> { list() }.code)
-            assertEquals(before + 1, server.requestCount, "legacy answering $code")
+            assertEquals(before + 1, server.requestCount, "modern answering $code")
         }
     }
 
     @Test
     fun `when neither endpoint exists the last status is reported`() {
-        routes[LEGACY] = status(405)
+        routes[MODERN] = status(405)
         assertEquals(404, assertThrows<HttpStatusException> { list() }.code)
         assertEquals(2, server.requestCount)
     }
@@ -88,7 +89,7 @@ class NextcloudShareSourceTest {
     fun `a share with more than 200 folders is refused rather than listed in part`() {
         serveFolderChain(depth = 201)
         assertEquals(200, assertThrows<TooManyFoldersException> { list() }.limit)
-        // The legacy endpoint answered, so the modern one is not tried.
+        // The modern endpoint answered, so the legacy one is not tried.
         assertEquals(200, server.requestCount)
     }
 
@@ -101,7 +102,7 @@ class NextcloudShareSourceTest {
 
     @Test
     fun `without a password thumbnails come from the public preview`() {
-        serveTree(LEGACY)
+        serveTree(MODERN)
         val image = list().single { it.id == "/sub/c.jpg" }
 
         val thumbnail = image.thumbnail.url.toHttpUrl()
@@ -109,23 +110,23 @@ class NextcloudShareSourceTest {
         assertEquals("/sub/c.jpg", thumbnail.queryParameter("file"))
         assertEquals(emptyMap<String, String>(), image.thumbnail.headers)
         assertEquals(ETAG, image.thumbnail.revision)
-        assertEquals(server.url("${LEGACY}sub/c.jpg").toString(), image.full.url)
+        assertEquals(server.url("${MODERN}sub/c.jpg").toString(), image.full.url)
         assertEquals(ETAG, image.full.revision)
     }
 
     @Test
     fun `with a password thumbnails are the full picture, sent with the share's credentials`() {
-        serveTree(LEGACY)
-        val legacy = list(PASSWORD).single { it.id == "/sub/c.jpg" }
-        assertEquals(legacy.full, legacy.thumbnail)
-        assertEquals(Credentials.basic("tok", PASSWORD), legacy.full.headers["Authorization"])
-        assertEquals(Credentials.basic("tok", PASSWORD), server.takeRequest().headers["Authorization"])
-
-        routes.clear()
         serveTree(MODERN)
         val modern = list(PASSWORD).single { it.id == "/sub/c.jpg" }
         assertEquals(modern.full, modern.thumbnail)
         assertEquals(Credentials.basic("anonymous", PASSWORD), modern.full.headers["Authorization"])
+        assertEquals(Credentials.basic("anonymous", PASSWORD), server.takeRequest().headers["Authorization"])
+
+        routes.clear()
+        serveTree(LEGACY)
+        val legacy = list(PASSWORD).single { it.id == "/sub/c.jpg" }
+        assertEquals(legacy.full, legacy.thumbnail)
+        assertEquals(Credentials.basic("tok", PASSWORD), legacy.full.headers["Authorization"])
     }
 
     private fun list(password: String = ""): List<RemoteImage> = runBlocking {
@@ -158,12 +159,12 @@ class NextcloudShareSourceTest {
         )
     }
 
-    /** [depth] nested folders on the legacy endpoint, each holding one picture and the next folder. */
+    /** [depth] nested folders on the modern endpoint, each holding one picture and the next folder. */
     private fun serveFolderChain(depth: Int) {
         fallback = { path ->
-            val level = path.removePrefix(LEGACY).split("deeper/").size
+            val level = path.removePrefix(MODERN).split("deeper/").size
             when {
-                !path.startsWith(LEGACY) -> status(404)
+                !path.startsWith(MODERN) -> status(404)
                 level < depth -> listing(folder(path), folder("${path}deeper/"), file("${path}p.jpg", "image/jpeg"))
                 else -> listing(folder(path), file("${path}p.jpg", "image/jpeg"))
             }
