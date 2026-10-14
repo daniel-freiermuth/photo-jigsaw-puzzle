@@ -1,14 +1,17 @@
 """Generates the launcher icon (a jigsaw piece holding a photo) as Android vector drawables.
 
-Usage: python3 tools/launcher_icon.py [--preview DIR]
+Usage: python3 tools/launcher_icon.py [--preview DIR] [--store]
 Writes app/src/main/res/drawable/ic_launcher_{background,foreground,monochrome}.xml; with --preview, also
-SVG renderings (full canvas with safe zone, circle and squircle masks, monochrome) into DIR.
+SVG renderings (full canvas with safe zone, circle and squircle masks, monochrome) into DIR; with --store,
+the store icon and feature graphics under fastlane/metadata/android (needs rsvg-convert).
 
 108x108 adaptive-icon canvas; launchers mask it to a circle/squircle of the central ~72dp, and the
 safe zone is a 33dp-radius circle around (54, 54).
 """
 import pathlib
+import subprocess
 import sys
+import tempfile
 
 # Canonical tab on an edge from (0,0) to (1,0), bulging towards -y (outwards), in edge units.
 TAB = [  # cubic segments after a straight run to (0.38, 0): (c1, c2, end)
@@ -127,10 +130,54 @@ def android():
         f'android:strokeLineJoin="round" />\n')
     return background, foreground, monochrome
 
+def icon_art():
+    """The icon's piece and photo without background, for embedding in other artwork."""
+    return (f'<path d="{SHADOW}" fill="#000" fill-opacity="0.22"/>'
+            f'<g clip-path="url(#p)"><rect x="20" y="18" width="72" height="72" fill="url(#sky)"/>'
+            f'<path d="{SUN}" fill="{SUN_C}"/><path d="{FAR}" fill="{FAR_C}"/>'
+            f'<path d="{NEAR}" fill="{NEAR_C}"/></g>'
+            f'<path d="{PIECE}" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>')
+
+def feature_svg(title, tagline):
+    """1024x500 store banner: the piece on the icon's gradient, with the app name and a tagline."""
+    defs = (f'<defs><clipPath id="p"><path d="{PIECE}"/></clipPath>'
+            f'<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{BG_TOP}"/>'
+            f'<stop offset="1" stop-color="{BG_BOTTOM}"/></linearGradient>'
+            f'<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{SKY_TOP}"/>'
+            f'<stop offset="1" stop-color="{SKY_BOTTOM}"/></linearGradient></defs>')
+    font = 'font-family="Roboto, Noto Sans, DejaVu Sans, sans-serif"'
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">{defs}'
+            f'<rect width="1024" height="500" fill="url(#bg)"/>'
+            f'<g transform="translate(-62,-78) scale(6.2)">{icon_art()}</g>'
+            f'<text x="500" y="235" {font} font-size="96" font-weight="700" fill="#fff">{title}</text>'
+            f'<text x="502" y="300" {font} font-size="34" fill="#E0F2FE">{tagline}</text></svg>')
+
+FEATURE_TEXT = {
+    "en-US": ("Jigsaw", "Puzzles from your own photos"),
+    "de-DE": ("Puzzle", "Puzzles aus deinen Fotos"),
+}
+
+def render(svg_text, out, width, height):
+    with tempfile.NamedTemporaryFile("w", suffix=".svg") as f:
+        f.write(svg_text)
+        f.flush()
+        subprocess.run(["rsvg-convert", "-w", str(width), "-h", str(height), f.name, "-o", str(out)], check=True)
+
+def store(root):
+    for locale, (title, tagline) in FEATURE_TEXT.items():
+        images = root / "fastlane/metadata/android" / locale / "images"
+        images.mkdir(parents=True, exist_ok=True)
+        render(svg("squircle"), images / "icon.png", 512, 512)
+        render(feature_svg(title, tagline), images / "featureGraphic.png", 1024, 500)
+
 if __name__ == "__main__":
-    drawable = pathlib.Path(__file__).resolve().parent.parent / "app/src/main/res/drawable"
+    root = pathlib.Path(__file__).resolve().parent.parent
+    drawable = root / "app/src/main/res/drawable"
     bg, fg, mono = android()
     for name, content in [("ic_launcher_background", bg), ("ic_launcher_foreground", fg), ("ic_launcher_monochrome", mono)]:
         (drawable / f"{name}.xml").write_text(content)
-    if len(sys.argv) == 3 and sys.argv[1] == "--preview":
-        previews(pathlib.Path(sys.argv[2]))
+    args = sys.argv[1:]
+    if "--preview" in args:
+        previews(pathlib.Path(args[args.index("--preview") + 1]))
+    if "--store" in args:
+        store(root)

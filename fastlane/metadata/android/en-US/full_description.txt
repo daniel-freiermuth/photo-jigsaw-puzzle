@@ -1,0 +1,27 @@
+Turn your own photos into jigsaw puzzles. Jigsaw shows the pictures of shared albums and folders you add — a Nextcloud public share, an Immich shared link, or a simple list of image URLs — on one timeline, newest first. Tap a picture to puzzle it.
+
+<b>Puzzling</b>
+<ul>
+<li>Classic pieces with tabs and blanks, about 12, 24, 48 or 96 of them</li>
+<li>Drag pieces onto the board; neighbours that fit snap together and move as a group</li>
+<li>Optional: pieces lock onto the board when dropped near their spot</li>
+<li>Optional: rotated pieces — tap a piece to turn it</li>
+<li>A hint shows the picture faintly on the board</li>
+</ul>
+
+<b>Your photos stay yours</b>
+<ul>
+<li>No account, no tracking, no ads: the app only talks to the servers you add</li>
+<li>Every puzzle keeps its progress; the gallery shows each one as you left it</li>
+<li>Pictures are cached, so puzzles you started keep working offline</li>
+<li>New photos appear by themselves: the gallery stays current while it is open</li>
+</ul>
+
+<b>Sources</b>
+<ul>
+<li>Nextcloud public shares (with or without password), including sub-folders</li>
+<li>Immich shared links to albums or individual photos</li>
+<li>A text or JSON file listing image URLs</li>
+</ul>
+
+Available in English and German.

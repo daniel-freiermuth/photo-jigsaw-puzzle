@@ -1,4 +1,5 @@
 import io.gitlab.arturbosch.detekt.Detekt
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -15,9 +16,10 @@ android {
         applicationId = "dev.daniel.jigsaw"
         minSdk = 26
         targetSdk = 36
-        // CI passes these for releases (tag → name, run number → code); local builds use the defaults.
-        versionCode = providers.gradleProperty("appVersionCode").map(String::toInt).getOrElse(1)
-        versionName = providers.gradleProperty("appVersionName").getOrElse("0.1.0")
+        // Bumping these on master releases them: CI tags v<versionName> and publishes a GitHub Release.
+        // versionCode must grow with every release (F-Droid and Android refuse downgrades).
+        versionCode = 1
+        versionName = "0.1.0"
     }
 
     androidResources {
@@ -45,6 +47,8 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = releaseSigning
+            // Reproducible builds: the APK must not depend on the checkout (VCS info embeds the commit).
+            vcsInfo.include = false
         }
     }
 
@@ -99,8 +103,11 @@ android {
 }
 
 kotlin {
-    jvmToolchain(17)
+    // JDK 21 compiles: it is what F-Droid's build server (Debian trixie) and CI have, and the JDK major
+    // shapes the output, so all three must match for reproducible builds. The bytecode stays Java 17.
+    jvmToolchain(21)
     compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
         allWarningsAsErrors = true
         extraWarnings = true
         progressiveMode = true
@@ -114,6 +121,13 @@ detekt {
     allRules = true
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
     source.setFrom("src/main/java", "src/test/java", "build.gradle.kts", rootProject.file("build.gradle.kts"))
+}
+
+// Reproducible builds: AGP compiles the libraries' ART baseline profiles (assets/dexopt/baseline.prof)
+// non-deterministically, so two builds of one commit differ there and nowhere else. Leaving the profile out
+// costs a little startup speed (those paths are compiled on device instead) but lets F-Droid verify our APK.
+tasks.configureEach {
+    if (name.contains("ArtProfile")) enabled = false
 }
 
 tasks.withType<Detekt>().configureEach {
