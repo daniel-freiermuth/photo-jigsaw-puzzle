@@ -1,9 +1,9 @@
 package dev.daniel.jigsaw.puzzle
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -74,8 +74,8 @@ class JigsawCutTest {
         for ((w, h) in listOf(1600 to 1200, 1200 to 1600, 1600 to 900, 1000 to 1000)) {
             val (rows, cols) = JigsawCut.gridFor(w, h, 24)
             val cellAspect = (w.toFloat() / cols) / (h.toFloat() / rows)
-            assertTrue("$w×$h → $rows×$cols", abs(rows * cols - 24) <= 6)
-            assertTrue("$w×$h cell aspect $cellAspect", cellAspect in 0.7f..1.45f)
+            assertTrue(abs(rows * cols - 24) <= 6, "$w×$h → $rows×$cols")
+            assertTrue(cellAspect in 0.7f..1.45f, "$w×$h cell aspect $cellAspect")
         }
         val (rows, cols) = JigsawCut.gridFor(4000, 200, 24)
         assertFalse(rows < 2 || cols < 2)

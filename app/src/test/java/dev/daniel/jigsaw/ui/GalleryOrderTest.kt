@@ -3,8 +3,8 @@ package dev.daniel.jigsaw.ui
 import dev.daniel.jigsaw.source.HttpResource
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 
 class GalleryOrderTest {
     private val nextcloud = SourceConfig.NextcloudShare("nc", "NC", "https://c/s/t")

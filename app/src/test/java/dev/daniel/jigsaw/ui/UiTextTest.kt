@@ -2,8 +2,8 @@ package dev.daniel.jigsaw.ui
 
 import dev.daniel.jigsaw.R
 import dev.daniel.jigsaw.source.HttpStatusException
-import org.junit.Assert.assertEquals
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Test
 import java.io.IOException
 
 class UiTextTest {
