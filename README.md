@@ -58,6 +58,22 @@ just check-all                     # = ./gradlew check; must pass before committ
 ./gradlew :app:detekt --auto-correct  # apply ktlint formatting fixes
 ```
 
+## Release APK
+
+`just release-apk` builds `app/build/outputs/apk/release/app-release.apk` (about 1.3 MB). That build uses R8
+full mode to shrink, optimise and obfuscate the code (`app/proguard-rules.pro` also drops Kotlin's interop
+null checks), removes unused resources, keeps only English strings, and leaves out build metadata and the
+dependency-info block. The APK is signed only when these are set: `RELEASE_KEYSTORE` (path),
+`RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`.
+
+CI (`.github/workflows/release.yml`) builds it on every push, PR and tag, signing it with the repository
+secrets `RELEASE_KEYSTORE_BASE64` (keystore, base64), `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and
+`RELEASE_KEY_PASSWORD`. The APK and its R8 `mapping.txt` (needed to decode crash stack traces) are uploaded as
+a workflow artifact. Pushing a tag `vX.Y.Z` also publishes them as a GitHub Release with version name `X.Y.Z`.
+The version code is the workflow run number, so later builds always install over earlier ones. Release and
+debug builds are signed with different keys: to switch between them, uninstall first, which deletes the saved
+puzzles.
+
 ## Checks
 
 `just check-all` (`./gradlew check`) runs, with every warning treated as an error. GitHub Actions runs it on

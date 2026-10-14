@@ -15,14 +15,54 @@ android {
         applicationId = "dev.daniel.jigsaw"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // CI passes these for releases (tag → name, run number → code); local builds use the defaults.
+        versionCode = providers.gradleProperty("appVersionCode").map(String::toInt).getOrElse(1)
+        versionName = providers.gradleProperty("appVersionName").getOrElse("0.1.0")
+    }
+
+    androidResources {
+        // The UI is English only; drop the translations that libraries bring along.
+        localeFilters += "en"
+    }
+
+    // Release signing comes from the environment (CI secrets); without it the release APK is unsigned.
+    val keystore = providers.environmentVariable("RELEASE_KEYSTORE").orNull
+    val releaseSigning = keystore?.let {
+        signingConfigs.create("release") {
+            storeFile = file(it)
+            storePassword = providers.environmentVariable("RELEASE_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("RELEASE_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("RELEASE_KEY_PASSWORD").get()
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 full mode (AGP default): shrink, optimise and obfuscate code, then drop unused resources.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = releaseSigning
         }
+    }
+
+    packaging {
+        resources {
+            // Build metadata no code reads at runtime.
+            excludes += listOf(
+                "META-INF/*.version",
+                "META-INF/**/*.kotlin_builtins",
+                "kotlin/**",
+                "DebugProbesKt.bin",
+                "META-INF/com.android.tools/**",
+            )
+        }
+    }
+
+    dependenciesInfo {
+        // Google-only encrypted dependency report; not needed outside the Play Store.
+        includeInApk = false
+        includeInBundle = false
     }
 
     compileOptions {
