@@ -85,8 +85,8 @@ just check-all                     # = ./gradlew check; must pass before committ
 ## Release APK
 
 `just release-apk` builds `app/build/outputs/apk/release/app-release.apk` (about 1.6 MB). That build uses R8
-full mode to shrink, optimise and obfuscate the code (`app/proguard-rules.pro` also drops Kotlin's interop
-null checks), removes unused resources, keeps only English and German strings, and leaves out build metadata and the
+full mode to shrink, optimise and obfuscate the code, removes unused resources, keeps only English and German
+strings, and leaves out build metadata and the
 dependency-info block. The APK is signed only when these are set: `RELEASE_KEYSTORE` (path),
 `RELEASE_KEYSTORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`.
 
