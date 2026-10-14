@@ -143,5 +143,31 @@ class SourceParsingTest {
         assertEquals(sources, SourceStore.decode(SourceStore.encode(sources)))
     }
 
+    @Test
+    fun `source store survives unreadable data`() {
+        assertEquals(emptyList<SourceConfig>(), SourceStore.decode("not json"))
+        assertEquals(emptyList<SourceConfig>(), SourceStore.decode("""{"id": "1"}"""))
+    }
+
+    @Test
+    fun `source store drops malformed or unknown entries and keeps the rest`() {
+        val json = """
+            [
+              {"type": "immich", "id": "1", "label": "Im", "url": "https://p/share/k"},
+              {"type": "urllist", "id": "2", "url": "https://e/l.txt"},
+              42,
+              {"type": "smugmug", "id": "3", "label": "Smug", "url": "https://s/g"},
+              {"type": "nextcloud", "id": "4", "label": "NC", "url": "https://c/s/t", "password": "pw"}
+            ]
+        """.trimIndent()
+        assertEquals(
+            listOf(
+                SourceConfig.ImmichShare("1", "Im", "https://p/share/k"),
+                SourceConfig.NextcloudShare("4", "NC", "https://c/s/t", "pw"),
+            ),
+            SourceStore.decode(json),
+        )
+    }
+
     private fun millis(iso: String) = Instant.parse(iso).toEpochMilli()
 }
