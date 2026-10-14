@@ -3,8 +3,8 @@ package dev.daniel.jigsaw.source
 import dev.daniel.jigsaw.WireJson
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import java.io.File
 import java.io.IOException
 

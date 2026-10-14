@@ -130,6 +130,7 @@ class PuzzleStore(private val root: File) {
      * Save-file format 1 of a [SavedPuzzle.InProgress]: [SaveHeader] plus the board as flat lists. Every field is
      * always written so that older app versions read the save; the defaults fill in what older versions left out.
      */
+    @Suppress("LongParameterList") // One parameter per field of the file.
     @Serializable
     private class InProgressSave(
         val version: Int,

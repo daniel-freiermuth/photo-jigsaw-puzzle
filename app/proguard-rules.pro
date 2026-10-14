@@ -1,5 +1,6 @@
 # App-specific R8 rules on top of proguard-android-optimize.txt and the libraries' consumer rules.
-# The app uses no reflection or serialisation by name, so nothing needs to be kept explicitly.
+# The app uses no reflection, and kotlinx.serialization's generated serializers are kept by the rules the
+# library ships, so nothing needs to be kept explicitly.
 
 # Kotlin inserts these checks at Java-interop boundaries (parameters, platform-type values). Dropping them
 # saves code size and a call per check. `!!` (Intrinsics.checkNotNull) is deliberately kept: code may rely

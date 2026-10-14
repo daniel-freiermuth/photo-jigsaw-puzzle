@@ -166,8 +166,7 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     // Gradle 9 no longer puts a launcher on the test classpath; this one follows the BOM's version.
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    // Real implementations of org.json / XmlPullParser for JVM unit tests (android.jar only has stubs).
-    testImplementation("org.json:json:20250517")
+    // A real XmlPullParser for JVM unit tests (android.jar only has stubs).
     testImplementation("net.sf.kxml:kxml2:2.3.0")
     testImplementation("com.squareup.okhttp3:mockwebserver3:5.5.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
