@@ -27,10 +27,37 @@ class PuzzleStoreTest {
         pieces = 48,
     )
 
+    private val rotated = inProgress.copy(board = inProgress.board.copy(turns = listOf(3, 2, 0, 1), rotatable = true))
+
     @Test
     fun `saves from before the piece-count setting load as cut for the default count`() {
         val legacy = JSONObject(PuzzleStore.encode(inProgress)).apply { remove("pieces") }.toString()
         assertEquals(inProgress.copy(pieces = JigsawCut.DEFAULT_PIECES), PuzzleStore.decode(legacy))
+    }
+
+    @Test
+    fun `rotatable boards keep their turns through encode and decode`() {
+        assertEquals(rotated, PuzzleStore.decode(PuzzleStore.encode(rotated)))
+    }
+
+    @Test
+    fun `rotatable boards keep their turns through save and load`() {
+        PuzzleStore(tmp).save("s", "img", rotated)
+        assertEquals(rotated, PuzzleStore(tmp).load("s", "img"))
+    }
+
+    @Test
+    fun `saves from before rotation load as an upright, non-rotatable board`() {
+        val legacy = JSONObject(PuzzleStore.encode(rotated)).apply {
+            remove("turns")
+            remove("rotatable")
+        }.toString()
+        val decoded = PuzzleStore.decode(legacy) as SavedPuzzle.InProgress
+        assertEquals(rotated.board.copy(turns = emptyList(), rotatable = false), decoded.board)
+
+        val board = PuzzleBoard(decoded.rows, decoded.cols, decoded.board)
+        assertFalse(board.rotatable)
+        assertEquals(List(board.size) { 0 }, List(board.size) { board.turns(it) })
     }
 
     @Test
