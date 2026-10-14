@@ -58,6 +58,7 @@ import dev.daniel.jigsaw.puzzle.BoardLayout
 import dev.daniel.jigsaw.puzzle.CanvasSpec
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.boardLayout
+import dev.daniel.jigsaw.puzzle.keepAllReachable
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -219,6 +220,10 @@ private fun PuzzleBoardView(
                 if (!game.scattered) {
                     board.scatter(it.scatter, Random.Default)
                     game.scattered = true
+                } else {
+                    // A new canvas shape (rotation, resize, resuming in the other orientation) moves the
+                    // tray; pull groups left on the old one back where they can be grabbed.
+                    board.keepAllReachable(it.screen)
                 }
             }
     }
