@@ -269,6 +269,24 @@ class PuzzleBoardTest {
         assertEquals(listOf(0, 0), PuzzleBoard(1, 2, legacy).snapshot.turns)
     }
 
+    @Test
+    fun `pieces scattered for one canvas shape are pulled back onto the other`() {
+        val portrait = boardLayout(CanvasSpec(1080f, 2100f, 12f), 4000f, 3000f, 4, 6)
+        val landscape = boardLayout(CanvasSpec(2300f, 900f, 12f), 4000f, 3000f, 4, 6)
+        for ((from, to) in listOf(portrait to landscape, landscape to portrait)) {
+            val board = PuzzleBoard(4, 6)
+            board.scatter(from.scatter, Random(1))
+            board.keepAllReachable(to.screen)
+            val s = to.screen
+            for (i in 0 until board.size) {
+                val x = board.x(i)
+                val y = board.y(i)
+                val visible = x + 1f > s.minX && x < s.maxX && y + 1f > s.minY && y < s.maxY
+                assertTrue("piece $i at ($x, $y) is off $s", visible)
+            }
+        }
+    }
+
     private fun PuzzleBoard.isLocked(i: Int) = snapshot.locked[i]
 
     private fun PuzzleBoard.sameGroup(a: Int, b: Int) = snapshot.groups[a] == snapshot.groups[b]
