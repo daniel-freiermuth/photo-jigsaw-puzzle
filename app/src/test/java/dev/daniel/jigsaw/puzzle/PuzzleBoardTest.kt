@@ -290,6 +290,25 @@ class PuzzleBoardTest {
         }
     }
 
+    @Test
+    fun `pieces displaced by canvas shape changes land in the new tray, not on the board`() {
+        val portrait = boardLayout(CanvasSpec(1080f, 2100f, 12f), 4000f, 3000f, 4, 6)
+        val landscape = boardLayout(CanvasSpec(2300f, 900f, 12f), 4000f, 3000f, 4, 6)
+        val board = PuzzleBoard(4, 6)
+        board.scatter(portrait.scatter, Random(1))
+        for (to in listOf(landscape, portrait)) {
+            board.keepAllReachable(to.screen)
+            val t = to.scatter
+            for (i in 0 until board.size) {
+                val x = board.x(i)
+                val y = board.y(i)
+                val inTray = x >= t.minX - 1e-4f && x + 1f <= t.maxX + 1e-4f &&
+                    y >= t.minY - 1e-4f && y + 1f <= t.maxY + 1e-4f
+                assertTrue(inTray, "piece $i at ($x, $y) is outside the tray $t")
+            }
+        }
+    }
+
     private fun PuzzleBoard.isLocked(i: Int) = snapshot.locked[i]
 
     private fun PuzzleBoard.sameGroup(a: Int, b: Int) = snapshot.groups[a] == snapshot.groups[b]
