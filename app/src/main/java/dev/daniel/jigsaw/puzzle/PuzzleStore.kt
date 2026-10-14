@@ -51,6 +51,9 @@ sealed interface SavedPuzzle {
     }
 }
 
+/** Identifies one image's puzzle: image ids are only unique within their source. */
+data class PuzzleKey(val sourceId: String, val imageId: String)
+
 /**
  * Persists puzzle progress as one small JSON file per image under [root], grouped by source so that
  * removing a source can drop all of its puzzles. Blocking I/O: call off the main thread, and from a
@@ -58,8 +61,8 @@ sealed interface SavedPuzzle {
  */
 class PuzzleStore(private val root: File) {
 
-    fun load(sourceId: String, imageId: String): SavedPuzzle? {
-        val file = fileFor(sourceId, imageId)
+    fun load(key: PuzzleKey): SavedPuzzle? {
+        val file = fileFor(key)
         if (!file.exists()) return null
         return try {
             decode(file.readText())
@@ -68,8 +71,8 @@ class PuzzleStore(private val root: File) {
         }
     }
 
-    fun save(sourceId: String, imageId: String, puzzle: SavedPuzzle) {
-        val file = fileFor(sourceId, imageId)
+    fun save(key: PuzzleKey, puzzle: SavedPuzzle) {
+        val file = fileFor(key)
         file.parentFile?.mkdirs()
         // Write-then-rename so a crash mid-write never leaves a truncated save behind.
         val tmp = File(file.path + ".tmp")
@@ -77,8 +80,8 @@ class PuzzleStore(private val root: File) {
         if (!tmp.renameTo(file)) throw IOException("Could not save puzzle to $file")
     }
 
-    fun clear(sourceId: String, imageId: String) {
-        fileFor(sourceId, imageId).delete()
+    fun clear(key: PuzzleKey) {
+        fileFor(key).delete()
     }
 
     fun clearSource(sourceId: String) {
@@ -91,7 +94,7 @@ class PuzzleStore(private val root: File) {
     }
 
     // Hashed names: ids are arbitrary strings (paths, URLs) and must not escape the directory.
-    private fun fileFor(sourceId: String, imageId: String) = File(File(root, hash(sourceId)), hash(imageId) + ".json")
+    private fun fileFor(key: PuzzleKey) = File(File(root, hash(key.sourceId)), hash(key.imageId) + ".json")
 
     private fun hash(id: String): String = MessageDigest.getInstance("SHA-256")
         .digest(id.toByteArray())

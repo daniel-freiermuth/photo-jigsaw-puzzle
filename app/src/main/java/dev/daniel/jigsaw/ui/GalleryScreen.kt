@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.daniel.jigsaw.R
+import dev.daniel.jigsaw.puzzle.PuzzleKey
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 
@@ -42,7 +43,7 @@ import dev.daniel.jigsaw.puzzle.SavedPuzzle
 @Composable
 fun GalleryScreen(
     state: Load<GalleryContent>,
-    tiles: Map<String, SavedPuzzle>,
+    tiles: Map<PuzzleKey, SavedPuzzle>,
     settings: PuzzleSettings,
     refreshing: Boolean,
     hasSources: Boolean,
@@ -100,7 +101,7 @@ fun GalleryScreen(
 @Composable
 private fun GalleryContentView(
     content: GalleryContent,
-    tiles: Map<String, SavedPuzzle>,
+    tiles: Map<PuzzleKey, SavedPuzzle>,
     settings: PuzzleSettings,
     onRefresh: () -> Unit,
     onPick: (GalleryImage) -> Unit,
@@ -122,7 +123,7 @@ private fun GalleryContentView(
 @Composable
 private fun ImageGrid(
     content: GalleryContent,
-    tiles: Map<String, SavedPuzzle>,
+    tiles: Map<PuzzleKey, SavedPuzzle>,
     settings: PuzzleSettings,
     onPick: (GalleryImage) -> Unit,
 ) {
@@ -148,7 +149,7 @@ private fun ImageGrid(
         items(content.images, key = { it.key }) { item ->
             GalleryThumbnail(
                 item,
-                saved = tiles[item.key],
+                saved = tiles[item.puzzleKey],
                 canvas = canvas,
                 settings = settings,
                 modifier = Modifier
