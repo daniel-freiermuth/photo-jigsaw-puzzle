@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.puzzle
 
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
@@ -118,16 +120,30 @@ class PuzzleStoreTest {
     }
 
     @Test
-    fun `unreadable or foreign-format saves decode to null`() {
-        assertNull(PuzzleStore.decode("not json"))
-        assertNull(PuzzleStore.decode("""{"version": 99, "solved": true}"""))
-        assertNull(PuzzleStore.decode("""{"version": 1, "solved": false, "rows": 2}"""))
+    fun `unreadable, foreign-format or inconsistent saves load as null`() {
+        val store = PuzzleStore(tmp)
+        val key = PuzzleKey("s", "img")
+        store.save(key, inProgress)
+        val file = tmp.walkTopDown().single { it.isFile }
+        val inconsistent = encodedAndEdited(inProgress) { put("xs", numbers(0.0)) }
+        for (json in listOf("not json", """{"version": 99, "solved": true}""", inconsistent)) {
+            file.writeText(json)
+            assertNull(store.load(key), json)
+        }
     }
 
     @Test
-    fun `saves whose board does not fit their grid decode to null`() {
-        fun tampered(edit: MutableMap<String, JsonElement>.() -> Unit) =
+    fun `unreadable or foreign-format saves fail to decode`() {
+        assertThrows<SerializationException> { PuzzleStore.decode("not json") }
+        assertThrows<SerializationException> { PuzzleStore.decode("""{"version": 99, "solved": true}""") }
+        assertThrows<SerializationException> { PuzzleStore.decode("""{"version": 1, "solved": false, "rows": 2}""") }
+    }
+
+    @Test
+    fun `saves whose board does not fit their grid fail to decode`() {
+        fun tampered(edit: MutableMap<String, JsonElement>.() -> Unit) = assertThrows<IllegalArgumentException> {
             PuzzleStore.decode(encodedAndEdited(inProgress, edit))
+        }
 
         fun MutableMap<String, JsonElement>.noPieces() = apply {
             for (key in listOf("xs", "ys", "groups", "locked", "order", "turns")) put(key, numbers())
@@ -138,17 +154,17 @@ class PuzzleStoreTest {
             put("cols", JsonPrimitive(cols))
         }
 
-        assertNull(tampered { noPieces() })
-        assertNull(tampered { put("xs", numbers(0.0, 1.0, 2.0)) })
-        assertNull(tampered { put("turns", numbers(1, 2)) })
-        assertNull(tampered { put("order", numbers(0, 1, 2, 4)) })
-        assertNull(tampered { put("order", numbers(0, 1, 1, 2)) })
-        assertNull(tampered { put("groups", numbers(0, 0, 2, 4)) })
+        tampered { noPieces() }
+        tampered { put("xs", numbers(0.0, 1.0, 2.0)) }
+        tampered { put("turns", numbers(1, 2)) }
+        tampered { put("order", numbers(0, 1, 2, 4)) }
+        tampered { put("order", numbers(0, 1, 1, 2)) }
+        tampered { put("groups", numbers(0, 0, 2, 4)) }
         // −2 × −2 = 4 matches the list sizes, but is no grid.
-        assertNull(tampered { grid(-2, -2) })
-        assertNull(tampered { noPieces().put("rows", JsonPrimitive(0)) })
+        tampered { grid(-2, -2) }
+        tampered { noPieces().put("rows", JsonPrimitive(0)) }
         // 65536 × 65536 overflows Int to 0, which must not pass for empty lists.
-        assertNull(tampered { noPieces().grid(65536, 65536) })
+        tampered { noPieces().grid(65536, 65536) }
     }
 
     @Test
