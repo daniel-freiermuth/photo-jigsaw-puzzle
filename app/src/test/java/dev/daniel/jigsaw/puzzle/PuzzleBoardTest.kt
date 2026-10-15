@@ -11,7 +11,7 @@ import kotlin.random.Random
 class PuzzleBoardTest {
 
     /** 2×2 board with every piece scattered far from the board and from each other. */
-    private fun scatteredBoard() = PuzzleBoard(2, 2).apply {
+    private fun scatteredBoard() = PuzzleBoard(Grid(rows = 2, cols = 2)).apply {
         moveTo(this, 0, 10f, 10f)
         moveTo(this, 1, 20f, 10f)
         moveTo(this, 2, 10f, 20f)
@@ -92,7 +92,7 @@ class PuzzleBoardTest {
 
     @Test
     fun `a piece dropped between two loose groups joins both in one drop`() {
-        val board = PuzzleBoard(1, 3)
+        val board = PuzzleBoard(Grid(rows = 1, cols = 3))
         moveTo(board, 0, 10f, 10f)
         moveTo(board, 2, 12.1f, 10.05f) // slightly off from where it belongs next to piece 1
         moveTo(board, 1, 11.1f, 10f)
@@ -107,7 +107,7 @@ class PuzzleBoardTest {
 
     @Test
     fun `a loose neighbour joining a group locked earlier in the same drop is pulled onto the board`() {
-        val board = PuzzleBoard(1, 3)
+        val board = PuzzleBoard(Grid(rows = 1, cols = 3))
         moveTo(board, 1, 10f, 10f)
         moveTo(board, 2, 2.1f, 0.05f) // slightly off its solved cell; too far from piece 0 to join it
         assertTrue(board.drop(0, snapToBoard = true)) // piece 0 locks on its solved cell
@@ -138,7 +138,7 @@ class PuzzleBoardTest {
     @Test
     fun `two halves can be joined flush against the screen edge`() {
         // Screen exactly as wide as the puzzle: the solved image must still fit edge to edge.
-        val board = PuzzleBoard(1, 4)
+        val board = PuzzleBoard(Grid(rows = 1, cols = 4))
         for (i in 0 until 4) moveTo(board, i, 10f * i + 10f, 5f + 3f * i)
         moveTo(board, 0, 0f, 5f)
         moveTo(board, 1, 1.05f, 5f)
@@ -169,7 +169,7 @@ class PuzzleBoardTest {
 
     @Test
     fun `scatter keeps whole cells within bounds`() {
-        val board = PuzzleBoard(4, 5)
+        val board = PuzzleBoard(Grid(rows = 4, cols = 5))
         board.scatter(Bounds(-2f, 5f, 6f, 9f), Random(42))
         for (i in 0 until board.size) {
             assertTrue(board.x(i) >= -2f && board.x(i) + 1f <= 6f)
@@ -198,7 +198,7 @@ class PuzzleBoardTest {
         board.drop(1, snapToBoard = false) // 1 and 3 joined, loose
         board.bringToFront(2)
 
-        val restored = PuzzleBoard(2, 2, board.snapshot)
+        val restored = PuzzleBoard(Grid(rows = 2, cols = 2), board.snapshot)
         assertEquals(board.snapshot, restored.snapshot)
         assertTrue(restored.isLocked(0))
         assertTrue(restored.sameGroup(1, 3))
@@ -210,19 +210,21 @@ class PuzzleBoardTest {
 
     @Test
     fun `restoring a snapshot from another grid size is rejected`() {
-        assertThrows<IllegalArgumentException> { PuzzleBoard(3, 2, PuzzleBoard(2, 2).snapshot) }
+        val twoByTwo = PuzzleBoard(Grid(rows = 2, cols = 2)).snapshot
+        assertThrows<IllegalArgumentException> { PuzzleBoard(Grid(rows = 3, cols = 2), twoByTwo) }
     }
 
     @Test
     fun `restoring a snapshot with a broken draw order is rejected`() {
         assertThrows<IllegalArgumentException> {
-            PuzzleBoard(2, 2, PuzzleBoard(2, 2).snapshot.copy(order = listOf(0, 0, 1, 2)))
+            val grid = Grid(rows = 2, cols = 2)
+            PuzzleBoard(grid, PuzzleBoard(grid).snapshot.copy(order = listOf(0, 0, 1, 2)))
         }
     }
 
     /** 1×2 rotatable board, pieces far apart and upright. */
     private fun rotatableBoard(cellAspect: Float = 1f) =
-        PuzzleBoard(1, 2, cellAspect = cellAspect, rotatable = true).apply {
+        PuzzleBoard(Grid(rows = 1, cols = 2), cellAspect = cellAspect, rotatable = true).apply {
             moveTo(this, 0, 10f, 10f)
             moveTo(this, 1, 20f, 10f)
         }
@@ -285,11 +287,11 @@ class PuzzleBoardTest {
 
     @Test
     fun `boards without rotation ignore rotate requests and scatter upright`() {
-        val board = PuzzleBoard(2, 3)
+        val board = PuzzleBoard(Grid(rows = 2, cols = 3))
         board.scatter(Bounds(0f, 0f, 10f, 10f), Random(1))
         board.rotateGroup(0)
         assertTrue(board.snapshot.turns.all { it == 0 })
-        val rotatable = PuzzleBoard(2, 3, rotatable = true)
+        val rotatable = PuzzleBoard(Grid(rows = 2, cols = 3), rotatable = true)
         rotatable.scatter(Bounds(0f, 0f, 10f, 10f), Random(1))
         assertTrue(rotatable.snapshot.turns.any { it != 0 })
     }
@@ -298,17 +300,17 @@ class PuzzleBoardTest {
     fun `restoring keeps rotations, and saves from before rotation restore upright`() {
         val board = rotatableBoard()
         board.rotateGroup(1)
-        assertEquals(board.snapshot, PuzzleBoard(1, 2, board.snapshot).snapshot)
-        val legacy = PuzzleBoard(1, 2).snapshot.copy(turns = emptyList())
-        assertEquals(listOf(0, 0), PuzzleBoard(1, 2, legacy).snapshot.turns)
+        assertEquals(board.snapshot, PuzzleBoard(Grid(rows = 1, cols = 2), board.snapshot).snapshot)
+        val legacy = PuzzleBoard(Grid(rows = 1, cols = 2)).snapshot.copy(turns = emptyList())
+        assertEquals(listOf(0, 0), PuzzleBoard(Grid(rows = 1, cols = 2), legacy).snapshot.turns)
     }
 
     @Test
     fun `pieces scattered for one canvas shape are pulled back onto the other`() {
-        val portrait = boardLayout(CanvasSpec(1080f, 2100f, 12f), 4000f, 3000f, 4, 6)
-        val landscape = boardLayout(CanvasSpec(2300f, 900f, 12f), 4000f, 3000f, 4, 6)
+        val portrait = boardLayout(CanvasSpec(1080f, 2100f, 12f), 4000f, 3000f, Grid(rows = 4, cols = 6))
+        val landscape = boardLayout(CanvasSpec(2300f, 900f, 12f), 4000f, 3000f, Grid(rows = 4, cols = 6))
         for ((from, to) in listOf(portrait to landscape, landscape to portrait)) {
-            val board = PuzzleBoard(4, 6)
+            val board = PuzzleBoard(Grid(rows = 4, cols = 6))
             board.scatter(from.scatter, Random(1))
             board.keepAllReachable(to.screen, to.scatter, Random(2))
             val s = to.screen
@@ -323,9 +325,9 @@ class PuzzleBoardTest {
 
     @Test
     fun `pieces displaced by canvas shape changes land in the new tray, not on the board`() {
-        val portrait = boardLayout(CanvasSpec(1080f, 2100f, 12f), 4000f, 3000f, 4, 6)
-        val landscape = boardLayout(CanvasSpec(2300f, 900f, 12f), 4000f, 3000f, 4, 6)
-        val board = PuzzleBoard(4, 6)
+        val portrait = boardLayout(CanvasSpec(1080f, 2100f, 12f), 4000f, 3000f, Grid(rows = 4, cols = 6))
+        val landscape = boardLayout(CanvasSpec(2300f, 900f, 12f), 4000f, 3000f, Grid(rows = 4, cols = 6))
+        val board = PuzzleBoard(Grid(rows = 4, cols = 6))
         board.scatter(portrait.scatter, Random(1))
         for (to in listOf(landscape, portrait)) {
             board.keepAllReachable(to.screen, to.scatter, Random(2))

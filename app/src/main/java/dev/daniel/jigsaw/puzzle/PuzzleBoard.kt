@@ -4,7 +4,7 @@ import kotlin.math.hypot
 import kotlin.random.Random
 
 /**
- * Pure game state for a rows × cols jigsaw, in grid units relative to the board's top-left corner.
+ * Pure game state for a [grid] jigsaw, in grid units relative to the board's top-left corner.
  * Piece `i` sits at row `i / cols`, column `i % cols`; its solved position is (col, row). Positions
  * are the top-left of the piece's unrotated cell; a rotated piece turns around its cell centre.
  *
@@ -16,11 +16,12 @@ import kotlin.random.Random
  * one grid unit across is not the same length as one grid unit down.
  */
 class PuzzleBoard(
-    val rows: Int,
-    val cols: Int,
+    val grid: Grid,
     private val cellAspect: Float = 1f,
     val rotatable: Boolean = false,
 ) {
+    val rows get() = grid.rows
+    val cols get() = grid.cols
     val size = rows * cols
     private val xs = FloatArray(size) { col(it).toFloat() }
     private val ys = FloatArray(size) { row(it).toFloat() }
@@ -32,9 +33,9 @@ class PuzzleBoard(
     private val order = MutableList(size) { it }
 
     /** Restores a board saved with [snapshot]; throws [IllegalArgumentException] if it doesn't fit. */
-    constructor(rows: Int, cols: Int, snapshot: BoardSnapshot, cellAspect: Float = 1f) :
-        this(rows, cols, cellAspect, snapshot.rotatable) {
-        snapshot.requireFits(rows, cols)
+    constructor(grid: Grid, snapshot: BoardSnapshot, cellAspect: Float = 1f) :
+        this(grid, cellAspect, snapshot.rotatable) {
+        snapshot.requireFits(grid)
         snapshot.xs.forEachIndexed { i, v -> xs[i] = v }
         snapshot.ys.forEachIndexed { i, v -> ys[i] = v }
         snapshot.turns.forEachIndexed { i, v -> turns[i] = v.mod(QUARTERS) }
@@ -281,11 +282,13 @@ data class BoardSnapshot(
 )
 
 /**
- * Throws [IllegalArgumentException] unless this snapshot describes a [rows] × [cols] board: every
+ * Throws [IllegalArgumentException] unless this snapshot describes a [grid]-sized board: every
  * per-piece list sized rows × cols ([turns][BoardSnapshot.turns] may be empty), the draw order a
  * permutation of the pieces, and group ids naming pieces.
  */
-fun BoardSnapshot.requireFits(rows: Int, cols: Int) {
+fun BoardSnapshot.requireFits(grid: Grid) {
+    val rows = grid.rows
+    val cols = grid.cols
     require(rows >= 1 && cols >= 1) { "A board needs at least one row and column, not $rows×$cols" }
     // Long: a product that overflows Int must not happen to match the list sizes.
     val n = rows.toLong() * cols
@@ -312,11 +315,11 @@ fun PuzzleBoard.keepAllReachable(screen: Bounds, tray: Bounds, random: Random) {
     }
 }
 
-/** Whether any piece's centre lies inside the target area of a rows × cols board, i.e. the puzzle has begun. */
-fun BoardSnapshot.anyOnBoard(rows: Int, cols: Int): Boolean = xs.indices.any { i ->
+/** Whether any piece's centre lies inside the target area of a [grid]-sized board, i.e. the puzzle has begun. */
+fun BoardSnapshot.anyOnBoard(grid: Grid): Boolean = xs.indices.any { i ->
     val cx = xs[i] + PuzzleBoard.PIECE_CENTER
     val cy = ys[i] + PuzzleBoard.PIECE_CENTER
-    cx in 0f..cols.toFloat() && cy in 0f..rows.toFloat()
+    cx in 0f..grid.cols.toFloat() && cy in 0f..grid.rows.toFloat()
 }
 
 /**
@@ -326,13 +329,12 @@ fun BoardSnapshot.anyOnBoard(rows: Int, cols: Int): Boolean = xs.indices.any { i
  */
 fun BoardSnapshot.withRotatable(
     rotatable: Boolean,
-    rows: Int,
-    cols: Int,
+    grid: Grid,
     cellAspect: Float,
     random: Random,
 ): BoardSnapshot {
     if (rotatable == this.rotatable) return this
-    val board = PuzzleBoard(rows, cols, copy(rotatable = true), cellAspect)
+    val board = PuzzleBoard(grid, copy(rotatable = true), cellAspect)
     for (pivot in groups.indices.distinctBy { groups[it] }) {
         val quarters = if (rotatable) random.nextInt(PuzzleBoard.QUARTERS) else -board.turns(pivot)
         repeat(quarters.mod(PuzzleBoard.QUARTERS)) { board.rotateGroup(pivot) }

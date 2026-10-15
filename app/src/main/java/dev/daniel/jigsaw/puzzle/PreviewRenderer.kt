@@ -17,12 +17,11 @@ import kotlin.random.Random
  * per [settings] since an unstarted puzzle follows the current rotation setting.
  */
 fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, settings: PuzzleSettings, maxSide: Int): Bitmap {
-    val rows = saved.rows
-    val cols = saved.cols
-    val cut = cutPuzzle(picture, JigsawCut(rows, cols, Random(saved.seed)))
+    val grid = saved.grid
+    val cut = cutPuzzle(picture, JigsawCut(grid, Random(saved.seed)))
     val board = saved.withRotation(settings.rotatePieces, cut.cellWidth / cut.cellHeight).board
     return if (saved.started) {
-        render(cut, board, Bounds(0f, 0f, cols.toFloat(), rows.toFloat()), maxSide, drawBoard = true)
+        render(cut, board, Bounds(0f, 0f, grid.cols.toFloat(), grid.rows.toFloat()), maxSide, drawBoard = true)
     } else {
         renderPile(cut, board, maxSide)
     }
@@ -36,10 +35,10 @@ fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, settings: Puz
 fun renderUntouched(picture: Bitmap, canvas: CanvasSpec, settings: PuzzleSettings, seed: Long, maxSide: Int): Bitmap {
     val grid = JigsawCut.gridFor(picture.width, picture.height, settings.pieces)
     val random = Random(seed)
-    val aspect = cellAspect(picture.width, picture.height, grid.rows, grid.cols)
-    val board = PuzzleBoard(grid.rows, grid.cols, aspect, settings.rotatePieces)
-    val cut = cutPuzzle(picture, JigsawCut(grid.rows, grid.cols, random), board)
-    val layout = boardLayout(canvas, picture.width.toFloat(), picture.height.toFloat(), grid.rows, grid.cols)
+    val aspect = cellAspect(picture.width, picture.height, grid)
+    val board = PuzzleBoard(grid, aspect, settings.rotatePieces)
+    val cut = cutPuzzle(picture, JigsawCut(grid, random), board)
+    val layout = boardLayout(canvas, picture.width.toFloat(), picture.height.toFloat(), grid)
     cut.board.scatter(layout.scatter, random)
     return renderPile(cut, cut.board.snapshot, maxSide)
 }

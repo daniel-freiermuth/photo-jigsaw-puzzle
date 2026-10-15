@@ -17,23 +17,22 @@ sealed interface SavedPuzzle {
     data object Solved : SavedPuzzle
 
     /**
-     * [seed] regenerates the identical cut for a [rows] × [cols] grid, which was chosen for about
+     * [seed] regenerates the identical cut for [grid], which was chosen for about
      * [pieces] pieces; [board] holds the piece state. Throws [IllegalArgumentException] if [board]
      * does not fit that grid, so every instance is safe to render or restore.
      */
     data class InProgress(
-        val rows: Int,
-        val cols: Int,
+        val grid: Grid,
         val seed: Long,
         val board: BoardSnapshot,
         val pieces: PieceCount = PieceCount.DEFAULT,
     ) : SavedPuzzle {
         init {
-            board.requireFits(rows, cols)
+            board.requireFits(grid)
         }
 
         /** Whether a piece has been placed on the board yet. */
-        val started get() = board.anyOnBoard(rows, cols)
+        val started get() = board.anyOnBoard(grid)
 
         /** A puzzle not [started] yet counts as new: if cut for another piece count, it is cut afresh. */
         fun needsRecut(settings: PuzzleSettings) = !started && pieces != settings.pieces
@@ -47,7 +46,7 @@ sealed interface SavedPuzzle {
             if (started || board.rotatable == rotatePieces) {
                 this
             } else {
-                copy(board = board.withRotatable(rotatePieces, rows, cols, cellAspect, Random(seed)))
+                copy(board = board.withRotatable(rotatePieces, grid, cellAspect, Random(seed)))
             }
     }
 }
@@ -168,8 +167,7 @@ class PuzzleStore(private val root: File) {
         @EncodeDefault val rotatable: Boolean = false,
     ) {
         fun toSavedPuzzle() = SavedPuzzle.InProgress(
-            rows = rows,
-            cols = cols,
+            grid = Grid(rows = rows, cols = cols),
             seed = seed,
             board = BoardSnapshot(xs, ys, groups, locked, order, turns, rotatable),
             pieces = PieceCount.fromTarget(pieces),
@@ -179,8 +177,8 @@ class PuzzleStore(private val root: File) {
             fun of(puzzle: SavedPuzzle.InProgress) = InProgressSave(
                 version = FORMAT_VERSION,
                 solved = false,
-                rows = puzzle.rows,
-                cols = puzzle.cols,
+                rows = puzzle.grid.rows,
+                cols = puzzle.grid.cols,
                 seed = puzzle.seed,
                 pieces = puzzle.pieces.target,
                 xs = puzzle.board.xs,

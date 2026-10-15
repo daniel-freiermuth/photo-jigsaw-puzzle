@@ -12,9 +12,9 @@ class BoardLayoutTest {
         // A tall phone and a square canvas both take the portrait branch. The tall picture makes the
         // board's share of the height, not the canvas width, limit its size.
         val cases = listOf(
-            Case(CanvasSpec(1080f, 1900f, margin), 4000f, 3000f, rows = 4, cols = 6),
-            Case(CanvasSpec(1080f, 1900f, margin), 1000f, 3000f, rows = 6, cols = 2),
-            Case(CanvasSpec(1000f, 1000f, margin), 3000f, 1000f, rows = 2, cols = 6),
+            Case(CanvasSpec(1080f, 1900f, margin), 4000f, 3000f, Grid(rows = 4, cols = 6)),
+            Case(CanvasSpec(1080f, 1900f, margin), 1000f, 3000f, Grid(rows = 6, cols = 2)),
+            Case(CanvasSpec(1000f, 1000f, margin), 3000f, 1000f, Grid(rows = 2, cols = 6)),
         )
         for (case in cases) {
             val layout = case.layout()
@@ -29,8 +29,8 @@ class BoardLayoutTest {
     fun `landscape canvases put the tray wholly right of the board and on screen`() {
         // The wide picture makes the board's share of the width, not the canvas height, limit its size.
         val cases = listOf(
-            Case(CanvasSpec(1900f, 1080f, margin), 4000f, 3000f, rows = 4, cols = 6),
-            Case(CanvasSpec(1900f, 1080f, margin), 3000f, 1000f, rows = 2, cols = 6),
+            Case(CanvasSpec(1900f, 1080f, margin), 4000f, 3000f, Grid(rows = 4, cols = 6)),
+            Case(CanvasSpec(1900f, 1080f, margin), 3000f, 1000f, Grid(rows = 2, cols = 6)),
         )
         for (case in cases) {
             val layout = case.layout()
@@ -54,7 +54,7 @@ class BoardLayoutTest {
             CanvasSpec(1904f, 1840f, margin),
         )
         for (canvas in canvases) {
-            val case = Case(canvas, 1600f, 900f, grid.rows, grid.cols)
+            val case = Case(canvas, 1600f, 900f, grid)
             val layout = case.layout()
             assertTrayOffBoard(case, layout.scatter)
             assertInside(layout.scatter, layout.screen, case)
@@ -71,7 +71,7 @@ class BoardLayoutTest {
                 for ((pw, ph) in pictures) {
                     for (pieces in PieceCount.entries) {
                         val grid = JigsawCut.gridFor(pw, ph, pieces)
-                        val case = Case(canvas, pw.toFloat(), ph.toFloat(), grid.rows, grid.cols)
+                        val case = Case(canvas, pw.toFloat(), ph.toFloat(), grid)
                         assertTrayOffBoard(case, case.layout().scatter)
                     }
                 }
@@ -82,8 +82,8 @@ class BoardLayoutTest {
     @Test
     fun `grid-unit areas depend on the picture's aspect ratio, not its resolution`() {
         for (canvas in listOf(CanvasSpec(1080f, 1900f, margin), CanvasSpec(1900f, 1080f, margin))) {
-            val large = boardLayout(canvas, 1600f, 1200f, 4, 6)
-            val small = boardLayout(canvas, 400f, 300f, 4, 6)
+            val large = boardLayout(canvas, 1600f, 1200f, Grid(rows = 4, cols = 6))
+            val small = boardLayout(canvas, 400f, 300f, Grid(rows = 4, cols = 6))
             assertClose(large.screen, small.screen, "screen on $canvas")
             assertClose(large.scatter, small.scatter, "scatter on $canvas")
             assertEquals(large.origin.x, small.origin.x, 1e-3f)
@@ -94,11 +94,11 @@ class BoardLayoutTest {
     @Test
     fun `the board sits inside the canvas margins and the screen covers it`() {
         val cases = listOf(
-            Case(CanvasSpec(1080f, 1900f, margin), 4000f, 3000f, rows = 4, cols = 6),
-            Case(CanvasSpec(1080f, 1900f, margin), 1000f, 3000f, rows = 6, cols = 2),
-            Case(CanvasSpec(1900f, 1080f, margin), 4000f, 3000f, rows = 4, cols = 6),
-            Case(CanvasSpec(1900f, 1080f, margin), 3000f, 1000f, rows = 2, cols = 6),
-            Case(CanvasSpec(800f, 800f, margin), 1600f, 900f, rows = 2, cols = 5),
+            Case(CanvasSpec(1080f, 1900f, margin), 4000f, 3000f, Grid(rows = 4, cols = 6)),
+            Case(CanvasSpec(1080f, 1900f, margin), 1000f, 3000f, Grid(rows = 6, cols = 2)),
+            Case(CanvasSpec(1900f, 1080f, margin), 4000f, 3000f, Grid(rows = 4, cols = 6)),
+            Case(CanvasSpec(1900f, 1080f, margin), 3000f, 1000f, Grid(rows = 2, cols = 6)),
+            Case(CanvasSpec(800f, 800f, margin), 1600f, 900f, Grid(rows = 2, cols = 5)),
         )
         val eps = 1e-3f
         for (case in cases) {
@@ -121,10 +121,12 @@ class BoardLayoutTest {
         val canvas: CanvasSpec,
         val pictureWidth: Float,
         val pictureHeight: Float,
-        val rows: Int,
-        val cols: Int,
+        val grid: Grid,
     ) {
-        fun layout() = boardLayout(canvas, pictureWidth, pictureHeight, rows, cols)
+        val rows get() = grid.rows
+        val cols get() = grid.cols
+
+        fun layout() = boardLayout(canvas, pictureWidth, pictureHeight, grid)
     }
 
     private fun assertInside(inner: Bounds, outer: Bounds, case: Case) {

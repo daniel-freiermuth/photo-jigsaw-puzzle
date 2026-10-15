@@ -55,18 +55,18 @@ class BitmapPicture(private val bitmap: Bitmap) : PuzzlePicture {
 }
 
 /**
- * Cell width / cell height of a [width] × [height] picture cut into [rows] × [cols]: the aspect a
+ * Cell width / cell height of a [width] × [height] picture cut into [grid]: the aspect a
  * [PuzzleBoard] needs to turn pieces as the picture would.
  */
-internal fun cellAspect(width: Int, height: Int, rows: Int, cols: Int): Float =
-    (width.toFloat() / cols) / (height.toFloat() / rows)
+internal fun cellAspect(width: Int, height: Int, grid: Grid): Float =
+    (width.toFloat() / grid.cols) / (height.toFloat() / grid.rows)
 
 /**
  * Cuts [bitmap] into rows × cols pieces following [cut], with pieces placed per [board] (a fresh,
  * solved-layout board by default). CPU-heavy: run off the main thread.
  */
-fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut, board: PuzzleBoard = PuzzleBoard(cut.rows, cut.cols)): CutPuzzle {
-    require(board.rows == cut.rows && board.cols == cut.cols) { "Board does not match the cut" }
+fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut, board: PuzzleBoard = PuzzleBoard(cut.grid)): CutPuzzle {
+    require(board.grid == cut.grid) { "Board does not match the cut" }
     val rows = cut.rows
     val cols = cut.cols
     val cellW = bitmap.width.toFloat() / cols

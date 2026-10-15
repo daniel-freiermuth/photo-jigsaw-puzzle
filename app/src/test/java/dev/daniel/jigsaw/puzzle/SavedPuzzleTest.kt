@@ -11,15 +11,15 @@ class SavedPuzzleTest {
 
     /** 2×3 puzzle scattered below the board, with pieces 0 and 1 joined into a group. */
     private fun unstarted(rotatable: Boolean): SavedPuzzle.InProgress {
-        val board = PuzzleBoard(2, 3, rotatable = rotatable)
+        val board = PuzzleBoard(Grid(rows = 2, cols = 3), rotatable = rotatable)
         board.scatter(Bounds(0f, 5f, 12f, 12f), Random(3))
         val snapshot = board.snapshot
         // Join 0 and 1: put 1 right of 0 (in 0's orientation) and drop it there.
-        val joined = PuzzleBoard(2, 3, snapshot.copy(turns = List(6) { 0 })).apply {
+        val joined = PuzzleBoard(Grid(rows = 2, cols = 3), snapshot.copy(turns = List(6) { 0 })).apply {
             moveGroup(1, x(0) + 1f - x(1), y(0) - y(1))
             drop(1, snapToBoard = false)
         }.snapshot.copy(rotatable = rotatable)
-        return SavedPuzzle.InProgress(rows = 2, cols = 3, seed = 42L, board = joined)
+        return SavedPuzzle.InProgress(grid = Grid(rows = 2, cols = 3), seed = 42L, board = joined)
     }
 
     @Test

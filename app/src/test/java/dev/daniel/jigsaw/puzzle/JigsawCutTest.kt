@@ -8,7 +8,7 @@ import kotlin.math.abs
 import kotlin.random.Random
 
 class JigsawCutTest {
-    private val cut = JigsawCut(rows = 4, cols = 6, random = Random(7))
+    private val cut = JigsawCut(Grid(rows = 4, cols = 6), random = Random(7))
 
     @Test
     fun `every outline is a closed clockwise loop`() {
@@ -58,9 +58,9 @@ class JigsawCutTest {
 
     @Test
     fun `the same seed recreates the identical cut, so saved puzzles resume with the same shapes`() {
-        val a = JigsawCut(rows = 4, cols = 6, random = Random(99L))
-        val b = JigsawCut(rows = 4, cols = 6, random = Random(99L))
-        val other = JigsawCut(rows = 4, cols = 6, random = Random(100L))
+        val a = JigsawCut(Grid(rows = 4, cols = 6), random = Random(99L))
+        val b = JigsawCut(Grid(rows = 4, cols = 6), random = Random(99L))
+        val other = JigsawCut(Grid(rows = 4, cols = 6), random = Random(100L))
         assertEquals(outlines(a), outlines(b))
         assertFalse(outlines(a) == outlines(other))
     }

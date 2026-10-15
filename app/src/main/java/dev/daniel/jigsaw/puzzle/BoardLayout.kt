@@ -26,7 +26,9 @@ private const val BOARD_SHARE = 0.55f
  * padding: pieces then never start on the board, where they would count as placed.
  * Grid-unit results only depend on the picture's aspect ratio, not its resolution.
  */
-fun boardLayout(canvas: CanvasSpec, pictureWidth: Float, pictureHeight: Float, rows: Int, cols: Int): BoardLayout {
+fun boardLayout(canvas: CanvasSpec, pictureWidth: Float, pictureHeight: Float, grid: Grid): BoardLayout {
+    val rows = grid.rows
+    val cols = grid.cols
     val w = canvas.width
     val h = canvas.height
     val margin = canvas.margin

@@ -212,8 +212,7 @@ class AppViewModelTest {
 
         val board = game.cut.board
         val expected = SavedPuzzle.InProgress(
-            board.rows,
-            board.cols,
+            board.grid,
             image.seed,
             board.snapshot,
             pieces = PieceCount.P48,
