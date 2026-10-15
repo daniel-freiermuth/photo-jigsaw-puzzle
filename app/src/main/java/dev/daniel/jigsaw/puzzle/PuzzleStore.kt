@@ -1,8 +1,10 @@
 package dev.daniel.jigsaw.puzzle
 
+import android.util.Log
 import dev.daniel.jigsaw.WireJson
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
@@ -60,14 +62,26 @@ data class PuzzleKey(val sourceId: String, val imageId: String)
  */
 class PuzzleStore(private val root: File) {
 
+    /**
+     * Null if [key] was never saved, or if its save is unreadable, from another format version or
+     * inconsistent. The latter are logged: the puzzle then starts afresh and its first save replaces them.
+     */
     fun load(key: PuzzleKey): SavedPuzzle? {
         val file = fileFor(key)
         if (!file.exists()) return null
         return try {
             decode(file.readText())
-        } catch (_: IOException) {
-            null
+        } catch (e: IOException) {
+            discarded(key, e)
+        } catch (e: IllegalArgumentException) {
+            // Also kotlinx.serialization's SerializationException: unreadable JSON, missing fields, other versions.
+            discarded(key, e)
         }
+    }
+
+    private fun discarded(key: PuzzleKey, cause: Exception): SavedPuzzle? {
+        Log.w(TAG, "Discarding unreadable saved puzzle $key, starting afresh", cause)
+        return null
     }
 
     fun save(key: PuzzleKey, puzzle: SavedPuzzle) {
@@ -102,23 +116,27 @@ class PuzzleStore(private val root: File) {
     companion object {
         private const val FORMAT_VERSION = 1
         private const val LEGACY_PREVIEW_SUFFIX = ".png"
+        private const val TAG = "PuzzleStore"
 
         fun encode(puzzle: SavedPuzzle): String = when (puzzle) {
             SavedPuzzle.Solved -> WireJson.encodeToString(SaveHeader(FORMAT_VERSION, solved = true))
             is SavedPuzzle.InProgress -> WireJson.encodeToString(InProgressSave.of(puzzle))
         }
 
-        /** Null for unreadable, unknown-format or inconsistent saves, which are then simply started afresh. */
-        fun decode(json: String): SavedPuzzle? = try {
+        /**
+         * Throws [SerializationException] for unparsable saves or ones from another format version, and a
+         * plain [IllegalArgumentException] for saves whose board does not fit their grid.
+         */
+        fun decode(json: String): SavedPuzzle {
             val header = WireJson.decodeFromString<SaveHeader>(json)
-            when {
-                header.version != FORMAT_VERSION -> null
-                header.solved -> SavedPuzzle.Solved
-                else -> WireJson.decodeFromString<InProgressSave>(json).toSavedPuzzle()
+            if (header.version != FORMAT_VERSION) {
+                throw SerializationException("Unsupported save format version ${header.version}")
             }
-        } catch (_: IllegalArgumentException) {
-            // Also kotlinx.serialization's SerializationException: unreadable JSON or missing fields.
-            null
+            return if (header.solved) {
+                SavedPuzzle.Solved
+            } else {
+                WireJson.decodeFromString<InProgressSave>(json).toSavedPuzzle()
+            }
         }
     }
 
