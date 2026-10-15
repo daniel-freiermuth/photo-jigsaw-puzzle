@@ -132,7 +132,8 @@ uploaded as an artifact when it fails):
 - **Android Lint**: all checks enabled (`checkAllWarnings`), including test sources and dependencies.
   Deviations, each with a reason: `config/lint/lint.xml`.
 - **detekt 2** (pre-release, pinned) with its default-active rules, ktlint rules (detekt-rules-ktlint-wrapper,
-  which uses detekt's `intellij_idea` code style, not `.editorconfig`'s `ktlint_code_style`) and
+  `intellij_idea` code style; it reads its style from detekt config, not `.editorconfig`, which mirrors it for
+  standalone ktlint and IDEs) and
   [Compose rules](https://mrmans0n.github.io/compose-rules/), both the plain and the type-resolution variants.
   Deviations, each with a reason: `config/detekt/detekt.yml`. HTML reports land in `app/build/reports/detekt/`.
 - **Unit tests** for debug and release.
