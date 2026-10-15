@@ -42,6 +42,14 @@ class PuzzleStoreTest {
     }
 
     @Test
+    fun `saves cut for a piece count this version does not offer keep their board and load as the default count`() {
+        for (pieces in listOf(37, 192)) {
+            val unoffered = encodedAndEdited(inProgress) { put("pieces", JsonPrimitive(pieces)) }
+            assertEquals(inProgress.copy(pieces = PieceCount.DEFAULT), PuzzleStore.decode(unoffered), "$pieces")
+        }
+    }
+
+    @Test
     fun `rotatable boards keep their turns through encode and decode`() {
         assertEquals(rotated, PuzzleStore.decode(PuzzleStore.encode(rotated)))
     }

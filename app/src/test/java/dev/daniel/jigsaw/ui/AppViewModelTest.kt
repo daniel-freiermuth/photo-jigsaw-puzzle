@@ -72,10 +72,10 @@ class AppViewModelTest {
     }
 
     /** I/O and decoding queue on one test dispatcher and run when the test advances. */
-    private fun TestScope.viewModel(): AppViewModel {
+    private fun TestScope.viewModel(app: Application = TestApp(tmp)): AppViewModel {
         val background = StandardTestDispatcher(testScheduler)
         return AppViewModel(
-            TestApp(tmp),
+            app,
             ioDispatcher = background,
             computeDispatcher = background,
             clock = { testScheduler.currentTime },
@@ -291,6 +291,16 @@ class AppViewModelTest {
         assertFalse(recut.scattered)
         assertEquals(PieceCount.P96, recut.pieces)
         assertNotEquals(old.cut.board.size, recut.cut.board.size)
+    }
+
+    @Test
+    fun `a stored piece count this version does not offer loads as the default`() = runTest {
+        fun storedPieces(target: Int) = viewModel(
+            TestApp(tmp).apply { getSharedPreferences("settings", 0).edit().putInt("pieces", target).apply() },
+        ).settings.pieces
+
+        assertEquals(PieceCount.P96, storedPieces(PieceCount.P96.target))
+        assertEquals(PieceCount.DEFAULT, storedPieces(37))
     }
 
     @Test
