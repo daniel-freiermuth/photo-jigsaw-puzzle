@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.source
 
+import android.util.Log
 import dev.daniel.jigsaw.WireJson
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -18,7 +19,8 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
     suspend fun load(): Map<String, List<RemoteImage>> = withContext(ioDispatcher) {
         try {
             if (file.exists()) decode(file.readText()) else emptyMap()
-        } catch (_: IOException) {
+        } catch (e: IOException) {
+            Log.w(TAG, "Could not read saved image lists from $file, starting with none", e)
             emptyMap()
         }
     }
@@ -33,6 +35,7 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
 
     companion object {
         private const val FORMAT_VERSION = 1
+        private const val TAG = "ImageListStore"
 
         fun encode(listings: Map<String, List<RemoteImage>>): String =
             WireJson.encodeToString(ListingsFile(FORMAT_VERSION, listings))
@@ -41,7 +44,8 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
         fun decode(json: String): Map<String, List<RemoteImage>> = try {
             val saved = WireJson.decodeFromString<ListingsFile>(json)
             if (saved.version == FORMAT_VERSION) saved.sources else emptyMap()
-        } catch (_: SerializationException) {
+        } catch (e: SerializationException) {
+            Log.w(TAG, "Saved image lists are unreadable, starting with none", e)
             emptyMap()
         }
     }
