@@ -121,6 +121,9 @@ unspoilt wilderness", "Lindenstumpf, Panorama"), some cropped to 3:2.
 
 To check a release APK yourself, build the same tag without signing secrets and run
 `apksigcopier compare jigsaw-X.Y.Z.apk --unsigned app/build/outputs/apk/release/app-release-unsigned.apk`.
+CI does this for every push and pull request (`.github/workflows/release.yml`, job "reproduce in F-Droid's
+build environment"). Pull requests from forks and from Dependabot get no signing secrets: CI builds them
+unsigned and requires the rebuild to match that unsigned APK byte for byte (`cmp`).
 
 ## Checks
 
@@ -139,8 +142,11 @@ uploaded as an artifact when it fails):
 - **Unit tests** for debug and release.
 
 Every dependency, the Gradle wrapper and every GitHub Action (by commit SHA) is pinned. Dependabot
-(`.github/dependabot.yml`) opens weekly upgrade PRs for all three, which pass through the same checks;
-versions that must move together (Kotlin plugins, detekt, OkHttp, coroutines, lifecycle) come as one PR.
+(`.github/dependabot.yml`) opens weekly upgrade PRs for all three; versions that must move together (Kotlin
+plugins, detekt, OkHttp, coroutines, lifecycle) come as one PR. They run `just check-all`, the unsigned
+release build and the reproducibility check in F-Droid's build environment. GitHub withholds Actions secrets
+from Dependabot, so they never exercise release signing; the signing key is deliberately not a Dependabot
+secret.
 
 ## Layout
 
