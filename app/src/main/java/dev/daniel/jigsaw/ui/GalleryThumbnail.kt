@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.ui
 
 import android.graphics.Bitmap
+import android.util.Log
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -58,6 +59,8 @@ private val thumbnails = ThumbnailLoader()
 
 /** Thumbnails and puzzle previews are rendered at this size (longer side, pixels). */
 private const val MAX_SIDE = 400
+
+private const val TAG = "GalleryThumbnail"
 
 private sealed interface ThumbState {
     data object Loading : ThumbState
@@ -128,7 +131,8 @@ private fun LoadedImage(
         if (value is ThumbState.Ready) return@produceState
         value = try {
             ThumbState.Ready(thumbnails.load(key, produce))
-        } catch (_: IOException) {
+        } catch (e: IOException) {
+            Log.w(TAG, "Could not load gallery tile $key", e)
             ThumbState.Failed
         }
     }
