@@ -238,7 +238,7 @@ private fun PuzzleBoardView(
         if (canvasSize == IntSize.Zero) return@remember null
         val canvas = CanvasSpec(canvasSize.width.toFloat(), canvasSize.height.toFloat(), margin)
         val board = game.cut.board
-        boardLayout(canvas, game.cut.source.width.toFloat(), game.cut.source.height.toFloat(), board.rows, board.cols)
+        boardLayout(canvas, game.cut.source.width.toFloat(), game.cut.source.height.toFloat(), board.grid)
             .also {
                 if (!game.scattered) {
                     board.scatter(it.scatter, game.random)

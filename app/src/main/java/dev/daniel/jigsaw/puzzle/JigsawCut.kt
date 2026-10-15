@@ -23,10 +23,12 @@ data class Edge(val points: List<Pt>) {
 data class Grid(val rows: Int, val cols: Int)
 
 /**
- * Generates classic tab/blank cuts for a rows × cols grid. Shared edges are generated once and
+ * Generates classic tab/blank cuts for a [grid]. Shared edges are generated once and
  * traversed in opposite directions by the two neighbouring pieces, so they always interlock.
  */
-class JigsawCut(val rows: Int, val cols: Int, random: Random) {
+class JigsawCut(val grid: Grid, random: Random) {
+    val rows get() = grid.rows
+    val cols get() = grid.cols
 
     /** horizontal[r][c]: edge along y = r from x = c to c+1, for r in 1 until rows. */
     private val horizontal = Array(rows + 1) { r ->

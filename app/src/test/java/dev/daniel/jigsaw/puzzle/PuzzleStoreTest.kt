@@ -20,8 +20,7 @@ class PuzzleStoreTest {
     lateinit var tmp: File
 
     private val inProgress = SavedPuzzle.InProgress(
-        rows = 2,
-        cols = 2,
+        grid = Grid(rows = 2, cols = 2),
         seed = -1234567890123L,
         board = BoardSnapshot(
             xs = listOf(0.5f, -3.25f, 7f, 1f),
@@ -61,7 +60,7 @@ class PuzzleStoreTest {
         val decoded = PuzzleStore.decode(legacy) as SavedPuzzle.InProgress
         assertEquals(rotated.board.copy(turns = emptyList(), rotatable = false), decoded.board)
 
-        val board = PuzzleBoard(decoded.rows, decoded.cols, decoded.board)
+        val board = PuzzleBoard(decoded.grid, decoded.board)
         assertFalse(board.rotatable)
         assertEquals(List(board.size) { 0 }, List(board.size) { board.turns(it) })
     }
