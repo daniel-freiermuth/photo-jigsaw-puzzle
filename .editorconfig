@@ -16,6 +16,10 @@ ktlint_code_style = intellij_idea
 max_line_length = 120
 # Composables are PascalCase by convention (the gate uses detekt's naming.FunctionNaming ignoreAnnotated).
 ktlint_function_naming_ignore_when_annotated_with = Composable
+# Parameter lists are wrapped by hand (the gate sets ktlint ClassSignature/FunctionSignature `active: false`
+# in config/detekt/detekt.yml).
+ktlint_standard_class-signature = disabled
+ktlint_standard_function-signature = disabled
 
 [*.{xml,yml,yaml}]
 indent_size = 2
