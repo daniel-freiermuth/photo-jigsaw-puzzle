@@ -74,7 +74,7 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant (`@S
 
 ## Build
 
-Requires JDK 17 and an Android SDK (compileSdk 36) referenced by `local.properties` (`sdk.dir=…`) or `ANDROID_HOME`.
+Requires JDK 21 and an Android SDK with platform 37 (compileSdk 37) referenced by `local.properties` (`sdk.dir=…`) or `ANDROID_HOME`.
 
 ```sh
 just check-all                     # = ./gradlew check; must pass before committing (CI runs the same)
@@ -109,7 +109,7 @@ the signing key is unavailable.
 
 ### Reproducible builds and F-Droid
 
-Release APKs are reproducible: building the same commit with JDK 17 gives byte-identical contents, so
+Release APKs are reproducible: building the same commit with JDK 21 gives byte-identical contents, so
 F-Droid can verify its own build against the GitHub release and ship it with our signature. For that, the
 release build leaves out VCS info (`vcsInfo.include = false`). `fdroid/dev.daniel.jigsaw.yml` is the
 metadata for [fdroiddata](https://gitlab.com/fdroid/fdroiddata). It points F-Droid at the release APKs and
