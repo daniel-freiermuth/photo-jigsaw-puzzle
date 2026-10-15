@@ -56,9 +56,6 @@ class AppViewModelTest {
     /** Downloads the puzzle's picture; a test makes it throw to take the network away. */
     private var fetch: (HttpResource) -> ByteArray = { ByteArray(0) }
 
-    /** Makes the next cut fail as for a saved board the picture can't take. */
-    private var rejectNextCut = false
-
     /** The view model's puzzle files, read directly. */
     private val saved get() = PuzzleStore(File(tmp, "puzzles")).load(image.puzzleKey)
 
@@ -297,25 +294,6 @@ class AppViewModelTest {
     }
 
     @Test
-    fun `a save the picture can't be cut for starts a new game`() = runTest {
-        val vm = viewModel()
-        vm.openImage(image)
-        advanceUntilIdle()
-        vm.game.scatter()
-        vm.game.placeFirstPiece()
-        vm.back()
-        advanceUntilIdle()
-
-        rejectNextCut = true
-        vm.openImage(image)
-        advanceUntilIdle()
-
-        val game = vm.game
-        assertFalse(game.scattered)
-        assertEquals(image.seed, game.seed)
-    }
-
-    @Test
     fun `a picture that can't be downloaded fails the load`() = runTest {
         fetch = { throw IOException("offline") }
         val vm = viewModel()
@@ -420,16 +398,13 @@ class AppViewModelTest {
 
         override fun asImageBitmap(): ImageBitmap = FakeImageBitmap(width, height)
 
-        override fun cut(cut: JigsawCut, board: PuzzleBoard): CutPuzzle {
-            require(!rejectNextCut.also { rejectNextCut = false }) { "Saved board does not fit the picture" }
-            return CutPuzzle(
-                source = asImageBitmap(),
-                board = board,
-                pieces = emptyList(),
-                cellWidth = width / cut.cols.toFloat(),
-                cellHeight = height / cut.rows.toFloat(),
-            )
-        }
+        override fun cut(cut: JigsawCut, board: PuzzleBoard) = CutPuzzle(
+            source = asImageBitmap(),
+            board = board,
+            pieces = emptyList(),
+            cellWidth = width / cut.cols.toFloat(),
+            cellHeight = height / cut.rows.toFloat(),
+        )
     }
 }
 

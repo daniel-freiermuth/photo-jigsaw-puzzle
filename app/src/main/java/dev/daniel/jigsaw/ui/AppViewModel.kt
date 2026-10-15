@@ -301,25 +301,19 @@ class AppViewModel @JvmOverloads constructor(
         return PuzzleContent.Playing(PuzzleGame(image, seed, chosen.pieces, cut, random, scattered = false))
     }
 
-    /**
-     * Null if the save doesn't fit (e.g. written by an incompatible version); the caller starts afresh.
-     * A puzzle with nothing on the board yet takes on the current rotation setting.
-     */
+    /** A puzzle with nothing on the board yet takes on the current rotation setting. */
     private fun resume(
         image: GalleryImage,
         picture: PuzzlePicture,
         saved: SavedPuzzle.InProgress,
         rotatePieces: Boolean,
-    ): PuzzleContent.Playing? = try {
+    ): PuzzleContent.Playing {
         val aspect = cellAspect(picture.width, picture.height, saved.rows, saved.cols)
         val current = saved.withRotation(rotatePieces, aspect)
         val board = PuzzleBoard(current.rows, current.cols, current.board, aspect)
         val random = Random(current.seed)
         val cut = picture.cut(JigsawCut(current.rows, current.cols, random), board)
-        PuzzleContent.Playing(PuzzleGame(image, current.seed, current.pieces, cut, random, scattered = true))
-    } catch (e: IllegalArgumentException) {
-        Log.w(TAG, "Saved puzzle ${image.key} does not fit, starting afresh", e)
-        null
+        return PuzzleContent.Playing(PuzzleGame(image, current.seed, current.pieces, cut, random, scattered = true))
     }
 
     private companion object {
