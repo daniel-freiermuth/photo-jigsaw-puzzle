@@ -105,6 +105,42 @@ class GalleryFeedTest {
     }
 
     @Test
+    fun `a source added while a listing is still running is listed as soon as the gallery is visible`() = runTest {
+        val added = SourceConfig.ImmichShare("im2", "Immich 2", "https://p/share/k2")
+        var sources = listOf(source)
+        val slowAnswer = CompletableDeferred<List<RemoteImage>>()
+        val listed = mutableListOf<String>()
+        val feed = GalleryFeed(
+            scope = backgroundScope,
+            sources = { sources },
+            imageLists = store(),
+            clock = { testScheduler.currentTime },
+            list = {
+                listed += it.id
+                if (it == source) slowAnswer.await() else listOf(remote("new"))
+            },
+        )
+
+        // The gallery is left while the first source is still being listed.
+        val first = launch { feed.keepFresh() }
+        runCurrent()
+        first.cancel()
+        sources = listOf(source, added)
+        feed.invalidate()
+        slowAnswer.complete(listOf(remote("old")))
+        runCurrent()
+
+        val back = launch { feed.keepFresh() }
+        advanceTimeBy(5_000)
+        assertEquals(true, added.id in listed)
+        assertEquals(
+            setOf("old", "new"),
+            (feed.state as Load.Ready).value.images.map { it.image.id }.toSet(),
+        )
+        back.cancel()
+    }
+
+    @Test
     fun `the saved list is shown while the sources are still being asked`() = runTest {
         store().save(mapOf(source.id to listOf(remote("saved"))))
         val answer = CompletableDeferred<List<RemoteImage>>()
