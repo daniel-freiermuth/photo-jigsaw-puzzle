@@ -1,9 +1,9 @@
 name: Release APK
 
-# Every push and PR builds the optimised APK; signed builds are then rebuilt in F-Droid's own build
-# environment and must match byte for byte (reproducible builds). A push to master whose versionName
-# (app/build.gradle.kts) has no v<versionName> tag yet is a release: once reproduced, the signed APK is
-# published as a GitHub Release, which also creates the tag. F-Droid builds that tag and ships our APK.
+# Every push and PR builds the optimised APK, which is then rebuilt in F-Droid's own build environment and
+# must match byte for byte (reproducible builds). A push to master whose versionName (app/build.gradle.kts)
+# has no v<versionName> tag yet is a release: once reproduced, the signed APK is published as a GitHub
+# Release, which also creates the tag. F-Droid builds that tag and ships our APK.
 on:
   push:
     branches: [master]
@@ -83,8 +83,10 @@ jobs:
             echo "release=$release"
           } >> "$GITHUB_OUTPUT"
 
-      # Secrets are unavailable to pull requests from forks: those build an unsigned APK, which still
-      # proves that R8 and resource shrinking succeed. Releases must be signed.
+      # Actions secrets are unavailable to pull requests from forks and from Dependabot: those build an
+      # unsigned APK, which still goes through R8, resource shrinking and the reproducibility check below.
+      # Never copy the keystore into Dependabot secrets: that hands it to freshly bumped build code.
+      # Releases must be signed.
       - name: Set up signing key
         id: signing
         env:
@@ -125,7 +127,6 @@ jobs:
   reproducible:
     name: reproduce in F-Droid's build environment
     needs: apk
-    if: needs.apk.outputs.signed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     # The image F-Droid's build server runs (Debian trixie, its OpenJDK 21, the Android SDK in /opt/android-sdk).
@@ -144,11 +145,33 @@ jobs:
           java -version
           ./gradlew :app:assembleRelease --no-daemon --console=plain
 
-      - name: Compare with the signed APK
+      # Signed: copy our signature onto the rebuilt APK and require the result to equal the signed one.
+      # Unsigned (fork and Dependabot PRs): both APKs come out of the same unsigned path, so compare bytes.
+      - name: Compare with the CI-built APK
+        id: compare
+        env:
+          SIGNED: ${{ needs.apk.outputs.signed }}
+          VERSION_NAME: ${{ needs.apk.outputs.version-name }}
         run: |
-          apt-get update && apt-get install --yes apksigcopier
-          apksigcopier compare "dist/jigsaw-${{ needs.apk.outputs.version-name }}.apk" \
-            --unsigned app/build/outputs/apk/release/app-release-unsigned.apk
+          rebuilt=app/build/outputs/apk/release/app-release-unsigned.apk
+          if [ "$SIGNED" = true ]; then
+            apt-get update && apt-get install --yes apksigcopier
+            apksigcopier compare "dist/jigsaw-$VERSION_NAME.apk" --unsigned "$rebuilt"
+          else
+            cmp "dist/jigsaw-$VERSION_NAME-unsigned.apk" "$rebuilt"
+          fi
+
+      # Show what differs (zip entries, dex code), so a dependency bump that breaks reproducibility can be
+      # diagnosed from the log. For signed builds the signature files in META-INF differ as well.
+      - name: Show differences
+        if: failure() && steps.compare.outcome == 'failure'
+        env:
+          SIGNED: ${{ needs.apk.outputs.signed }}
+          VERSION_NAME: ${{ needs.apk.outputs.version-name }}
+        run: |
+          apt-get update && apt-get install --yes --no-install-recommends diffoscope-minimal unzip dexdump
+          suffix=$([ "$SIGNED" = true ] || echo "-unsigned")
+          diffoscope "dist/jigsaw-$VERSION_NAME$suffix.apk" app/build/outputs/apk/release/app-release-unsigned.apk || true
 
   publish:
     name: publish GitHub Release

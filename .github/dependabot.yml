@@ -1,6 +1,7 @@
 # Weekly upgrade PRs. Every version stays pinned and every bump is a separate reviewed change, gated by
-# check.yml (just check-all) and release.yml (just release-apk). Lint's own "newer version" checks stay
-# off (config/lint/lint.xml): they make a commit's result depend on the date.
+# check.yml (just check-all) and release.yml (just release-apk, unsigned, then rebuilt in F-Droid's build
+# environment and compared byte for byte). Lint's own "newer version" checks stay off
+# (config/lint/lint.xml): they make a commit's result depend on the date.
 version: 2
 
 registries:
