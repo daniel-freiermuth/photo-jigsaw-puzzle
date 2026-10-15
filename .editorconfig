@@ -9,9 +9,12 @@ indent_style = space
 indent_size = 4
 
 [*.{kt,kts}]
-ktlint_code_style = ktlint_official
+# Mirrors the gate: the detekt ktlint wrapper ignores these keys and takes its style from detekt config
+# (wrapper default `intellij_idea`; deviations in config/detekt/detekt.yml). Keep both in sync for
+# standalone ktlint, the ktlint IDE plugin and editors.
+ktlint_code_style = intellij_idea
 max_line_length = 120
-# Composables are PascalCase by convention.
+# Composables are PascalCase by convention (the gate uses detekt's naming.FunctionNaming ignoreAnnotated).
 ktlint_function_naming_ignore_when_annotated_with = Composable
 
 [*.{xml,yml,yaml}]
