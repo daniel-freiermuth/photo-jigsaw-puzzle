@@ -21,10 +21,12 @@ import dev.daniel.jigsaw.source.SourceConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
@@ -110,6 +112,15 @@ class AppViewModelTest {
             board.moveGroup(i, (i % board.cols) - board.x(i), (i / board.cols) - board.y(i))
             board.drop(i, snapToBoard = false)
         }
+    }
+
+    /**
+     * Makes every later write of [image]'s save fail, once one has landed: a directory sits where the
+     * store writes its temp file. Delete the returned directory to let writes through again.
+     */
+    private fun blockSaves(): File {
+        val file = File(tmp, "puzzles").walk().single { it.isFile && it.name.endsWith(".json") }
+        return File(file.path + ".tmp").apply { check(mkdir()) }
     }
 
     @Test
@@ -313,6 +324,93 @@ class AppViewModelTest {
         advanceUntilIdle()
 
         assertInstanceOf(Load.Failed::class.java, vm.puzzle)
+    }
+
+    @Test
+    fun `a failed save puts the tile back to the board last written`() = runTest {
+        val vm = viewModel()
+        vm.openImage(image)
+        advanceUntilIdle()
+        val game = vm.game
+        game.scatter()
+        vm.saveCurrentPuzzle()
+        advanceUntilIdle()
+        val written = saved
+        assertInstanceOf(SavedPuzzle.InProgress::class.java, written)
+        blockSaves()
+
+        game.placeFirstPiece()
+        vm.saveCurrentPuzzle()
+        assertNotEquals(written, vm.tiles[image.puzzleKey])
+        advanceUntilIdle()
+
+        assertEquals(written, saved)
+        assertEquals(written, vm.tiles[image.puzzleKey])
+    }
+
+    @Test
+    fun `a failed first save leaves no tile`() = runTest {
+        // The puzzles directory can't be created, so nothing ever reaches the disk.
+        File(tmp, "puzzles").writeText("")
+        val vm = viewModel()
+        vm.openImage(image)
+        advanceUntilIdle()
+        vm.game.scatter()
+
+        vm.saveCurrentPuzzle()
+        assertInstanceOf(SavedPuzzle.InProgress::class.java, vm.tiles[image.puzzleKey])
+        advanceUntilIdle()
+
+        assertNull(saved)
+        assertEquals(emptyMap<PuzzleKey, SavedPuzzle>(), vm.tiles)
+    }
+
+    @Test
+    fun `a failed save does not undo the tile of a later save that lands`() = runTest {
+        val vm = viewModel()
+        vm.openImage(image)
+        advanceUntilIdle()
+        vm.game.scatter()
+        vm.saveCurrentPuzzle()
+        advanceUntilIdle()
+        val block = blockSaves()
+        vm.game.solve()
+        // As on a device, a write finishing on the I/O thread posts back to the main thread; the test
+        // drains those posts itself, so a second save can come in between.
+        val looper = TestCoroutineScheduler()
+        Dispatchers.setMain(StandardTestDispatcher(looper))
+
+        vm.saveCurrentPuzzle()
+        looper.runCurrent()
+        runCurrent() // the write fails
+        vm.back() // saves the solved board again
+        block.delete()
+        looper.runCurrent()
+        runCurrent() // the second write lands
+        looper.runCurrent()
+
+        assertEquals(SavedPuzzle.Solved, saved)
+        assertEquals(SavedPuzzle.Solved, vm.tiles[image.puzzleKey])
+    }
+
+    @Test
+    fun `a failed save does not bring back a tile start over removed`() = runTest {
+        val vm = viewModel()
+        vm.openImage(image)
+        advanceUntilIdle()
+        val game = vm.game
+        game.scatter()
+        vm.saveCurrentPuzzle()
+        advanceUntilIdle()
+        blockSaves()
+
+        game.placeFirstPiece()
+        vm.saveCurrentPuzzle()
+        vm.restartPuzzle()
+        advanceUntilIdle()
+
+        assertNull(saved)
+        assertNull(vm.tiles[image.puzzleKey])
     }
 
     /** A 1200 × 800 picture whose pieces have no pixels: android.graphics only works on a device. */
