@@ -1,11 +1,14 @@
 package dev.daniel.jigsaw.puzzle
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.math.roundToInt
 
 /**
  * decodeSampled itself needs a real BitmapFactory/Matrix, which JVM unit tests don't have; these pin the
- * transform it hands to Matrix, with the EXIF block parsed by the real ExifInterface.
+ * sample size and scale it picks and the transform it hands to Matrix, with the EXIF block parsed by the
+ * real ExifInterface.
  */
 class ImageDecodingTest {
     @Test
@@ -50,6 +53,48 @@ class ImageDecodingTest {
         )
     }
 
+    @Test
+    fun `sample size is the largest power of two that keeps at least maxSide pixels`() {
+        val expected = mapOf(
+            1 to 1,
+            PUZZLE_SIDE - 1 to 1,
+            PUZZLE_SIDE to 1,
+            2 * PUZZLE_SIDE - 1 to 1,
+            2 * PUZZLE_SIDE to 2,
+            4 * PUZZLE_SIDE - 1 to 2,
+            4 * PUZZLE_SIDE to 4,
+            8 * PUZZLE_SIDE + 1 to 8,
+        )
+        for ((longestSide, sample) in expected) {
+            assertEquals(sample, sampleSizeFor(longestSide, PUZZLE_SIDE), "longest side $longestSide")
+        }
+    }
+
+    @Test
+    fun `downscale only shrinks bitmaps longer than maxSide`() {
+        assertEquals(1f, downscaleFor(PUZZLE_SIDE - 1, PUZZLE_SIDE))
+        assertEquals(1f, downscaleFor(PUZZLE_SIDE, PUZZLE_SIDE))
+        assertEquals(PUZZLE_SIDE / (2f * PUZZLE_SIDE - 1), downscaleFor(2 * PUZZLE_SIDE - 1, PUZZLE_SIDE))
+    }
+
+    @Test
+    fun `sampling then downscaling lands the longest side on maxSide`() {
+        // BitmapFactory rounds a subsampled side down (most codecs) or up (JPEG), and Bitmap.createBitmap
+        // rounds the transformed size to the nearest pixel; the contract has to hold under either rounding.
+        val roundings = listOf<(Int, Int) -> Int>({ side, sample -> side / sample }, ::ceilDiv)
+        for (maxSide in listOf(THUMBNAIL_SIDE, PUZZLE_SIDE)) {
+            for (longestSide in 1..LARGEST_PHOTO_SIDE) {
+                val sample = sampleSizeFor(longestSide, maxSide)
+                assertTrue(longestSide / (sample * 2) < maxSide, "$longestSide→$maxSide: sample $sample too small")
+                for (rounding in roundings) {
+                    val decoded = rounding(longestSide, sample)
+                    val displayed = (decoded * downscaleFor(decoded, maxSide)).roundToInt()
+                    assertEquals(minOf(longestSide, maxSide), displayed, "$longestSide→$maxSide via sample $sample")
+                }
+            }
+        }
+    }
+
     private enum class Corner { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
 
     private data class Display(val topLeft: Corner, val topRight: Corner, val swapsSides: Boolean)
@@ -87,9 +132,18 @@ class ImageDecodingTest {
         return ByteArray(bytes.size) { bytes[it].toByte() }
     }
 
+    private fun ceilDiv(side: Int, sample: Int) = (side + sample - 1) / sample
+
     private companion object {
         const val WIDTH = 4
         const val HEIGHT = 2
         const val TRANSPOSE = 5
+
+        // The maxSide values the app passes: GalleryThumbnail.MAX_SIDE and AppViewModel.MAX_PUZZLE_SIDE.
+        const val THUMBNAIL_SIDE = 400
+        const val PUZZLE_SIDE = 1600
+
+        /** Longer side of a 200 MP phone photo. */
+        const val LARGEST_PHOTO_SIDE = 16_320
     }
 }
