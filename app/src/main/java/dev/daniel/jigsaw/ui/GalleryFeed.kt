@@ -103,8 +103,13 @@ class GalleryFeed(
         }
     }
 
-    /** The sources changed (one was added): refresh as soon as the gallery is visible. */
+    /**
+     * The sources changed (one was added): refresh as soon as the gallery is visible. A listing in
+     * flight is abandoned, as it lists the old sources and would mark the gallery fresh.
+     */
     fun invalidate() {
+        job?.cancel()
+        refreshing = false
         refreshedAt = null
     }
 
