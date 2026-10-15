@@ -1,0 +1,6 @@
+* A dragged piece now stays right under your finger.
+* Puzzles keep every loose piece in the tray: if the screen is too short, the board gets smaller instead of pieces landing on it, and pieces move into the tray when the screen changes shape.
+* Nextcloud: uses the documented sharing endpoint first; a share with more than 200 folders is reported instead of being listed only in part.
+* If saving a puzzle fails, its gallery tile shows what was actually saved.
+* Fresh Material Symbols icons.
+* Updated libraries and build tools (Kotlin 2.4, OkHttp 5, Compose, Gradle 9.8).

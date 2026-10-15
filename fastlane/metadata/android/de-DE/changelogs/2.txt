@@ -1,0 +1,6 @@
+* Ein gezogenes Teil bleibt jetzt genau unter deinem Finger.
+* Lose Teile bleiben immer im Ablagebereich: Ist der Bildschirm zu niedrig, wird das Brett kleiner, statt dass Teile darauf landen, und ändert der Bildschirm seine Form, wandern die Teile in den Ablagebereich.
+* Nextcloud: nutzt zuerst den dokumentierten Freigabe-Endpunkt; eine Freigabe mit mehr als 200 Ordnern wird gemeldet, statt nur teilweise aufgelistet zu werden.
+* Schlägt das Speichern eines Puzzles fehl, zeigt seine Kachel in der Galerie den tatsächlich gespeicherten Stand.
+* Neue Symbole (Material Symbols).
+* Aktualisierte Bibliotheken und Werkzeuge (Kotlin 2.4, OkHttp 5, Compose, Gradle 9.8).
