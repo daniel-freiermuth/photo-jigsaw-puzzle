@@ -1,7 +1,5 @@
 package dev.daniel.jigsaw.puzzle
 
-import kotlin.math.min
-
 /** Pixel size of the puzzle canvas and the margin kept around the board. */
 data class CanvasSpec(val width: Float, val height: Float, val margin: Float)
 
@@ -15,7 +13,7 @@ data class BoardLayout(
     val cellSize: Pt,
     /** The whole canvas; groups must keep a grabbable part inside it. */
     val screen: Bounds,
-    /** Where pieces start out, kept clear of the canvas edges so tabs aren't clipped. */
+    /** Where pieces start out: the tray beside the board, kept clear of the canvas edges so tabs aren't clipped. */
     val scatter: Bounds,
 )
 
@@ -24,6 +22,8 @@ private const val BOARD_SHARE = 0.55f
 
 /**
  * Portrait: board on top, loose pieces below. Landscape: board left, loose pieces right.
+ * The board shrinks below its share when needed so the tray holds at least one cell plus tab
+ * padding: pieces then never start on the board, where they would count as placed.
  * Grid-unit results only depend on the picture's aspect ratio, not its resolution.
  */
 fun boardLayout(canvas: CanvasSpec, pictureWidth: Float, pictureHeight: Float, rows: Int, cols: Int): BoardLayout {
@@ -31,10 +31,20 @@ fun boardLayout(canvas: CanvasSpec, pictureWidth: Float, pictureHeight: Float, r
     val h = canvas.height
     val margin = canvas.margin
     val portrait = h >= w
+    val pad = JigsawCut.PAD
+    val trayCells = 1 + 2 * pad
     val scale = if (portrait) {
-        min((w - 2 * margin) / pictureWidth, (h * BOARD_SHARE - margin) / pictureHeight)
+        minOf(
+            (w - 2 * margin) / pictureWidth,
+            (h * BOARD_SHARE - margin) / pictureHeight,
+            (h - 2 * margin) / pictureHeight * rows / (rows + trayCells),
+        )
     } else {
-        min((w * BOARD_SHARE - margin) / pictureWidth, (h - 2 * margin) / pictureHeight)
+        minOf(
+            (w * BOARD_SHARE - margin) / pictureWidth,
+            (h - 2 * margin) / pictureHeight,
+            (w - 2 * margin) / pictureWidth * cols / (cols + trayCells),
+        )
     }
     val origin = if (portrait) {
         Pt((w - pictureWidth * scale) / 2, margin)
@@ -48,7 +58,6 @@ fun boardLayout(canvas: CanvasSpec, pictureWidth: Float, pictureHeight: Float, r
         maxX = (right - origin.x) / cell.x - inset,
         maxY = (bottom - origin.y) / cell.y - inset,
     )
-    val pad = JigsawCut.PAD
     val tray = if (portrait) {
         toGrid(0f, origin.y + pictureHeight * scale + margin, w, h, pad)
     } else {
@@ -59,6 +68,6 @@ fun boardLayout(canvas: CanvasSpec, pictureWidth: Float, pictureHeight: Float, r
         scale = scale,
         cellSize = cell,
         screen = toGrid(0f, 0f, w, h, inset = 0f),
-        scatter = if (tray.fitsCell) tray else toGrid(0f, 0f, w, h, pad),
+        scatter = tray,
     )
 }

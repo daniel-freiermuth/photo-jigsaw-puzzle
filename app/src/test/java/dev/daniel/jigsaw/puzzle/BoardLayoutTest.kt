@@ -133,9 +133,14 @@ class BoardLayoutTest {
         assertTrue(inside, "$case: $inner is not inside the screen $outer")
     }
 
-    /** The tray holds a cell and lies wholly beside the board: below it in portrait, right of it in landscape. */
+    /**
+     * The tray holds a cell and lies wholly beside the board: below it in portrait, right of it in
+     * landscape. A board shrunk to make room leaves exactly one cell, give or take float rounding.
+     */
     private fun assertTrayOffBoard(case: Case, scatter: Bounds) {
-        assertTrue(scatter.fitsCell, "$case: tray $scatter can't hold a cell")
+        val eps = 1e-4f
+        val holdsCell = scatter.maxX - scatter.minX >= 1f - eps && scatter.maxY - scatter.minY >= 1f - eps
+        assertTrue(holdsCell, "$case: tray $scatter can't hold a cell")
         if (case.canvas.height >= case.canvas.width) {
             assertTrue(scatter.minY >= case.rows, "$case: tray $scatter overlaps the board rows")
         } else {
