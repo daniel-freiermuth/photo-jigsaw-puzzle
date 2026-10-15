@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.ui
 
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -147,8 +148,9 @@ class GalleryFeed(
             refreshedAt = clock()
             try {
                 imageLists.save(merged.listings)
-            } catch (_: IOException) {
+            } catch (e: IOException) {
                 // Only costs the instant start next time.
+                Log.w(TAG, "Could not save gallery listings", e)
             }
         }.also { job = it }
     }
@@ -161,5 +163,6 @@ class GalleryFeed(
     companion object {
         /** The gallery on screen is never older than this. */
         const val MAX_AGE_MS = 60_000L
+        private const val TAG = "GalleryFeed"
     }
 }
