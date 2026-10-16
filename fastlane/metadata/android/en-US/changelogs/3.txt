@@ -1,0 +1,6 @@
+* New name: Album Jigsaw Puzzle.
+* The gallery keeps its scroll position when you come back from a puzzle or the settings.
+* The first drag after opening, resuming or rotating a puzzle picks up the piece under your finger.
+* Dragging with a second finger moves the piece under that finger.
+* Edited pictures on Immich and Nextcloud show their new version in the gallery.
+* A newly added source's pictures appear right away.

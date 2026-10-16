@@ -6,16 +6,17 @@ SourceCode: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle
 IssueTracker: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle/issues
 Changelog: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle/releases
 
-AutoName: Jigsaw
+AutoName: Album Jigsaw Puzzle
 
 RepoType: git
 Repo: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle.git
-Binaries: https://github.com/daniel-freiermuth/photo-jigsaw-puzzle/releases/download/v%v/jigsaw-%v.apk
+Binaries:
+  https://github.com/daniel-freiermuth/photo-jigsaw-puzzle/releases/download/v%v/album-jigsaw-puzzle-%v.apk
 
 Builds:
-  - versionName: 0.1.0
-    versionCode: 1
-    commit: v0.1.0
+  - versionName: 0.3.0
+    versionCode: 3
+    commit: v0.3.0
     subdir: app
     sudo:
       - apt-get update
@@ -28,5 +29,5 @@ AllowedAPKSigningKeys: 5f60894478e1fc3548e45516057bdf8cd6d457240038a9cdbfe081c64
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 0.1.0
-CurrentVersionCode: 1
+CurrentVersion: 0.3.0
+CurrentVersionCode: 3
