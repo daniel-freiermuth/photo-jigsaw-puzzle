@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +46,7 @@ fun GalleryScreen(
     state: Load<GalleryContent>,
     tiles: Map<PuzzleKey, SavedPuzzle>,
     settings: PuzzleSettings,
+    gridState: LazyGridState,
     refreshing: Boolean,
     hasSources: Boolean,
     onRefresh: () -> Unit,
@@ -90,7 +92,7 @@ fun GalleryScreen(
                     onAction = onOpenSettings,
                 )
 
-                state is Load.Ready -> GalleryContentView(state.value, tiles, settings, onRefresh, onPick)
+                state is Load.Ready -> GalleryContentView(state.value, tiles, settings, gridState, onRefresh, onPick)
 
                 else -> CircularProgressIndicator()
             }
@@ -103,6 +105,7 @@ private fun GalleryContentView(
     content: GalleryContent,
     tiles: Map<PuzzleKey, SavedPuzzle>,
     settings: PuzzleSettings,
+    gridState: LazyGridState,
     onRefresh: () -> Unit,
     onPick: (GalleryImage) -> Unit,
 ) {
@@ -116,7 +119,7 @@ private fun GalleryContentView(
         content.images.isEmpty() ->
             Message(stringResource(R.string.gallery_empty), stringResource(R.string.action_refresh), onRefresh)
 
-        else -> ImageGrid(content, tiles, settings, onPick)
+        else -> ImageGrid(content, tiles, settings, gridState, onPick)
     }
 }
 
@@ -125,11 +128,13 @@ private fun ImageGrid(
     content: GalleryContent,
     tiles: Map<PuzzleKey, SavedPuzzle>,
     settings: PuzzleSettings,
+    gridState: LazyGridState,
     onPick: (GalleryImage) -> Unit,
 ) {
     val canvas = puzzleCanvasSpec()
     LazyVerticalGrid(
         columns = GridCells.Adaptive(110.dp),
+        state = gridState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
