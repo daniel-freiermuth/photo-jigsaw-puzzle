@@ -116,6 +116,22 @@ class PuzzleGesturesTest {
         assertEquals(emptyList<Int>(), settled)
     }
 
+    @Test
+    fun `a drag led by a second finger moves the piece under that finger`() = runTest {
+        val screen = freshPointerInput()
+        screen.down(0, Offset(350f, 350f)) // on PIECE
+        screen.down(1, Offset(50f, 50f)) // on CORNER
+        screen.up(0) // before crossing the slop, so finger 1 leads the drag
+        screen.move(1, Offset(90f, 50f))
+        screen.up(1)
+
+        assertEquals(-0.6f, board.x(CORNER), 1e-4f)
+        assertEquals(-1f, board.y(CORNER), 1e-4f)
+        assertEquals(2f, board.x(PIECE), 1e-4f)
+        assertEquals(2f, board.y(PIECE), 1e-4f)
+        assertEquals(listOf(CORNER), settled)
+    }
+
     /** A piece whose hit region is exactly its cell (inside the tab padding around it). */
     private fun cellPiece(): PieceImage {
         val pad = (JigsawCut.PAD * CELL).toInt()
@@ -154,33 +170,41 @@ private class PointerInputHost(
     private val handlers = mutableListOf<Handler<*>>()
     private var job: Job? = null
     private var currentEvent = PointerEvent(emptyList())
-    private val finger = PointerId(0)
-    private var position = Offset.Zero
-    private var pressed = false
+    private val fingers = mutableMapOf<Long, Offset>()
     private var time = 0L
 
     /** One finger touches [from], moves through [to] and lifts at its end. */
     fun drag(from: Offset, to: List<Offset>) {
-        send(from, down = true)
-        to.forEach { send(it, down = true) }
-        send(to.last(), down = false)
+        down(0, from)
+        to.forEach { move(0, it) }
+        up(0)
     }
 
-    private fun send(at: Offset, down: Boolean) {
-        val change = PointerInputChange(
-            id = finger,
-            uptimeMillis = time + FRAME_MILLIS,
-            position = at,
-            pressed = down,
-            previousUptimeMillis = time,
-            previousPosition = if (pressed) position else at,
-            previousPressed = pressed,
-            isInitiallyConsumed = false,
-        )
+    fun down(finger: Long, at: Offset) = send(finger, at, down = true)
+
+    fun move(finger: Long, to: Offset) = send(finger, to, down = true)
+
+    fun up(finger: Long) = send(finger, fingers.getValue(finger), down = false)
+
+    /** Moves, presses or lifts [finger]; the event also reports every other finger still down, unmoved. */
+    private fun send(finger: Long, at: Offset, down: Boolean) {
+        val before = fingers.toMap()
+        if (down) fingers[finger] = at else fingers.remove(finger)
+        val changes = (before.keys + finger).sorted().map { id ->
+            val position = if (id == finger) at else before.getValue(id)
+            PointerInputChange(
+                id = PointerId(id),
+                uptimeMillis = time + FRAME_MILLIS,
+                position = position,
+                pressed = id != finger || down,
+                previousUptimeMillis = time,
+                previousPosition = before[id] ?: position,
+                previousPressed = id in before,
+                isInitiallyConsumed = false,
+            )
+        }
         time += FRAME_MILLIS
-        position = at
-        pressed = down
-        val event = PointerEvent(listOf(change))
+        val event = PointerEvent(changes)
         currentEvent = event
         if (job == null) job = test.backgroundScope.launch(start = CoroutineStart.UNDISPATCHED) { block() }
         for (pass in PointerEventPass.entries) {
