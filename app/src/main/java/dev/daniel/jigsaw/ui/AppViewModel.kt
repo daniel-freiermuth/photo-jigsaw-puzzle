@@ -14,16 +14,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.daniel.jigsaw.puzzle.BitmapPicture
 import dev.daniel.jigsaw.puzzle.CutPuzzle
-import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PieceCount
-import dev.daniel.jigsaw.puzzle.PuzzleBoard
 import dev.daniel.jigsaw.puzzle.PuzzleKey
 import dev.daniel.jigsaw.puzzle.PuzzlePicture
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
-import dev.daniel.jigsaw.puzzle.cellAspect
 import dev.daniel.jigsaw.puzzle.cutNew
+import dev.daniel.jigsaw.puzzle.cutSaved
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.source.Http
 import dev.daniel.jigsaw.source.HttpResource
@@ -305,12 +303,8 @@ class AppViewModel @JvmOverloads constructor(
         saved: SavedPuzzle.InProgress,
         rotatePieces: Boolean,
     ): PuzzleContent.Playing {
-        val aspect = cellAspect(picture.width, picture.height, saved.grid)
-        val current = saved.withRotation(rotatePieces, aspect)
-        val board = PuzzleBoard(current.grid, current.board, aspect)
-        val random = Random(current.seed)
-        val cut = picture.cut(JigsawCut(current.grid, random), board)
-        return PuzzleContent.Playing(PuzzleGame(image, current.seed, current.pieces, cut, random, scattered = true))
+        val (cut, random) = picture.cutSaved(saved, rotatePieces)
+        return PuzzleContent.Playing(PuzzleGame(image, saved.seed, saved.pieces, cut, random, scattered = true))
     }
 
     private companion object {
