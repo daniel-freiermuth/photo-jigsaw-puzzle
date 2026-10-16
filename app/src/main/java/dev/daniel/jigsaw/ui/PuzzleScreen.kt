@@ -45,6 +45,10 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -298,6 +302,7 @@ private fun Modifier.puzzleGestures(
     }
     return pointerInput(game) {
         var dragging: Int? = null
+        val touches = mutableMapOf<PointerId, Offset>()
         var downAt = Offset.Zero
         var caughtUp = false
         fun finish() {
@@ -305,20 +310,21 @@ private fun Modifier.puzzleGestures(
             dragging = null
         }
         coroutineScope {
-            // detectDragGestures reports where the touch slop was crossed (~8dp from the touch); remember the touch.
+            // detectDragGestures reports where the touch slop was crossed (~8dp from the touch); remember each
+            // finger's touch. The drag may be led by a later finger if the first one lifts before the slop.
             // Undispatched, so the tracker is installed before the first event of a fresh pointerInput is delivered.
-            launch(start = CoroutineStart.UNDISPATCHED) {
-                awaitEachGesture { downAt = awaitFirstDown(requireUnconsumed = false).position }
-            }
+            launch(start = CoroutineStart.UNDISPATCHED) { recordTouches(touches) }
             detectDragGestures(
-                onDragStart = { _ ->
+                orientationLock = null,
+                onDragStart = { _, trigger, _ ->
                     caughtUp = false
+                    downAt = touches.touchOf(trigger)
                     dragging = layout.value?.let { hitTest(game.cut, it, downAt) }?.also {
                         board.bringToFront(it)
                         game.version++
                     }
                 },
-                onDragEnd = { finish() },
+                onDragEnd = { _ -> finish() },
                 onDragCancel = { finish() },
                 onDrag = { change, amount ->
                     val i = dragging
@@ -345,6 +351,22 @@ private fun Modifier.puzzleGestures(
         }
     }
 }
+
+/** Keeps [touches] holding where each finger of the current gesture touched down; see [touchOf]. */
+private suspend fun PointerInputScope.recordTouches(touches: MutableMap<PointerId, Offset>) {
+    awaitEachGesture {
+        val first = awaitFirstDown(requireUnconsumed = false)
+        touches.clear()
+        touches[first.id] = first.position
+        do {
+            val event = awaitPointerEvent()
+            event.changes.forEach { if (it.changedToDownIgnoreConsumed()) touches[it.id] = it.position }
+        } while (event.changes.any { it.pressed })
+    }
+}
+
+/** Where [change]'s finger touched down, per [recordTouches]; its current position if that was missed. */
+private fun Map<PointerId, Offset>.touchOf(change: PointerInputChange) = get(change.id) ?: change.position
 
 private fun DrawScope.drawPuzzle(game: PuzzleGame, layout: BoardLayout, colors: PuzzleColors) {
     val cut = game.cut
