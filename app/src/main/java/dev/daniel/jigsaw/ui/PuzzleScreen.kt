@@ -385,12 +385,12 @@ private fun DrawScope.drawPuzzle(game: PuzzleGame, layout: BoardLayout, colors: 
     for (i in board.drawOrder) {
         val piece = cut.pieces[i]
         val topLeft = layout.originOffset + Offset(
-            (board.x(i) * cut.cellWidth - cut.padX) * layout.scale,
-            (board.y(i) * cut.cellHeight - cut.padY) * layout.scale,
+            cut.pieceLeft(board.x(i)) * layout.scale,
+            cut.pieceTop(board.y(i)) * layout.scale,
         )
         val center = layout.originOffset + Offset(
-            (board.x(i) + PuzzleBoard.PIECE_CENTER) * cut.cellWidth * layout.scale,
-            (board.y(i) + PuzzleBoard.PIECE_CENTER) * cut.cellHeight * layout.scale,
+            cut.pieceCenterX(board.x(i)) * layout.scale,
+            cut.pieceCenterY(board.y(i)) * layout.scale,
         )
         val dstSize = IntSize(
             (piece.image.width * layout.scale).roundToInt(),
@@ -412,8 +412,8 @@ private fun hitTest(cut: CutPuzzle, layout: BoardLayout, pos: Offset): Int? {
     val board = cut.board
     return board.pieceAt { i ->
         // Offset from the piece centre, turned back to the piece's upright frame (counter-clockwise).
-        var dx = sx - (board.x(i) + PuzzleBoard.PIECE_CENTER) * cut.cellWidth
-        var dy = sy - (board.y(i) + PuzzleBoard.PIECE_CENTER) * cut.cellHeight
+        var dx = sx - cut.pieceCenterX(board.x(i))
+        var dy = sy - cut.pieceCenterY(board.y(i))
         repeat(board.turns(i)) {
             val nx = dy
             dy = -dx

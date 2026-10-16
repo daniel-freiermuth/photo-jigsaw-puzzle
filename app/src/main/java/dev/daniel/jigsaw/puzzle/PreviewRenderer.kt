@@ -76,13 +76,13 @@ private fun render(cut: CutPuzzle, board: BoardSnapshot, frame: Bounds, maxSide:
         // Alpha-only outline masks are painted in the paint's colour.
         val outlinePaint = Paint(Paint.FILTER_BITMAP_FLAG).apply { color = PIECE_OUTLINE }
         for (i in board.order) {
-            val left = board.xs[i] * cut.cellWidth - cut.padX
-            val top = board.ys[i] * cut.cellHeight - cut.padY
+            val left = cut.pieceLeft(board.xs[i])
+            val top = cut.pieceTop(board.ys[i])
             val piece = cut.pieces[i]
             withRotation(
                 board.turns.getOrElse(i) { 0 } * PuzzleBoard.QUARTER_TURN_DEGREES,
-                (board.xs[i] + PuzzleBoard.PIECE_CENTER) * cut.cellWidth,
-                (board.ys[i] + PuzzleBoard.PIECE_CENTER) * cut.cellHeight,
+                cut.pieceCenterX(board.xs[i]),
+                cut.pieceCenterY(board.ys[i]),
             ) {
                 drawBitmap(piece.image.asAndroidBitmap(), left, top, piecePaint)
                 drawBitmap(piece.outline.asAndroidBitmap(), left, top, outlinePaint)
