@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.createBitmap
 import kotlin.math.ceil
+import kotlin.random.Random
 
 /**
  * A pre-cut piece, all in source-bitmap pixels: its masked image, an alpha-only outline mask
@@ -60,6 +61,20 @@ class BitmapPicture(private val bitmap: Bitmap) : PuzzlePicture {
  */
 internal fun cellAspect(width: Int, height: Int, grid: Grid): Float =
     (width.toFloat() / grid.cols) / (height.toFloat() / grid.rows)
+
+/** A freshly cut puzzle and the [random] that cut it, which its starting scatter must continue. */
+data class NewCut(val cut: CutPuzzle, val random: Random)
+
+/**
+ * Cuts this picture as a new puzzle per [settings], from [seed]. The one place a new puzzle is cut,
+ * so the puzzle screen and its untouched gallery tile get the very same pieces and scatter.
+ */
+fun PuzzlePicture.cutNew(settings: PuzzleSettings, seed: Long): NewCut {
+    val grid = JigsawCut.gridFor(width, height, settings.pieces)
+    val random = Random(seed)
+    val board = PuzzleBoard(grid, cellAspect(width, height, grid), rotatable = settings.rotatePieces)
+    return NewCut(cut(JigsawCut(grid, random), board), random)
+}
 
 /**
  * Cuts [bitmap] into rows × cols pieces following [cut], with pieces placed per [board] (a fresh,

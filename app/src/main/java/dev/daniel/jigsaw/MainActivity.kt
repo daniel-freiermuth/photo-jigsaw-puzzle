@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -48,6 +49,8 @@ internal fun App(
     onLanguageChange: (AppLanguage) -> Unit,
     vm: AppViewModel,
 ) {
+    // Hoisted above the screen switch so the gallery's scroll position survives visiting other screens.
+    val galleryGrid = rememberLazyGridState()
     BackHandler(enabled = vm.screen != Screen.Gallery) { vm.back() }
     when (val screen = vm.screen) {
         Screen.Gallery -> {
@@ -60,6 +63,7 @@ internal fun App(
                 state = vm.feed.state,
                 tiles = vm.tiles,
                 settings = vm.settings,
+                gridState = galleryGrid,
                 refreshing = vm.feed.refreshing,
                 hasSources = vm.sources.isNotEmpty(),
                 onRefresh = vm.feed::refresh,
