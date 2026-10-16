@@ -63,6 +63,7 @@ import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.PuzzleBoard
 import dev.daniel.jigsaw.puzzle.boardLayout
 import dev.daniel.jigsaw.puzzle.keepAllReachable
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -305,7 +306,10 @@ private fun Modifier.puzzleGestures(
         }
         coroutineScope {
             // detectDragGestures reports where the touch slop was crossed (~8dp from the touch); remember the touch.
-            launch { awaitEachGesture { downAt = awaitFirstDown(requireUnconsumed = false).position } }
+            // Undispatched, so the tracker is installed before the first event of a fresh pointerInput is delivered.
+            launch(start = CoroutineStart.UNDISPATCHED) {
+                awaitEachGesture { downAt = awaitFirstDown(requireUnconsumed = false).position }
+            }
             detectDragGestures(
                 onDragStart = { _ ->
                     caughtUp = false
