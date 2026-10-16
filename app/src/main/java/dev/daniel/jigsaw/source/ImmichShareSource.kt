@@ -39,19 +39,16 @@ class ImmichShareSource(
             RemoteImage(
                 id = asset.id,
                 name = asset.name,
-                thumbnail = HttpResource(
-                    api("assets/${asset.id}/thumbnail").withQuery("size", "thumbnail"),
-                    revision = asset.thumbhash,
-                ),
+                thumbnail = rendition(asset, "thumbnail"),
                 // "preview" is a server-rendered, EXIF-rotated JPEG (~1440px): ideal puzzle resolution.
-                full = HttpResource(
-                    api("assets/${asset.id}/thumbnail").withQuery("size", "preview"),
-                    revision = asset.thumbhash,
-                ),
+                full = rendition(asset, "preview"),
                 takenAt = asset.takenAt,
             )
         }
     }
+
+    private fun rendition(asset: ImmichAsset, size: String) =
+        HttpResource(api("assets/${asset.id}/thumbnail").withQuery("size", size), revision = asset.thumbhash)
 
     private fun get(url: String) = Http.getText(HttpResource(url), client)
 
