@@ -76,6 +76,22 @@ fun PuzzlePicture.cutNew(settings: PuzzleSettings, seed: Long): NewCut {
     return NewCut(cut(JigsawCut(grid, random), board), random)
 }
 
+/** A saved puzzle cut again, its board restored, and the [random] that cut it, which the game continues. */
+data class SavedCut(val cut: CutPuzzle, val random: Random)
+
+/**
+ * Cuts this picture again for [saved], from its seed, with the board restored as saved (an unstarted
+ * puzzle turned per [rotatePieces]). The one place a saved puzzle is re-cut, so resuming it and its
+ * in-progress gallery tile get the very same pieces and rotation.
+ */
+fun PuzzlePicture.cutSaved(saved: SavedPuzzle.InProgress, rotatePieces: Boolean): SavedCut {
+    val aspect = cellAspect(width, height, saved.grid)
+    val current = saved.withRotation(rotatePieces, aspect)
+    val board = PuzzleBoard(current.grid, current.board, aspect)
+    val random = Random(current.seed)
+    return SavedCut(cut(JigsawCut(current.grid, random), board), random)
+}
+
 /**
  * Cuts [bitmap] into rows × cols pieces following [cut], with pieces placed per [board] (a fresh,
  * solved-layout board by default). CPU-heavy: run off the main thread.

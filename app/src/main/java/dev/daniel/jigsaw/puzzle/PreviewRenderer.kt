@@ -8,7 +8,6 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withRotation
 import kotlin.math.ceil
 import kotlin.math.max
-import kotlin.random.Random
 
 /**
  * Gallery image of a puzzle in progress, drawn by re-cutting [picture] (typically the thumbnail)
@@ -18,8 +17,8 @@ import kotlin.random.Random
  */
 fun renderProgress(picture: Bitmap, saved: SavedPuzzle.InProgress, settings: PuzzleSettings, maxSide: Int): Bitmap {
     val grid = saved.grid
-    val cut = cutPuzzle(picture, JigsawCut(grid, Random(saved.seed)))
-    val board = saved.withRotation(settings.rotatePieces, cut.cellWidth / cut.cellHeight).board
+    val cut = BitmapPicture(picture).cutSaved(saved, settings.rotatePieces).cut
+    val board = cut.board.snapshot
     return if (saved.started) {
         render(cut, board, Bounds(0f, 0f, grid.cols.toFloat(), grid.rows.toFloat()), maxSide, drawBoard = true)
     } else {
