@@ -119,19 +119,15 @@ class PuzzleBoard(
      * large groups must be able to sit flush against an edge to meet their counterparts.
      */
     fun keepGroupReachable(i: Int, bounds: Bounds, overlap: Float = MIN_REACHABLE_OVERLAP) {
-        val m = members(i)
-        val left = m.minOf { xs[it] }
-        val top = m.minOf { ys[it] }
-        val right = m.maxOf { xs[it] } + 1f
-        val bottom = m.maxOf { ys[it] } + 1f
+        val group = groupBounds(i)
         val dx = when {
-            right < bounds.minX + overlap -> bounds.minX + overlap - right
-            left > bounds.maxX - overlap -> bounds.maxX - overlap - left
+            group.maxX < bounds.minX + overlap -> bounds.minX + overlap - group.maxX
+            group.minX > bounds.maxX - overlap -> bounds.maxX - overlap - group.minX
             else -> 0f
         }
         val dy = when {
-            bottom < bounds.minY + overlap -> bounds.minY + overlap - bottom
-            top > bounds.maxY - overlap -> bounds.maxY - overlap - top
+            group.maxY < bounds.minY + overlap -> bounds.minY + overlap - group.maxY
+            group.minY > bounds.maxY - overlap -> bounds.maxY - overlap - group.minY
             else -> 0f
         }
         moveGroup(i, dx, dy)
@@ -139,15 +135,13 @@ class PuzzleBoard(
 
     /** Moves the group to a random spot with its bounding box inside [bounds] (top-left in it, if too big). */
     fun scatterGroup(i: Int, bounds: Bounds, random: Random) {
-        val m = members(i)
-        val left = m.minOf { xs[it] }
-        val top = m.minOf { ys[it] }
-        val width = m.maxOf { xs[it] } + 1f - left
-        val height = m.maxOf { ys[it] } + 1f - top
+        val group = groupBounds(i)
+        val width = group.maxX - group.minX
+        val height = group.maxY - group.minY
         moveGroup(
             i,
-            randomIn(bounds.minX, bounds.maxX - width, random) - left,
-            randomIn(bounds.minY, bounds.maxY - height, random) - top,
+            randomIn(bounds.minX, bounds.maxX - width, random) - group.minX,
+            randomIn(bounds.minY, bounds.maxY - height, random) - group.minY,
         )
     }
 
@@ -224,6 +218,17 @@ class PuzzleBoard(
     private fun col(i: Int) = i % cols
 
     private fun members(i: Int): List<Int> = (0 until size).filter { groupOf[it] == groupOf[i] }
+
+    /** Bounding box of piece [i]'s group, in grid units (each piece covers one cell from its x/y). */
+    private fun groupBounds(i: Int): Bounds {
+        val m = members(i)
+        return Bounds(
+            minX = m.minOf { xs[it] },
+            minY = m.minOf { ys[it] },
+            maxX = m.maxOf { xs[it] } + 1f,
+            maxY = m.maxOf { ys[it] } + 1f,
+        )
+    }
 
     private fun merge(a: Int, b: Int) {
         val target = groupOf[a]
