@@ -2,6 +2,7 @@ package dev.daniel.jigsaw.puzzle
 
 import android.util.Log
 import dev.daniel.jigsaw.WireJson
+import dev.daniel.jigsaw.writeTextAtomically
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -84,12 +85,7 @@ class PuzzleStore(private val root: File) {
     }
 
     fun save(key: PuzzleKey, puzzle: SavedPuzzle) {
-        val file = fileFor(key)
-        file.parentFile?.mkdirs()
-        // Write-then-rename so a crash mid-write never leaves a truncated save behind.
-        val tmp = File(file.path + ".tmp")
-        tmp.writeText(encode(puzzle))
-        if (!tmp.renameTo(file)) throw IOException("Could not save puzzle to $file")
+        fileFor(key).writeTextAtomically(encode(puzzle))
     }
 
     fun clear(key: PuzzleKey) {

@@ -2,6 +2,7 @@ package dev.daniel.jigsaw.source
 
 import android.util.Log
 import dev.daniel.jigsaw.WireJson
+import dev.daniel.jigsaw.writeTextAtomically
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -25,12 +26,9 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
         }
     }
 
-    /** Written to a temporary file first, so a crash never leaves a half-written list. */
+    /** Written atomically, so a crash never leaves a half-written list. */
     suspend fun save(listings: Map<String, List<RemoteImage>>) = withContext(ioDispatcher) {
-        file.parentFile?.mkdirs()
-        val tmp = File(file.path + ".tmp")
-        tmp.writeText(encode(listings))
-        if (!tmp.renameTo(file)) throw IOException("Could not save image list to $file")
+        file.writeTextAtomically(encode(listings))
     }
 
     companion object {
