@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
 
       # Also validates the Gradle wrapper checksum.
       - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
@@ -129,7 +129,8 @@ jobs:
     needs: apk
     runs-on: ubuntu-24.04
     timeout-minutes: 40
-    # The image F-Droid's build server runs (Debian trixie, its OpenJDK 21, the Android SDK in /opt/android-sdk).
+    # The image F-Droid's build server runs (Debian trixie, the Android SDK in /opt/android-sdk). Its default
+    # JDK is trixie's OpenJDK 21; the build installs OpenJDK 25 from trixie, as the F-Droid recipe does.
     container: registry.gitlab.com/fdroid/fdroidserver:buildserver
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -138,6 +139,12 @@ jobs:
         with:
           name: jigsaw-${{ needs.apk.outputs.version-name }}-${{ github.sha }}
           path: dist
+
+      - name: Install OpenJDK 25
+        run: |
+          apt-get update
+          apt-get install --yes openjdk-25-jdk-headless
+          update-java-alternatives --set java-1.25.0-openjdk-amd64
 
       - name: Rebuild without signing key
         run: |
