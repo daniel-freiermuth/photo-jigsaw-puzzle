@@ -417,7 +417,7 @@ class AppViewModelTest {
     }
 }
 
-private class FakeImageBitmap(override val width: Int, override val height: Int) : ImageBitmap {
+internal class FakeImageBitmap(override val width: Int, override val height: Int) : ImageBitmap {
     override val colorSpace get() = ColorSpaces.Srgb
     override val hasAlpha get() = false
     override val config get() = ImageBitmapConfig.Argb8888
