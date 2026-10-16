@@ -84,10 +84,12 @@ fun GalleryThumbnail(
 ) {
     val resource = item.image.thumbnail
     val picture = { decodeSampled(Http.getImage(resource), MAX_SIDE) }
+    // A new revision is a changed picture: its tiles must not come from the old one's cache entries.
+    val content = "${resource.url} ${resource.revision.orEmpty()}"
     val inProgress = (saved as? SavedPuzzle.InProgress)?.takeUnless { it.needsRecut(settings) }
     when {
         saved == SavedPuzzle.Solved -> LoadedImage(
-            key = resource.url,
+            key = content,
             produce = picture,
             contentDescription = item.image.name,
             contentScale = ContentScale.Crop,
@@ -96,7 +98,7 @@ fun GalleryThumbnail(
 
         // The data class hash changes with every move, so each layout gets its own cache entry.
         inProgress != null -> LoadedImage(
-            key = "progress:${resource.url}:${inProgress.hashCode()}:${settings.rotatePieces}",
+            key = "progress:$content:${inProgress.hashCode()}:${settings.rotatePieces}",
             produce = { renderProgress(picture(), inProgress, settings, MAX_SIDE) },
             contentDescription = item.image.name,
             contentScale = ContentScale.Fit,
@@ -104,7 +106,7 @@ fun GalleryThumbnail(
         )
 
         else -> LoadedImage(
-            key = "untouched:${resource.url}:$canvas:${settings.rotatePieces}:${settings.pieces.target}",
+            key = "untouched:$content:$canvas:${settings.rotatePieces}:${settings.pieces.target}",
             produce = {
                 // The seed the first opening cuts and scatters with, so the tile shows that very pile.
                 renderUntouched(picture(), canvas, settings, item.seed, MAX_SIDE)
@@ -124,11 +126,12 @@ private fun LoadedImage(
     contentScale: ContentScale,
     modifier: Modifier = Modifier,
 ) {
+    // The state outlives a key change (the gallery refreshes in place), so every key is loaded; a cached one
+    // returns at once.
     val state by produceState<ThumbState>(
         initialValue = thumbnails.cached(key)?.let { ThumbState.Ready(it) } ?: ThumbState.Loading,
         key1 = key,
     ) {
-        if (value is ThumbState.Ready) return@produceState
         value = try {
             ThumbState.Ready(thumbnails.load(key, produce))
         } catch (e: IOException) {
