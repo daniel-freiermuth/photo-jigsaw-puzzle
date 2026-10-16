@@ -102,9 +102,10 @@ android {
 }
 
 kotlin {
-    // JDK 21 compiles: it is what F-Droid's build server (Debian trixie) and CI have, and the JDK major
-    // shapes the output, so all three must match for reproducible builds. The bytecode stays Java 17.
-    jvmToolchain(21)
+    // JDK 25 compiles: CI and F-Droid's build server (Debian trixie's openjdk-25, installed by the recipe) have
+    // it, and the JDK major shapes the output, so all three must match for reproducible builds. The bytecode
+    // stays Java 17.
+    jvmToolchain(25)
     compilerOptions {
         jvmTarget = JvmTarget.JVM_17
         allWarningsAsErrors = true
