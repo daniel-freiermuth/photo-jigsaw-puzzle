@@ -300,47 +300,7 @@ private fun Modifier.puzzleGestures(
         game.version++
         onMoveEnd.value()
     }
-    return pointerInput(game) {
-        var dragging: Int? = null
-        val touches = mutableMapOf<PointerId, Offset>()
-        var downAt = Offset.Zero
-        var caughtUp = false
-        fun finish() {
-            dragging?.let(::settle)
-            dragging = null
-        }
-        coroutineScope {
-            // detectDragGestures reports where the touch slop was crossed (~8dp from the touch); remember each
-            // finger's touch. The drag may be led by a later finger if the first one lifts before the slop.
-            // Undispatched, so the tracker is installed before the first event of a fresh pointerInput is delivered.
-            launch(start = CoroutineStart.UNDISPATCHED) { recordTouches(touches) }
-            detectDragGestures(
-                orientationLock = null,
-                onDragStart = { _, trigger, _ ->
-                    caughtUp = false
-                    downAt = touches.touchOf(trigger)
-                    dragging = layout.value?.let { hitTest(game.cut, it, downAt) }?.also {
-                        board.bringToFront(it)
-                        game.version++
-                    }
-                },
-                onDragEnd = { _ -> finish() },
-                onDragCancel = { finish() },
-                onDrag = { change, amount ->
-                    val i = dragging
-                    val l = layout.value
-                    if (i != null && l != null) {
-                        change.consume()
-                        // The first call only reports the movement past the touch slop, so it moves from the touch.
-                        val move = if (caughtUp) amount else change.position - downAt
-                        caughtUp = true
-                        board.moveGroup(i, move.x / l.cellSize.x, move.y / l.cellSize.y)
-                        game.version++
-                    }
-                },
-            )
-        }
-    }.pointerInput(game) {
+    return pointerInput(game) { dragGroups(game, layout, ::settle) }.pointerInput(game) {
         detectTapGestures { pos ->
             if (!board.rotatable) return@detectTapGestures
             layout.value?.let { hitTest(game.cut, it, pos) }?.let {
@@ -349,6 +309,57 @@ private fun Modifier.puzzleGestures(
                 settle(it)
             }
         }
+    }
+}
+
+/**
+ * Picks up the group under the finger that starts a drag and moves it with that finger; [settle]s it on
+ * release or cancel. Runs as a fresh `pointerInput(game)` block, so its first event is the gesture's DOWN.
+ */
+internal suspend fun PointerInputScope.dragGroups(
+    game: PuzzleGame,
+    layout: State<BoardLayout?>,
+    settle: (Int) -> Unit,
+) {
+    val board = game.cut.board
+    var dragging: Int? = null
+    val touches = mutableMapOf<PointerId, Offset>()
+    var downAt = Offset.Zero
+    var caughtUp = false
+    fun finish() {
+        dragging?.let(settle)
+        dragging = null
+    }
+    coroutineScope {
+        // detectDragGestures reports where the touch slop was crossed (~8dp from the touch); remember each
+        // finger's touch. The drag may be led by a later finger if the first one lifts before the slop.
+        // Undispatched, so the tracker is installed before the first event of a fresh pointerInput is delivered.
+        launch(start = CoroutineStart.UNDISPATCHED) { recordTouches(touches) }
+        detectDragGestures(
+            orientationLock = null,
+            onDragStart = { _, trigger, _ ->
+                caughtUp = false
+                downAt = touches.touchOf(trigger)
+                dragging = layout.value?.let { hitTest(game.cut, it, downAt) }?.also {
+                    board.bringToFront(it)
+                    game.version++
+                }
+            },
+            onDragEnd = { _ -> finish() },
+            onDragCancel = { finish() },
+            onDrag = { change, amount ->
+                val i = dragging
+                val l = layout.value
+                if (i != null && l != null) {
+                    change.consume()
+                    // The first call only reports the movement past the touch slop, so it moves from the touch.
+                    val move = if (caughtUp) amount else change.position - downAt
+                    caughtUp = true
+                    board.moveGroup(i, move.x / l.cellSize.x, move.y / l.cellSize.y)
+                    game.version++
+                }
+            },
+        )
     }
 }
 
