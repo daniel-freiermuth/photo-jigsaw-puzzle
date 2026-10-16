@@ -31,6 +31,18 @@ class CutPuzzle(
 ) {
     val padX get() = JigsawCut.PAD * cellWidth
     val padY get() = JigsawCut.PAD * cellHeight
+
+    /** Picture-pixel left edge of the bitmap of a piece whose cell corner is at board column [x]. */
+    fun pieceLeft(x: Float) = x * cellWidth - padX
+
+    /** Picture-pixel top edge of the bitmap of a piece whose cell corner is at board row [y]. */
+    fun pieceTop(y: Float) = y * cellHeight - padY
+
+    /** Picture-pixel x of the rotation pivot (cell centre) of a piece at board column [x]. */
+    fun pieceCenterX(x: Float) = (x + PuzzleBoard.PIECE_CENTER) * cellWidth
+
+    /** Picture-pixel y of the rotation pivot (cell centre) of a piece at board row [y]. */
+    fun pieceCenterY(y: Float) = (y + PuzzleBoard.PIECE_CENTER) * cellHeight
 }
 
 /** A decoded picture to cut puzzles from, [width] × [height] pixels. */
