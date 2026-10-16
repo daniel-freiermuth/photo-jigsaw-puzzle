@@ -23,6 +23,7 @@ import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.cellAspect
+import dev.daniel.jigsaw.puzzle.cutNew
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.source.Http
 import dev.daniel.jigsaw.source.HttpResource
@@ -293,11 +294,7 @@ class AppViewModel @JvmOverloads constructor(
         chosen: PuzzleSettings,
         seed: Long,
     ): PuzzleContent.Playing {
-        val grid = JigsawCut.gridFor(picture.width, picture.height, chosen.pieces)
-        val random = Random(seed)
-        val aspect = cellAspect(picture.width, picture.height, grid)
-        val board = PuzzleBoard(grid, aspect, rotatable = chosen.rotatePieces)
-        val cut = picture.cut(JigsawCut(grid, random), board)
+        val (cut, random) = picture.cutNew(chosen, seed)
         return PuzzleContent.Playing(PuzzleGame(image, seed, chosen.pieces, cut, random, scattered = false))
     }
 
