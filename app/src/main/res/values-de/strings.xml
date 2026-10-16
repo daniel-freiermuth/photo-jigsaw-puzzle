@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Same word as settings_puzzle, different meaning (the app vs. the settings section): not a duplicate. -->
-    <string name="app_name" tools:ignore="DuplicateStrings">Puzzle</string>
+<resources>
+    <string name="app_name">Album Puzzle</string>
 
     <!-- Shared -->
     <string name="action_back">Zurück</string>
