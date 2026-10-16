@@ -1,0 +1,6 @@
+* Neuer Name: Album Puzzle.
+* Die Galerie behält ihre Scrollposition, wenn du von einem Puzzle oder den Einstellungen zurückkommst.
+* Das erste Ziehen nach dem Öffnen, Fortsetzen oder Drehen eines Puzzles greift das Teil unter deinem Finger.
+* Ziehst du mit einem zweiten Finger, bewegt sich das Teil unter diesem Finger.
+* Bearbeitete Bilder auf Immich und Nextcloud erscheinen in der Galerie in ihrer neuen Fassung.
+* Die Bilder einer neu hinzugefügten Quelle erscheinen sofort.

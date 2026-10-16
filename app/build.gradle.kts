@@ -18,8 +18,8 @@ android {
         targetSdk = 36
         // Bumping these on master releases them: CI tags v<versionName> and publishes a GitHub Release.
         // versionCode must grow with every release (F-Droid and Android refuse downgrades).
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     androidResources {
