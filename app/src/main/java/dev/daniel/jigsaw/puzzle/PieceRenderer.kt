@@ -105,10 +105,10 @@ fun PuzzlePicture.cutSaved(saved: SavedPuzzle.InProgress, rotatePieces: Boolean)
 }
 
 /**
- * Cuts [bitmap] into rows × cols pieces following [cut], with pieces placed per [board] (a fresh,
- * solved-layout board by default). CPU-heavy: run off the main thread.
+ * Cuts [bitmap] into rows × cols pieces following [cut], with pieces placed per [board].
+ * CPU-heavy: run off the main thread.
  */
-fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut, board: PuzzleBoard = PuzzleBoard(cut.grid)): CutPuzzle {
+fun cutPuzzle(bitmap: Bitmap, cut: JigsawCut, board: PuzzleBoard): CutPuzzle {
     require(board.grid == cut.grid) { "Board does not match the cut" }
     val rows = cut.rows
     val cols = cut.cols
