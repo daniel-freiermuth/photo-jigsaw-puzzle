@@ -129,6 +129,12 @@ class NextcloudShareSourceTest {
         assertEquals(Credentials.basic("tok", PASSWORD), legacy.full.headers["Authorization"])
     }
 
+    @Test
+    fun `a listing with a malformed href fails as an unexpected response`() {
+        routes[MODERN] = listing(folder(MODERN), file("${MODERN}100%zz.jpg", "image/jpeg"))
+        assertThrows<UnexpectedResponseException> { list() }
+    }
+
     private fun list(password: String = ""): List<RemoteImage> = runBlocking {
         NextcloudShareSource(
             server.url("/nextcloud/index.php/s/tok").toString(),

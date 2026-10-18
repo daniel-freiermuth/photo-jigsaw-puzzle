@@ -75,6 +75,24 @@ class SourceParsingTest {
     }
 
     @Test
+    fun `webdav capture time out of range falls back to the modification time`() {
+        val xml = """
+            <?xml version="1.0"?>
+            <d:multistatus xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns">
+              <d:response><d:href>/public.php/dav/files/tok/beach.jpg</d:href>
+                <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>image/jpeg</d:getcontenttype>
+                  <d:getlastmodified>Tue, 13 Oct 2026 19:39:24 GMT</d:getlastmodified>
+                  <nc:metadata-photos-original_date_time>99999999999999999</nc:metadata-photos-original_date_time>
+                </d:prop></d:propstat></d:response>
+            </d:multistatus>
+        """.trimIndent()
+        assertEquals(
+            listOf(millis("2026-10-13T19:39:24Z")),
+            NextcloudShareSource.parseMultistatus(StringReader(xml), KXmlParser()).map { it.takenAt },
+        )
+    }
+
+    @Test
     fun `immich share url picks key or slug auth`() {
         with(ImmichShareSource.parseShareUrl("https://photos.example.com/share/k3y")) {
             assertEquals("https://photos.example.com/", base.toString())
