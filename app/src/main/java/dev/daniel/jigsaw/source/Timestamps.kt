@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.source
 
+import java.time.DateTimeException
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -35,6 +36,14 @@ internal fun parseHttpDate(text: String?): Long? {
     }
 }
 
-/** Epoch milliseconds of a Unix timestamp in seconds given as text; null if absent or not a number. */
-internal fun parseEpochSeconds(text: String?): Long? =
-    text?.trim()?.toLongOrNull()?.let { Instant.ofEpochSecond(it).toEpochMilli() }
+/** Epoch milliseconds of a Unix timestamp in seconds given as text; null if absent, not a number or out of range. */
+internal fun parseEpochSeconds(text: String?): Long? {
+    val seconds = text?.trim()?.toLongOrNull() ?: return null
+    return try {
+        Instant.ofEpochSecond(seconds).toEpochMilli()
+    } catch (_: DateTimeException) {
+        null
+    } catch (_: ArithmeticException) {
+        null
+    }
+}

@@ -229,4 +229,8 @@ internal fun String.isPuzzleImage(): Boolean {
     return type.startsWith("image/") && type != "image/svg+xml"
 }
 
-internal fun String.decodeUrlPath(): String = URLDecoder.decode(replace("+", "%2B"), "UTF-8")
+internal fun String.decodeUrlPath(): String = try {
+    URLDecoder.decode(replace("+", "%2B"), "UTF-8")
+} catch (e: IllegalArgumentException) {
+    throw UnexpectedResponseException("Malformed path in WebDAV response: $this", e)
+}
