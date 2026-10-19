@@ -78,11 +78,12 @@ internal fun cellAspect(width: Int, height: Int, grid: Grid): Float =
 data class NewCut(val cut: CutPuzzle, val random: Random)
 
 /**
- * Cuts this picture as a new puzzle per [settings], from [seed]. The one place a new puzzle is cut,
- * so the puzzle screen and its untouched gallery tile get the very same pieces and scatter.
+ * Cuts this picture into [grid] as a new puzzle per [settings], from [seed]. The one place a new puzzle is
+ * cut, so the puzzle screen and its untouched gallery tile get the very same pieces and scatter. Both pass
+ * the grid [JigsawCut.gridFor] picks from the thumbnail: the larger picture the puzzle screen cuts is
+ * rounded separately, and its slightly different aspect can pick another grid.
  */
-fun PuzzlePicture.cutNew(settings: PuzzleSettings, seed: Long): NewCut {
-    val grid = JigsawCut.gridFor(width, height, settings.pieces)
+fun PuzzlePicture.cutNew(settings: PuzzleSettings, seed: Long, grid: Grid): NewCut {
     val random = Random(seed)
     val board = PuzzleBoard(grid, cellAspect(width, height, grid), rotatable = settings.rotatePieces)
     return NewCut(cut(JigsawCut(grid, random), board), random)

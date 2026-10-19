@@ -57,8 +57,11 @@ private class ThumbnailLoader(private val ioDispatcher: CoroutineDispatcher = Di
 
 private val thumbnails = ThumbnailLoader()
 
-/** Thumbnails and puzzle previews are rendered at this size (longer side, pixels). */
-private const val MAX_SIDE = 400
+/**
+ * Thumbnails and puzzle previews are rendered at this size (longer side, pixels). A new puzzle's grid is
+ * picked from the thumbnail decoded to this size too, so it opens on the pieces its untouched tile shows.
+ */
+internal const val MAX_SIDE = 400
 
 private const val TAG = "GalleryThumbnail"
 

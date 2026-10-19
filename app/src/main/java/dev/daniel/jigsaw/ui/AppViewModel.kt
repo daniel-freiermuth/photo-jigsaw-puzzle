@@ -14,6 +14,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.daniel.jigsaw.puzzle.BitmapPicture
 import dev.daniel.jigsaw.puzzle.CutPuzzle
+import dev.daniel.jigsaw.puzzle.Grid
+import dev.daniel.jigsaw.puzzle.JigsawCut
 import dev.daniel.jigsaw.puzzle.PieceCount
 import dev.daniel.jigsaw.puzzle.PuzzleKey
 import dev.daniel.jigsaw.puzzle.PuzzlePicture
@@ -96,10 +98,12 @@ class AppViewModel @JvmOverloads constructor(
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
     /** Monotonic milliseconds, for deciding when the gallery is due for a refresh. */
     clock: () -> Long = SystemClock::elapsedRealtime,
-    /** Downloads a puzzle's picture; blocking, run on [ioDispatcher]. */
+    /** Downloads a puzzle's picture or thumbnail; blocking, run on [ioDispatcher]. */
     private val fetchImage: (HttpResource) -> ByteArray = Http::getImage,
-    /** Decodes downloaded bytes for cutting; CPU-heavy, run on [computeDispatcher]. */
-    private val decodePicture: (ByteArray) -> PuzzlePicture = { BitmapPicture(decodeSampled(it, MAX_PUZZLE_SIDE)) },
+    /** Decodes downloaded bytes to at most the given longest side; CPU-heavy, run on [computeDispatcher]. */
+    private val decodePicture: (ByteArray, Int) -> PuzzlePicture = { bytes, maxSide ->
+        BitmapPicture(decodeSampled(bytes, maxSide))
+    },
 ) : AndroidViewModel(app) {
     private val store = SourceStore(app)
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -273,27 +277,54 @@ class AppViewModel @JvmOverloads constructor(
         val saved = withContext(puzzleIo) { puzzles.load(image.puzzleKey) }
         val bytes = withContext(ioDispatcher) { fetchImage(image.image.full) }
         return withContext(computeDispatcher) {
-            val picture = decodePicture(bytes)
+            val picture = decodePicture(bytes, MAX_PUZZLE_SIDE)
             when (saved) {
                 SavedPuzzle.Solved -> PuzzleContent.Finished(picture.asImageBitmap())
 
                 is SavedPuzzle.InProgress -> saved.takeUnless { it.needsRecut(chosen) }
                     ?.let { resume(image, picture, it, chosen.rotatePieces) }
-                    ?: newGame(image, picture, chosen, newSeed)
+                    ?: newGame(image, bytes, picture, chosen, newSeed)
 
-                null -> newGame(image, picture, chosen, newSeed)
+                null -> newGame(image, bytes, picture, chosen, newSeed)
             }
         }
     }
 
-    private fun newGame(
+    private suspend fun newGame(
         image: GalleryImage,
+        bytes: ByteArray,
         picture: PuzzlePicture,
         chosen: PuzzleSettings,
         seed: Long,
     ): PuzzleContent.Playing {
-        val (cut, random) = picture.cutNew(chosen, seed)
+        val (cut, random) = picture.cutNew(chosen, seed, tileGrid(image, bytes, picture, chosen.pieces))
         return PuzzleContent.Playing(PuzzleGame(image, seed, chosen.pieces, cut, random, scattered = false))
+    }
+
+    /**
+     * The grid [image]'s untouched gallery tile shows, which a new puzzle is cut into so it matches the tile.
+     * The tile picks it from the thumbnail: a separately rounded rendition whose aspect can differ from
+     * [picture]'s ([bytes] decoded) just enough to land [JigsawCut.gridFor] on another grid. [picture]
+     * decides when the thumbnail can't be downloaded or decoded, so the puzzle still opens.
+     */
+    private suspend fun tileGrid(
+        image: GalleryImage,
+        bytes: ByteArray,
+        picture: PuzzlePicture,
+        pieces: PieceCount,
+    ): Grid {
+        val resource = image.image.thumbnail
+        val thumbnail = try {
+            val thumbnailBytes = if (resource == image.image.full) {
+                bytes
+            } else {
+                withContext(ioDispatcher) { fetchImage(resource) }
+            }
+            decodePicture(thumbnailBytes, MAX_SIDE)
+        } catch (_: IOException) {
+            picture
+        }
+        return JigsawCut.gridFor(thumbnail.width, thumbnail.height, pieces)
     }
 
     /** A puzzle with nothing on the board yet takes on the current rotation setting. */
