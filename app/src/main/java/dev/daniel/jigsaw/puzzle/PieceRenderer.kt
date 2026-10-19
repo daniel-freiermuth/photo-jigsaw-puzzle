@@ -74,8 +74,11 @@ class BitmapPicture(private val bitmap: Bitmap) : PuzzlePicture {
 internal fun cellAspect(width: Int, height: Int, grid: Grid): Float =
     (width.toFloat() / grid.cols) / (height.toFloat() / grid.rows)
 
-/** A freshly cut puzzle and the [random] that cut it, which its starting scatter must continue. */
-data class NewCut(val cut: CutPuzzle, val random: Random)
+/**
+ * A cut puzzle and the [random] that cut it, which play must continue: a new puzzle's starting
+ * scatter, or a resumed game.
+ */
+data class SeededCut(val cut: CutPuzzle, val random: Random)
 
 /**
  * Cuts this picture into [grid] as a new puzzle per [settings], from [seed]. The one place a new puzzle is
@@ -83,26 +86,23 @@ data class NewCut(val cut: CutPuzzle, val random: Random)
  * the grid [JigsawCut.gridFor] picks from the thumbnail: the larger picture the puzzle screen cuts is
  * rounded separately, and its slightly different aspect can pick another grid.
  */
-fun PuzzlePicture.cutNew(settings: PuzzleSettings, seed: Long, grid: Grid): NewCut {
+fun PuzzlePicture.cutNew(settings: PuzzleSettings, seed: Long, grid: Grid): SeededCut {
     val random = Random(seed)
     val board = PuzzleBoard(grid, cellAspect(width, height, grid), rotatable = settings.rotatePieces)
-    return NewCut(cut(JigsawCut(grid, random), board), random)
+    return SeededCut(cut(JigsawCut(grid, random), board), random)
 }
-
-/** A saved puzzle cut again, its board restored, and the [random] that cut it, which the game continues. */
-data class SavedCut(val cut: CutPuzzle, val random: Random)
 
 /**
  * Cuts this picture again for [saved], from its seed, with the board restored as saved (an unstarted
  * puzzle turned per [rotatePieces]). The one place a saved puzzle is re-cut, so resuming it and its
  * in-progress gallery tile get the very same pieces and rotation.
  */
-fun PuzzlePicture.cutSaved(saved: SavedPuzzle.InProgress, rotatePieces: Boolean): SavedCut {
+fun PuzzlePicture.cutSaved(saved: SavedPuzzle.InProgress, rotatePieces: Boolean): SeededCut {
     val aspect = cellAspect(width, height, saved.grid)
     val current = saved.withRotation(rotatePieces, aspect)
     val board = PuzzleBoard(current.grid, current.board, aspect)
     val random = Random(current.seed)
-    return SavedCut(cut(JigsawCut(current.grid, random), board), random)
+    return SeededCut(cut(JigsawCut(current.grid, random), board), random)
 }
 
 /**
