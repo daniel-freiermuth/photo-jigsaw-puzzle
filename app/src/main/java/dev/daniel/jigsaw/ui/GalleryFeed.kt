@@ -23,8 +23,8 @@ import java.io.IOException
 fun List<GalleryImage>.newestFirst(): List<GalleryImage> =
     sortedWith(compareByDescending(nullsFirst()) { it.image.takenAt })
 
-/** A source that couldn't be listed, and why. */
-data class SourceFailure(val label: String, val reason: UiText)
+/** A source (by [sourceId]) that couldn't be listed, and why. */
+data class SourceFailure(val sourceId: String, val label: String, val reason: UiText)
 
 /** Images from every source (fresh or last known), plus a failure for each source that didn't answer. */
 data class GalleryContent(val images: List<GalleryImage>, val failures: List<SourceFailure>)
@@ -47,7 +47,7 @@ fun mergeListings(
     }
     val images = sources.flatMap { source -> listings.getValue(source.id).map { GalleryImage(source, it) } }
     val failures = sources.zip(results).mapNotNull { (source, result) ->
-        result?.exceptionOrNull()?.let { SourceFailure(source.label, it.toUiText()) }
+        result?.exceptionOrNull()?.let { SourceFailure(source.id, source.label, it.toUiText()) }
     }
     return MergedListings(listings, GalleryContent(images.newestFirst(), failures))
 }
@@ -113,7 +113,10 @@ class GalleryFeed(
         refreshedAt = null
     }
 
-    /** Drops a removed source's images now; any listing in flight is abandoned, as it would bring them back. */
+    /**
+     * Drops a removed source's images and failure now; any listing in flight is abandoned, as it would
+     * bring them back.
+     */
     fun forgetSource(id: String) {
         if (job?.isActive == true) {
             job?.cancel()
@@ -122,7 +125,12 @@ class GalleryFeed(
         }
         listings = listings - id
         (state as? Load.Ready)?.value?.let { content ->
-            state = Load.Ready(content.copy(images = content.images.filterNot { it.source.id == id }))
+            state = Load.Ready(
+                content.copy(
+                    images = content.images.filterNot { it.source.id == id },
+                    failures = content.failures.filterNot { it.sourceId == id },
+                ),
+            )
         }
     }
 
