@@ -124,6 +124,15 @@ class SourceParsingTest {
     }
 
     @Test
+    fun `immich capture time out of range reads as absent`() {
+        val assets = WireJson.decodeFromString<List<ImmichShareSource.Asset>>(
+            """[{"id":"a","type":"IMAGE","fileCreatedAt":"+999999999-01-01T00:00:00Z"},
+                {"id":"b","type":"IMAGE","fileCreatedAt":"-999999999-01-01T00:00:00"}]""",
+        )
+        assertEquals(listOf(null, null), ImmichShareSource.parseAssets(assets).map { it.takenAt })
+    }
+
+    @Test
     fun `url list resolves relative entries from text or json`() {
         val base = "https://example.com/pics/list.txt"
         assertEquals(
