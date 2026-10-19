@@ -130,6 +130,21 @@ class NextcloudShareSourceTest {
     }
 
     @Test
+    fun `a password with non-ASCII characters is sent as UTF-8, like the Nextcloud web UI`() {
+        val password = "Grüße€"
+        serveTree(MODERN)
+        val modern = list(password).single { it.id == "/sub/c.jpg" }
+        val modernAuth = Credentials.basic("anonymous", password, Charsets.UTF_8)
+        assertEquals(modernAuth, server.takeRequest().headers["Authorization"])
+        assertEquals(modernAuth, modern.full.headers["Authorization"])
+
+        routes.clear()
+        serveTree(LEGACY)
+        val legacy = list(password).single { it.id == "/sub/c.jpg" }
+        assertEquals(Credentials.basic("tok", password, Charsets.UTF_8), legacy.full.headers["Authorization"])
+    }
+
+    @Test
     fun `a listing with a malformed href fails as an unexpected response`() {
         routes[MODERN] = listing(folder(MODERN), file("${MODERN}100%zz.jpg", "image/jpeg"))
         assertThrows<UnexpectedResponseException> { list() }
