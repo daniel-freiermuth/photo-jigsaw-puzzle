@@ -83,7 +83,7 @@ class AppViewModelTest {
             computeDispatcher = background,
             clock = { testScheduler.currentTime },
             fetchImage = { fetch(it) },
-            decodePicture = ::decode,
+            decodePicture = { bytes, _ -> decode(bytes) },
         )
     }
 
@@ -322,6 +322,19 @@ class AppViewModelTest {
 
         // renderUntouched cuts the tile from the thumbnail, so it shows the thumbnail's grid.
         assertEquals(JigsawCut.gridFor(255, 250, PieceCount.P12), vm.game.cut.board.grid)
+    }
+
+    @Test
+    fun `a new puzzle opens in its own grid when the thumbnail can't be downloaded`() = runTest {
+        sizes[image.image.full.url] = 1471 to 1440
+        fetch = { if (it == image.image.thumbnail) throw IOException("offline") else it.url.encodeToByteArray() }
+        val vm = viewModel()
+        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P12))
+
+        vm.openImage(image)
+        advanceUntilIdle()
+
+        assertEquals(JigsawCut.gridFor(1471, 1440, PieceCount.P12), vm.game.cut.board.grid)
     }
 
     @Test
