@@ -40,7 +40,8 @@ class UrlListSource(
 
     companion object {
         fun parseManifest(manifestUrl: String, body: String): List<String> {
-            val trimmed = body.trim()
+            // Editors saving "UTF-8 with BOM" prepend U+FEFF, which trim() keeps.
+            val trimmed = body.removePrefix("\uFEFF").trim()
             val entries = if (trimmed.startsWith("[")) {
                 WireJson.decodeFromString<List<String>>(trimmed)
             } else {
