@@ -56,14 +56,14 @@ class NextcloudShareSource(
         val common = mapOf("X-Requested-With" to "XMLHttpRequest")
         val legacy = Endpoint(
             root = base.newBuilder().addPathSegments("public.php/webdav/").build(),
-            headers = common + ("Authorization" to Credentials.basic(share.token, password)),
+            headers = common + ("Authorization" to Credentials.basic(share.token, password, Charsets.UTF_8)),
         )
         val modern = Endpoint(
             root = base.newBuilder().addPathSegments("public.php/dav/files/${share.token}/").build(),
             headers = if (password.isEmpty()) {
                 common
             } else {
-                common + ("Authorization" to Credentials.basic("anonymous", password))
+                common + ("Authorization" to Credentials.basic("anonymous", password, Charsets.UTF_8))
             },
         )
         return listOf(modern, legacy)
