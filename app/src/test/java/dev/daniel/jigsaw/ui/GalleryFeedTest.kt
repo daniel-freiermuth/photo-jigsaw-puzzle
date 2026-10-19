@@ -5,8 +5,8 @@ import dev.daniel.jigsaw.source.ImageListStore
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GalleryFeedTest {
@@ -148,7 +149,8 @@ class GalleryFeedTest {
     fun `a source added while a listing is blocked in a source is listed without waiting for it`() = runTest {
         val added = SourceConfig.ImmichShare("im2", "Immich 2", "https://p/share/k2")
         var sources = listOf(source)
-        // Like OkHttp's execute(): blocks a thread and ignores coroutine cancellation.
+        // Like OkHttp's execute() on the I/O thread: blocks a thread and ignores coroutine cancellation.
+        val io = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
         val slowServerAsked = CountDownLatch(1)
         val slowServer = CountDownLatch(1)
         val listed = mutableListOf<String>()
@@ -160,7 +162,7 @@ class GalleryFeedTest {
             list = {
                 listed += it.id
                 if (it == source) {
-                    withContext(Dispatchers.IO) {
+                    withContext(io) {
                         slowServerAsked.countDown()
                         slowServer.await()
                     }
@@ -184,6 +186,7 @@ class GalleryFeedTest {
             back.cancel()
         } finally {
             slowServer.countDown()
+            io.close()
         }
     }
 
