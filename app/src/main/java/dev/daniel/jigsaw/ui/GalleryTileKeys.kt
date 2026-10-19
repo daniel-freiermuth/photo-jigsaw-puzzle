@@ -10,6 +10,10 @@ import dev.daniel.jigsaw.source.HttpResource
  */
 internal fun tileContent(resource: HttpResource) = "${resource.url} ${resource.revision.orEmpty()}"
 
-/** Cache key of [item]'s untouched tile: everything the scatter it shows is rendered from. */
+/**
+ * Cache key of [item]'s untouched tile: everything the scatter it shows is rendered from, including the
+ * seed, which differs between sources listing the same picture.
+ */
 internal fun untouchedTileKey(item: GalleryImage, canvas: CanvasSpec, settings: PuzzleSettings) =
-    "untouched:${tileContent(item.image.thumbnail)}:$canvas:${settings.rotatePieces}:${settings.pieces.target}"
+    "untouched:${tileContent(item.image.thumbnail)}:${item.seed}:$canvas:${settings.rotatePieces}:" +
+        "${settings.pieces.target}"
