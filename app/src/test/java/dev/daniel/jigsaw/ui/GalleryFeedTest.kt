@@ -5,6 +5,7 @@ import dev.daniel.jigsaw.source.ImageListStore
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -12,11 +13,13 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.CountDownLatch
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GalleryFeedTest {
@@ -139,6 +142,49 @@ class GalleryFeedTest {
             (feed.state as Load.Ready).value.images.map { it.image.id }.toSet(),
         )
         back.cancel()
+    }
+
+    @Test
+    fun `a source added while a listing is blocked in a source is listed without waiting for it`() = runTest {
+        val added = SourceConfig.ImmichShare("im2", "Immich 2", "https://p/share/k2")
+        var sources = listOf(source)
+        // Like OkHttp's execute(): blocks a thread and ignores coroutine cancellation.
+        val slowServerAsked = CountDownLatch(1)
+        val slowServer = CountDownLatch(1)
+        val listed = mutableListOf<String>()
+        val feed = GalleryFeed(
+            scope = backgroundScope,
+            sources = { sources },
+            imageLists = store(),
+            clock = { testScheduler.currentTime },
+            list = {
+                listed += it.id
+                if (it == source) {
+                    withContext(Dispatchers.IO) {
+                        slowServerAsked.countDown()
+                        slowServer.await()
+                    }
+                }
+                emptyList()
+            },
+        )
+
+        try {
+            // The gallery is left while the first source is still being listed.
+            val first = launch { feed.keepFresh() }
+            runCurrent()
+            slowServerAsked.await()
+            first.cancel()
+            sources = listOf(source, added)
+            feed.invalidate()
+
+            val back = launch { feed.keepFresh() }
+            advanceTimeBy(5_000)
+            assertEquals(true, added.id in listed)
+            back.cancel()
+        } finally {
+            slowServer.countDown()
+        }
     }
 
     @Test
