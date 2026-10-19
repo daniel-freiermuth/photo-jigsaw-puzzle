@@ -62,6 +62,26 @@ class UrlListSourceTest {
     }
 
     @Test
+    fun `a JSON manifest saved with a UTF-8 byte-order mark is still read as JSON`() = runTest {
+        serve("\uFEFF[\"a.jpg\"]")
+
+        assertEquals(
+            listOf(image(server.url("/pics/a.jpg").toString(), "a.jpg")),
+            source("/pics/list.json").listImages(),
+        )
+    }
+
+    @Test
+    fun `a text manifest saved with a UTF-8 byte-order mark keeps its first line intact`() = runTest {
+        serve("\uFEFF# holiday\na.jpg\n")
+
+        assertEquals(
+            listOf(image(server.url("/pics/a.jpg").toString(), "a.jpg")),
+            source("/pics/list.txt").listImages(),
+        )
+    }
+
+    @Test
     fun `a manifest that looks like JSON but isn't is reported as an unexpected response`() = runTest {
         serve("""["a.jpg", """)
 
