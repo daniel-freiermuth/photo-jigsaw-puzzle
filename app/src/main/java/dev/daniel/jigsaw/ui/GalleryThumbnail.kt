@@ -84,8 +84,7 @@ fun GalleryThumbnail(
 ) {
     val resource = item.image.thumbnail
     val picture = { decodeSampled(Http.getImage(resource), MAX_SIDE) }
-    // A new revision is a changed picture: its tiles must not come from the old one's cache entries.
-    val content = "${resource.url} ${resource.revision.orEmpty()}"
+    val content = tileContent(resource)
     val inProgress = (saved as? SavedPuzzle.InProgress)?.takeUnless { it.needsRecut(settings) }
     when {
         saved == SavedPuzzle.Solved -> LoadedImage(
@@ -106,7 +105,7 @@ fun GalleryThumbnail(
         )
 
         else -> LoadedImage(
-            key = "untouched:$content:$canvas:${settings.rotatePieces}:${settings.pieces.target}",
+            key = untouchedTileKey(item, canvas, settings),
             produce = {
                 // The seed the first opening cuts and scatters with, so the tile shows that very pile.
                 renderUntouched(picture(), canvas, settings, item.seed, MAX_SIDE)
