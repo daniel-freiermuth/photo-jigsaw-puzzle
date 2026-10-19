@@ -96,7 +96,8 @@ class GalleryFeed(
      */
     suspend fun keepFresh() {
         while (true) {
-            job?.join()
+            // An abandoned listing is not waited for: its blocking network calls ignore cancellation.
+            job?.takeUnless { it.isCancelled }?.join()
             val fetched = refreshedAt
             val wait = if (fetched == null) 0L else fetched + MAX_AGE_MS - clock()
             if (wait > 0) delay(wait) else start(showProgress = false).join()
