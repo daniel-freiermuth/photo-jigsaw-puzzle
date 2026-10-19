@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GalleryFeedTest {
@@ -153,6 +154,30 @@ class GalleryFeedTest {
         answer.complete(listOf(remote("fresh")))
         runCurrent()
         assertEquals(listOf("fresh"), (feed.state as Load.Ready).value.images.map { it.image.id })
+        visible.cancel()
+    }
+
+    @Test
+    fun `a removed source that failed to list is no longer reported as failing`() = runTest {
+        val broken = SourceConfig.ImmichShare("bad", "Broken", "https://p/share/bad")
+        var sources = listOf(source, broken)
+        val feed = GalleryFeed(
+            scope = backgroundScope,
+            sources = { sources },
+            imageLists = store(),
+            clock = { testScheduler.currentTime },
+            list = { if (it == broken) throw IOException("wrong password") else listOf(remote("a")) },
+        )
+
+        feed.refresh()
+        runCurrent()
+        assertEquals(listOf("Broken"), (feed.state as Load.Ready).value.failures.map { it.label })
+
+        sources = listOf(source)
+        feed.forgetSource(broken.id)
+        val visible = launch { feed.keepFresh() }
+        advanceTimeBy(30_000)
+        assertEquals(emptyList<SourceFailure>(), (feed.state as Load.Ready).value.failures)
         visible.cancel()
     }
 }
