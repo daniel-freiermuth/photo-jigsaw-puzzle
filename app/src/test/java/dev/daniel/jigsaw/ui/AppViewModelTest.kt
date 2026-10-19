@@ -53,8 +53,11 @@ class AppViewModelTest {
         RemoteImage("a.jpg", "a", HttpResource("https://p/thumb/a.jpg"), HttpResource("https://p/a.jpg")),
     )
 
-    /** Downloads the puzzle's picture; a test makes it throw to take the network away. */
-    private var fetch: (HttpResource) -> ByteArray = { ByteArray(0) }
+    /** Downloads a picture, as its URL; a test makes it throw to take the network away. */
+    private var fetch: (HttpResource) -> ByteArray = { it.url.encodeToByteArray() }
+
+    /** Pixel size each download decodes to, by URL; anything else decodes to 1200 × 800. */
+    private val sizes = mutableMapOf<String, Pair<Int, Int>>()
 
     /** The view model's puzzle files, read directly. */
     private val saved get() = PuzzleStore(File(tmp, "puzzles")).load(image.puzzleKey)
@@ -80,9 +83,12 @@ class AppViewModelTest {
             computeDispatcher = background,
             clock = { testScheduler.currentTime },
             fetchImage = { fetch(it) },
-            decodePicture = { FakePicture() },
+            decodePicture = ::decode,
         )
     }
+
+    private fun decode(bytes: ByteArray) = sizes[bytes.decodeToString()]?.let { (w, h) -> FakePicture(w, h) }
+        ?: FakePicture()
 
     private val AppViewModel.content get() = (puzzle as Load.Ready).value
 
@@ -303,6 +309,22 @@ class AppViewModelTest {
     }
 
     @Test
+    fun `a new puzzle is cut into the grid its untouched gallery tile shows`() = runTest {
+        // Renditions of one 4000 × 3916 original: their rounded aspects (1.020, 1.0215) straddle the
+        // 3 / 4 column boundary of 12 pieces.
+        sizes[image.image.thumbnail.url] = 255 to 250
+        sizes[image.image.full.url] = 1471 to 1440
+        val vm = viewModel()
+        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P12))
+
+        vm.openImage(image)
+        advanceUntilIdle()
+
+        // renderUntouched cuts the tile from the thumbnail, so it shows the thumbnail's grid.
+        assertEquals(JigsawCut.gridFor(255, 250, PieceCount.P12), vm.game.cut.board.grid)
+    }
+
+    @Test
     fun `a picture that can't be downloaded fails the load`() = runTest {
         fetch = { throw IOException("offline") }
         val vm = viewModel()
@@ -400,11 +422,8 @@ class AppViewModelTest {
         assertNull(vm.tiles[image.puzzleKey])
     }
 
-    /** A 1200 × 800 picture whose pieces have no pixels: android.graphics only works on a device. */
-    private inner class FakePicture : PuzzlePicture {
-        override val width = 1200
-        override val height = 800
-
+    /** A [width] × [height] picture whose pieces have no pixels: android.graphics only works on a device. */
+    private inner class FakePicture(override val width: Int = 1200, override val height: Int = 800) : PuzzlePicture {
         override fun asImageBitmap(): ImageBitmap = FakeImageBitmap(width, height)
 
         override fun cut(cut: JigsawCut, board: PuzzleBoard) = CutPuzzle(
