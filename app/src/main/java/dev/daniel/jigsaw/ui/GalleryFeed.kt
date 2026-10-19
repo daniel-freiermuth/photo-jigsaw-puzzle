@@ -117,11 +117,7 @@ class GalleryFeed(
      * bring them back.
      */
     fun forgetSource(id: String) {
-        if (job?.isActive == true) {
-            job?.cancel()
-            refreshing = false
-            refreshedAt = null
-        }
+        if (job?.isActive == true) invalidate()
         listings = listings - id
         (state as? Load.Ready)?.value?.let { content ->
             state = Load.Ready(
