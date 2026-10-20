@@ -16,6 +16,7 @@ import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.source.HttpResource
+import dev.daniel.jigsaw.source.ImageResource
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
 import kotlinx.coroutines.Dispatchers
@@ -53,10 +54,10 @@ class AppViewModelTest {
         RemoteImage("a.jpg", "a", HttpResource("https://p/thumb/a.jpg"), HttpResource("https://p/a.jpg")),
     )
 
-    /** Downloads a picture, as its URL; a test makes it throw to take the network away. */
-    private var fetch: (HttpResource) -> ByteArray = { it.url.encodeToByteArray() }
+    /** Reads a picture, as its location; a test makes it throw to take the network away. */
+    private var fetch: (ImageResource) -> ByteArray = { it.location.encodeToByteArray() }
 
-    /** Pixel size each download decodes to, by URL; anything else decodes to 1200 × 800. */
+    /** Pixel size each download decodes to, by location; anything else decodes to 1200 × 800. */
     private val sizes = mutableMapOf<String, Pair<Int, Int>>()
 
     /** The view model's puzzle files, read directly. */
@@ -312,8 +313,8 @@ class AppViewModelTest {
     fun `a new puzzle is cut into the grid its untouched gallery tile shows`() = runTest {
         // Renditions of one 4000 × 3916 original: their rounded aspects (1.020, 1.0215) straddle the
         // 3 / 4 column boundary of 12 pieces.
-        sizes[image.image.thumbnail.url] = 255 to 250
-        sizes[image.image.full.url] = 1471 to 1440
+        sizes[image.image.thumbnail.location] = 255 to 250
+        sizes[image.image.full.location] = 1471 to 1440
         val vm = viewModel()
         vm.updateSettings(PuzzleSettings(pieces = PieceCount.P12))
 
@@ -326,8 +327,8 @@ class AppViewModelTest {
 
     @Test
     fun `a new puzzle opens in its own grid when the thumbnail can't be downloaded`() = runTest {
-        sizes[image.image.full.url] = 1471 to 1440
-        fetch = { if (it == image.image.thumbnail) throw IOException("offline") else it.url.encodeToByteArray() }
+        sizes[image.image.full.location] = 1471 to 1440
+        fetch = { if (it == image.image.thumbnail) throw IOException("offline") else it.location.encodeToByteArray() }
         val vm = viewModel()
         vm.updateSettings(PuzzleSettings(pieces = PieceCount.P12))
 

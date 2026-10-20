@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.source
 
+import android.content.ContentResolver
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -15,16 +16,43 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * An HTTP GET target plus any headers (e.g. auth) needed to fetch it. [revision] identifies the
- * content (an ETag, Immich's thumbhash, …): when set, the response is cached for good, and a changed
- * picture is fetched anew because it comes with a new revision. Serializable for [ImageListStore].
+ * Where a picture's bytes come from. [revision] identifies the content (Immich's thumbhash, a file's
+ * modification time and size, …): a changed picture comes with a new revision. Serializable for
+ * [ImageListStore]; the `type` tag comes from the [SerialName]s.
  */
 @Serializable
+sealed interface ImageResource {
+    /** The picture's address (URL or content URI); together with [revision] it names one version of it. */
+    val location: String
+    val revision: String?
+}
+
+/**
+ * An HTTP GET target plus any headers needed to fetch it. With a [revision], the response is cached
+ * for good, and a changed picture is fetched anew because it comes with a new revision.
+ */
+@Serializable
+@SerialName("http")
 data class HttpResource(
     val url: String,
     @EncodeDefault val headers: Map<String, String> = emptyMap(),
-    val revision: String? = null,
-)
+    override val revision: String? = null,
+) : ImageResource {
+    override val location get() = url
+}
+
+/** A document on the device, by its `content://` URI (see [LocalFolderSource]). */
+@Serializable
+@SerialName("document")
+data class DocumentResource(val uri: String, override val revision: String? = null) : ImageResource {
+    override val location get() = uri
+}
+
+/** The picture's bytes. Blocking: call from Dispatchers.IO. */
+fun ImageResource.read(resolver: ContentResolver): ByteArray = when (this) {
+    is HttpResource -> Http.getImage(this)
+    is DocumentResource -> readDocument(resolver, uri)
+}
 
 /**
  * One picture available from a source. [thumbnail] is used by the gallery, [full] by the puzzle.
@@ -35,8 +63,8 @@ data class HttpResource(
 data class RemoteImage(
     val id: String,
     val name: String,
-    val thumbnail: HttpResource,
-    val full: HttpResource,
+    val thumbnail: ImageResource,
+    val full: ImageResource,
     val takenAt: Long? = null,
 )
 
@@ -53,7 +81,6 @@ interface ImageSource {
 sealed interface SourceConfig {
     val id: String
     val label: String
-    val url: String
 
     /** Immich shared link, e.g. `https://photos.example.com/share/<key>` or `/s/<slug>`. */
     @Serializable
@@ -61,13 +88,25 @@ sealed interface SourceConfig {
     data class ImmichShare(
         override val id: String,
         override val label: String,
-        override val url: String,
+        val url: String,
+    ) : SourceConfig
+
+    /** A folder on the device, as the `content://` tree URI the system folder picker returned. */
+    @Serializable
+    @SerialName("folder")
+    data class LocalFolder(
+        override val id: String,
+        override val label: String,
+        val uri: String,
     ) : SourceConfig
 }
 
-fun SourceConfig.toImageSource(client: OkHttpClient = Http.client): ImageSource = when (this) {
-    is SourceConfig.ImmichShare -> ImmichShareSource(url, client)
-}
+/** Throws [IllegalArgumentException] if the config's link or folder isn't one of its kind. */
+fun SourceConfig.toImageSource(resolver: ContentResolver, client: OkHttpClient = Http.client): ImageSource =
+    when (this) {
+        is SourceConfig.ImmichShare -> ImmichShareSource(url, client)
+        is SourceConfig.LocalFolder -> LocalFolderSource(ResolverDocumentTree(resolver, uri))
+    }
 
 object Http {
     private const val CONNECT_TIMEOUT_SECONDS = 15L
@@ -198,3 +237,6 @@ class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code 
 
 /** The server answered successfully with something the source can't interpret. */
 class UnexpectedResponseException(message: String, cause: Throwable? = null) : IOException(message, cause)
+
+/** The folder has more subfolders than a source walks; listing only some of them would hide pictures without a word. */
+class TooManyFoldersException(val limit: Int) : IOException("The folder has more than $limit subfolders")

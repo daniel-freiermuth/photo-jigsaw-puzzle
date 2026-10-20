@@ -2,13 +2,13 @@ package dev.daniel.jigsaw.ui
 
 import dev.daniel.jigsaw.puzzle.CanvasSpec
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
-import dev.daniel.jigsaw.source.HttpResource
+import dev.daniel.jigsaw.source.ImageResource
 
 /**
  * Identifies the picture behind gallery tile cache entries. A new revision is a changed picture: its
  * tiles must not come from the old one's cache entries.
  */
-internal fun tileContent(resource: HttpResource) = "${resource.url} ${resource.revision.orEmpty()}"
+internal fun tileContent(resource: ImageResource) = "${resource.location} ${resource.revision.orEmpty()}"
 
 /**
  * Cache key of [item]'s untouched tile: everything the scatter it shows is rendered from, including the

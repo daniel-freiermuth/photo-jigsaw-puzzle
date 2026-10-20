@@ -1,4 +1,4 @@
-Mach aus deinen eigenen Fotos Puzzles. Album Puzzle zeigt die Bilder der geteilten Immich-Alben, die du hinzufügst, auf einer gemeinsamen Zeitleiste, neueste zuerst. Tippe ein Bild an, um es zu puzzeln.
+Mach aus deinen eigenen Fotos Puzzles. Album Puzzle zeigt die Bilder der Ordner und geteilten Alben, die du hinzufügst – einen Ordner auf deinem Handy oder einen Immich-Freigabelink – auf einer gemeinsamen Zeitleiste, neueste zuerst. Tippe ein Bild an, um es zu puzzeln.
 
 <b>Puzzeln</b>
 <ul>
@@ -11,7 +11,7 @@ Mach aus deinen eigenen Fotos Puzzles. Album Puzzle zeigt die Bilder der geteilt
 
 <b>Deine Fotos bleiben deine</b>
 <ul>
-<li>Kein Konto, kein Tracking, keine Werbung: die App spricht nur mit den Servern, die du hinzufügst</li>
+<li>Kein Konto, kein Tracking, keine Werbung: die App liest nur die Ordner, die du auswählst, und spricht nur mit den Servern, die du hinzufügst</li>
 <li>Jedes Puzzle behält seinen Fortschritt; die Galerie zeigt jedes so, wie du es verlassen hast</li>
 <li>Bilder werden zwischengespeichert, angefangene Puzzles funktionieren also auch offline</li>
 <li>Neue Fotos erscheinen von selbst: die Galerie bleibt aktuell, solange sie offen ist</li>
@@ -19,6 +19,7 @@ Mach aus deinen eigenen Fotos Puzzles. Album Puzzle zeigt die Bilder der geteilt
 
 <b>Quellen</b>
 <ul>
+<li>Ordner auf deinem Gerät, einschließlich Unterordnern – ohne Speicherberechtigung</li>
 <li>Immich-Freigabelinks zu Alben oder einzelnen Fotos</li>
 </ul>
 

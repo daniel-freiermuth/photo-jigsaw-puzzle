@@ -9,7 +9,7 @@
     <string name="action_settings">Einstellungen</string>
 
     <!-- Gallery -->
-    <string name="gallery_no_sources">Noch keine Bildquellen. Füge in den Einstellungen einen Immich-Freigabelink hinzu.</string>
+    <string name="gallery_no_sources">Noch keine Bildquellen. Füge in den Einstellungen einen Ordner auf diesem Gerät oder einen Immich-Freigabelink hinzu.</string>
     <string name="gallery_open_settings">Einstellungen öffnen</string>
     <string name="gallery_list_failed">Bilder konnten nicht geladen werden:</string>
     <string name="gallery_retry">Erneut versuchen</string>
@@ -32,7 +32,7 @@
 
     <!-- Settings -->
     <string name="settings_sources">Bildquellen</string>
-    <string name="settings_no_sources">Füge einen Immich-Freigabelink hinzu, um loszupuzzeln.</string>
+    <string name="settings_no_sources">Füge einen Ordner auf diesem Gerät oder einen Immich-Freigabelink hinzu, um loszupuzzeln.</string>
     <string name="settings_add_source">Quelle hinzufügen</string>
     <string name="settings_puzzle">Puzzle</string>
     <string name="settings_pieces">Teile</string>
@@ -51,8 +51,12 @@
     <!-- Add source dialog -->
     <string name="source_add_title">Bildquelle hinzufügen</string>
     <string name="source_add">Hinzufügen</string>
+    <string name="source_kind_local_folder">Ordner auf diesem Gerät</string>
+    <string name="source_choose_folder">Ordner auswählen</string>
     <string name="source_link">Freigabelink</string>
     <string name="source_name">Name (optional)</string>
+    <string name="source_no_folder">Wähle zuerst einen Ordner aus</string>
+    <string name="source_no_folder_picker">Auf diesem Gerät gibt es keine App zur Ordnerauswahl</string>
     <string name="source_invalid_immich">Kein Immich-Freigabelink (erwartet: …/share/&lt;Schlüssel&gt; oder …/s/&lt;Kürzel&gt;)</string>
 
     <!-- Errors -->
@@ -64,6 +68,9 @@
     <string name="error_connect">Keine Verbindung zum Server möglich.</string>
     <string name="error_tls">Sichere Verbindung zum Server fehlgeschlagen.</string>
     <string name="error_unexpected_response">Die Antwort des Servers ist für die App unverständlich.</string>
+    <string name="error_too_many_folders">Der Ordner hat zu viele Unterordner (höchstens %1$d). Bitte einen kleineren Ordner wählen.</string>
+    <string name="error_folder_unavailable">Der Ordner kann nicht gelesen werden. Vielleicht wurde er gelöscht oder sein Speicher entfernt.</string>
+    <string name="error_file_missing">Die Datei ist nicht mehr da. Aktualisiere die Galerie.</string>
     <string name="error_not_an_image">Diese Datei ist kein Bild, das die App anzeigen kann.</string>
     <string name="error_other">Etwas ist schiefgelaufen: %1$s</string>
 </resources>
