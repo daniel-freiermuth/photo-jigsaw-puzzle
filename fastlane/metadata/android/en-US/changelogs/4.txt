@@ -1,0 +1,6 @@
+* New source: a folder on this device, chosen in the system folder picker. No storage permission needed.
+* Nextcloud shares and URL lists are no longer supported; such sources are removed on update.
+* A new puzzle is cut into the same grid its gallery tile shows.
+* The same picture in two sources gets its own scatter in each gallery tile.
+* A removed source's loading error disappears from the gallery right away.
+* An Immich picture with an out-of-range capture time no longer crashes the app.

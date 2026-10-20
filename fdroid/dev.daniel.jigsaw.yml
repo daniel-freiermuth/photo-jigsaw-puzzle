@@ -14,9 +14,9 @@ Binaries:
   https://github.com/daniel-freiermuth/photo-jigsaw-puzzle/releases/download/v%v/album-jigsaw-puzzle-%v.apk
 
 Builds:
-  - versionName: 0.3.0
-    versionCode: 3
-    commit: v0.3.0
+  - versionName: 0.4.0
+    versionCode: 4
+    commit: v0.4.0
     subdir: app
     sudo:
       - apt-get update
@@ -29,5 +29,5 @@ AllowedAPKSigningKeys: 5f60894478e1fc3548e45516057bdf8cd6d457240038a9cdbfe081c64
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
-CurrentVersion: 0.3.0
-CurrentVersionCode: 3
+CurrentVersion: 0.4.0
+CurrentVersionCode: 4
