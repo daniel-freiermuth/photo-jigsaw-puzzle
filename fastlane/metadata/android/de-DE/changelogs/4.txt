@@ -1,0 +1,6 @@
+* Neue Quelle: ein Ordner auf dem Gerät, gewählt per System-Ordnerauswahl, ohne Speicherberechtigung.
+* Nextcloud-Freigaben und URL-Listen entfallen; solche Quellen werden beim Update entfernt.
+* Ein neues Puzzle hat dasselbe Raster wie seine Galeriekachel.
+* Dasselbe Bild in zwei Quellen wird in jeder Kachel eigen verteilt.
+* Der Ladefehler einer entfernten Quelle verschwindet sofort.
+* Ein Immich-Bild mit ungültiger Aufnahmezeit führt nicht mehr zum Absturz.
