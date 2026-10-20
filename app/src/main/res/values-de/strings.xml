@@ -9,7 +9,7 @@
     <string name="action_settings">Einstellungen</string>
 
     <!-- Gallery -->
-    <string name="gallery_no_sources">Noch keine Bildquellen. Füge in den Einstellungen eine Nextcloud-Freigabe, einen Immich-Freigabelink oder eine URL-Liste hinzu.</string>
+    <string name="gallery_no_sources">Noch keine Bildquellen. Füge in den Einstellungen einen Immich-Freigabelink hinzu.</string>
     <string name="gallery_open_settings">Einstellungen öffnen</string>
     <string name="gallery_list_failed">Bilder konnten nicht geladen werden:</string>
     <string name="gallery_retry">Erneut versuchen</string>
@@ -32,7 +32,7 @@
 
     <!-- Settings -->
     <string name="settings_sources">Bildquellen</string>
-    <string name="settings_no_sources">Füge eine öffentliche Nextcloud-Freigabe, einen Immich-Freigabelink oder eine URL-Liste hinzu, um loszupuzzeln.</string>
+    <string name="settings_no_sources">Füge einen Immich-Freigabelink hinzu, um loszupuzzeln.</string>
     <string name="settings_add_source">Quelle hinzufügen</string>
     <string name="settings_puzzle">Puzzle</string>
     <string name="settings_pieces">Teile</string>
@@ -51,16 +51,12 @@
     <!-- Add source dialog -->
     <string name="source_add_title">Bildquelle hinzufügen</string>
     <string name="source_add">Hinzufügen</string>
-    <string name="source_kind_url_list">URL-Liste</string>
     <string name="source_link">Freigabelink</string>
     <string name="source_name">Name (optional)</string>
-    <string name="source_password">Passwort (falls nötig)</string>
-    <string name="source_invalid_nextcloud">Kein Nextcloud-Freigabelink (erwartet: …/s/&lt;Token&gt;)</string>
     <string name="source_invalid_immich">Kein Immich-Freigabelink (erwartet: …/share/&lt;Schlüssel&gt; oder …/s/&lt;Kürzel&gt;)</string>
-    <string name="source_invalid_url_list">Keine gültige Webadresse</string>
 
     <!-- Errors -->
-    <string name="error_access_denied">Zugriff verweigert. Stimmt das Freigabepasswort?</string>
+    <string name="error_access_denied">Zugriff verweigert. Der Freigabelink wurde vielleicht deaktiviert oder braucht ein Passwort.</string>
     <string name="error_not_found">Nicht gefunden. Die Freigabe wurde vielleicht gelöscht oder ist abgelaufen.</string>
     <string name="error_http">Der Server antwortete mit Fehler %1$d.</string>
     <string name="error_unknown_host">Server nicht gefunden. Prüfe die Adresse und deine Internetverbindung.</string>
@@ -68,7 +64,6 @@
     <string name="error_connect">Keine Verbindung zum Server möglich.</string>
     <string name="error_tls">Sichere Verbindung zum Server fehlgeschlagen.</string>
     <string name="error_unexpected_response">Die Antwort des Servers ist für die App unverständlich.</string>
-    <string name="error_too_many_folders">Die Freigabe hat zu viele Ordner (höchstens %1$d). Bitte einen kleineren Ordner freigeben.</string>
     <string name="error_not_an_image">Diese Datei ist kein Bild, das die App anzeigen kann.</string>
     <string name="error_other">Etwas ist schiefgelaufen: %1$s</string>
 </resources>

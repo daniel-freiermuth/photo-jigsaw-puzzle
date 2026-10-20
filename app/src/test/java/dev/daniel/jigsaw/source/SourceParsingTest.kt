@@ -4,93 +4,9 @@ import dev.daniel.jigsaw.WireJson
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
-import org.kxml2.io.KXmlParser
-import java.io.StringReader
 import java.time.Instant
 
 class SourceParsingTest {
-
-    @Test
-    fun `nextcloud share url yields base and token`() {
-        with(NextcloudShareSource.parseShareUrl("https://cloud.example.com/s/AbC123")) {
-            assertEquals("https://cloud.example.com/", base.toString())
-            assertEquals("AbC123", token)
-        }
-        with(NextcloudShareSource.parseShareUrl("https://ex.org/nextcloud/index.php/s/tok?dir=/x#frag")) {
-            assertEquals("https://ex.org/nextcloud/", base.toString())
-            assertEquals("tok", token)
-        }
-        assertThrows<IllegalArgumentException> {
-            NextcloudShareSource.parseShareUrl("https://cloud.example.com/apps/files")
-        }
-    }
-
-    @Test
-    fun `webdav multistatus distinguishes folders and content types, prefers capture time, keeps the etag`() {
-        val xml = """
-            <?xml version="1.0"?>
-            <d:multistatus xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns">
-              <d:response><d:href>/public.php/dav/files/tok/</d:href>
-                <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
-              <d:response><d:href>/public.php/dav/files/tok/Holiday%202024/</d:href>
-                <d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
-              <d:response><d:href>/public.php/dav/files/tok/beach.jpg</d:href>
-                <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>image/jpeg</d:getcontenttype>
-                  <d:getlastmodified>Tue, 13 Oct 2026 19:39:24 GMT</d:getlastmodified>
-                  <nc:metadata-photos-original_date_time>1714564800</nc:metadata-photos-original_date_time>
-                  <d:getetag>"5f1c0e"</d:getetag>
-                </d:prop></d:propstat></d:response>
-              <d:response><d:href>/public.php/dav/files/tok/notes.txt</d:href>
-                <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>text/plain</d:getcontenttype>
-                  <d:getlastmodified>Tue, 13 Oct 2026 19:39:24 GMT</d:getlastmodified>
-                </d:prop></d:propstat></d:response>
-            </d:multistatus>
-        """.trimIndent()
-        val entries = NextcloudShareSource.parseMultistatus(StringReader(xml), KXmlParser())
-        assertEquals(
-            listOf(
-                NextcloudShareSource.DavEntry("/public.php/dav/files/tok/", true, ""),
-                NextcloudShareSource.DavEntry("/public.php/dav/files/tok/Holiday%202024/", true, ""),
-                NextcloudShareSource.DavEntry(
-                    "/public.php/dav/files/tok/beach.jpg",
-                    false,
-                    "image/jpeg",
-                    millis("2024-05-01T12:00:00Z"),
-                    "\"5f1c0e\"",
-                ),
-                NextcloudShareSource.DavEntry(
-                    "/public.php/dav/files/tok/notes.txt",
-                    false,
-                    "text/plain",
-                    millis("2026-10-13T19:39:24Z"),
-                ),
-            ),
-            entries,
-        )
-        assertEquals(
-            listOf(false, true, false),
-            listOf("text/plain", "image/png; q=1", "image/svg+xml").map { it.isPuzzleImage() },
-        )
-    }
-
-    @Test
-    fun `webdav capture time out of range falls back to the modification time`() {
-        val xml = """
-            <?xml version="1.0"?>
-            <d:multistatus xmlns:d="DAV:" xmlns:nc="http://nextcloud.org/ns">
-              <d:response><d:href>/public.php/dav/files/tok/beach.jpg</d:href>
-                <d:propstat><d:prop><d:resourcetype/><d:getcontenttype>image/jpeg</d:getcontenttype>
-                  <d:getlastmodified>Tue, 13 Oct 2026 19:39:24 GMT</d:getlastmodified>
-                  <nc:metadata-photos-original_date_time>99999999999999999</nc:metadata-photos-original_date_time>
-                </d:prop></d:propstat></d:response>
-            </d:multistatus>
-        """.trimIndent()
-        assertEquals(
-            listOf(millis("2026-10-13T19:39:24Z")),
-            NextcloudShareSource.parseMultistatus(StringReader(xml), KXmlParser()).map { it.takenAt },
-        )
-    }
 
     @Test
     fun `immich share url picks key or slug auth`() {
@@ -133,19 +49,6 @@ class SourceParsingTest {
     }
 
     @Test
-    fun `url list resolves relative entries from text or json`() {
-        val base = "https://example.com/pics/list.txt"
-        assertEquals(
-            listOf("https://example.com/pics/a.jpg", "https://cdn.example.com/b.png"),
-            UrlListSource.parseManifest(base, "# comment\n a.jpg\n\nhttps://cdn.example.com/b.png\na.jpg\n"),
-        )
-        assertEquals(
-            listOf("https://example.com/img/c.webp"),
-            UrlListSource.parseManifest(base, """["/img/c.webp"]"""),
-        )
-    }
-
-    @Test
     fun `immich timeline bucket keeps live images only, named and dated by capture time`() {
         val bucket = WireJson.decodeFromString<ImmichShareSource.TimelineBucket>(
             """{"id":["a","v","t","b"],
@@ -165,17 +68,11 @@ class SourceParsingTest {
 
     @Test
     fun `source store reads what earlier versions saved and writes the same format back`() {
-        val sources = listOf(
-            SourceConfig.NextcloudShare("1", "NC", "https://c/s/t", "pw"),
-            SourceConfig.ImmichShare("2", "Im", "https://p/share/k"),
-            SourceConfig.UrlList("3", "List", "https://e/l.txt"),
-        )
+        val sources = listOf(SourceConfig.ImmichShare("2", "Im", "https://p/share/k"))
         // Byte for byte what the org.json encoder wrote on a device (Android escapes `/`).
-        val v1 = """[{"type":"nextcloud","id":"1","label":"NC","url":"https:\/\/c\/s\/t","password":"pw"},""" +
-            """{"type":"immich","id":"2","label":"Im","url":"https:\/\/p\/share\/k"},""" +
-            """{"type":"urllist","id":"3","label":"List","url":"https:\/\/e\/l.txt"}]"""
-        assertEquals(sources, SourceStore.decode(v1))
-        assertEquals(Json.parseToJsonElement(v1), Json.parseToJsonElement(SourceStore.encode(sources)))
+        val saved = """[{"type":"immich","id":"2","label":"Im","url":"https:\/\/p\/share\/k"}]"""
+        assertEquals(sources, SourceStore.decode(saved))
+        assertEquals(Json.parseToJsonElement(saved), Json.parseToJsonElement(SourceStore.encode(sources)))
     }
 
     @Test
@@ -185,11 +82,11 @@ class SourceParsingTest {
     }
 
     @Test
-    fun `source store drops malformed or unknown entries and keeps the rest`() {
+    fun `source store drops malformed, unknown and no longer supported entries and keeps the rest`() {
         val json = """
             [
               {"type": "immich", "id": "1", "label": "Im", "url": "https://p/share/k"},
-              {"type": "urllist", "id": "2", "url": "https://e/l.txt"},
+              {"type": "urllist", "id": "2", "label": "List", "url": "https://e/l.txt"},
               42,
               {"type": "smugmug", "id": "3", "label": "Smug", "url": "https://s/g"},
               {"id": "5", "label": "Untyped", "url": "https://u/x"},
@@ -197,19 +94,7 @@ class SourceParsingTest {
             ]
         """.trimIndent()
         assertEquals(
-            listOf(
-                SourceConfig.ImmichShare("1", "Im", "https://p/share/k"),
-                SourceConfig.NextcloudShare("4", "NC", "https://c/s/t", "pw"),
-            ),
-            SourceStore.decode(json),
-        )
-    }
-
-    @Test
-    fun `source store reads a nextcloud entry without a password as a public share`() {
-        val json = """[{"type": "nextcloud", "id": "1", "label": "NC", "url": "https://c/s/t"}]"""
-        assertEquals(
-            listOf(SourceConfig.NextcloudShare("1", "NC", "https://c/s/t", "")),
+            listOf(SourceConfig.ImmichShare("1", "Im", "https://p/share/k")),
             SourceStore.decode(json),
         )
     }

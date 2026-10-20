@@ -55,17 +55,6 @@ sealed interface SourceConfig {
     val label: String
     val url: String
 
-    /** Nextcloud public share link, e.g. `https://cloud.example.com/s/AbC123`. */
-    @Serializable
-    @SerialName("nextcloud")
-    data class NextcloudShare(
-        override val id: String,
-        override val label: String,
-        override val url: String,
-        // Always written; entries stored without it are public shares.
-        @EncodeDefault val password: String = "",
-    ) : SourceConfig
-
     /** Immich shared link, e.g. `https://photos.example.com/share/<key>` or `/s/<slug>`. */
     @Serializable
     @SerialName("immich")
@@ -74,21 +63,10 @@ sealed interface SourceConfig {
         override val label: String,
         override val url: String,
     ) : SourceConfig
-
-    /** A text file (one image URL per line) or JSON array of image URLs. */
-    @Serializable
-    @SerialName("urllist")
-    data class UrlList(
-        override val id: String,
-        override val label: String,
-        override val url: String,
-    ) : SourceConfig
 }
 
 fun SourceConfig.toImageSource(client: OkHttpClient = Http.client): ImageSource = when (this) {
-    is SourceConfig.NextcloudShare -> NextcloudShareSource(url, password, client)
     is SourceConfig.ImmichShare -> ImmichShareSource(url, client)
-    is SourceConfig.UrlList -> UrlListSource(url, client)
 }
 
 object Http {
@@ -220,6 +198,3 @@ class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code 
 
 /** The server answered successfully with something the source can't interpret. */
 class UnexpectedResponseException(message: String, cause: Throwable? = null) : IOException(message, cause)
-
-/** The share has more folders than a source walks; listing only some of them would hide pictures without a word. */
-class TooManyFoldersException(val limit: Int) : IOException("The share has more than $limit folders")

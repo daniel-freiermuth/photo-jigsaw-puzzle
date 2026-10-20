@@ -1,4 +1,4 @@
-Mach aus deinen eigenen Fotos Puzzles. Album Puzzle zeigt die Bilder geteilter Alben und Ordner, die du hinzufügst – eine öffentliche Nextcloud-Freigabe, einen Immich-Freigabelink oder eine einfache Liste von Bild-URLs – auf einer gemeinsamen Zeitleiste, neueste zuerst. Tippe ein Bild an, um es zu puzzeln.
+Mach aus deinen eigenen Fotos Puzzles. Album Puzzle zeigt die Bilder der geteilten Immich-Alben, die du hinzufügst, auf einer gemeinsamen Zeitleiste, neueste zuerst. Tippe ein Bild an, um es zu puzzeln.
 
 <b>Puzzeln</b>
 <ul>
@@ -19,9 +19,7 @@ Mach aus deinen eigenen Fotos Puzzles. Album Puzzle zeigt die Bilder geteilter A
 
 <b>Quellen</b>
 <ul>
-<li>Öffentliche Nextcloud-Freigaben (mit oder ohne Passwort), einschließlich Unterordnern</li>
 <li>Immich-Freigabelinks zu Alben oder einzelnen Fotos</li>
-<li>Eine Text- oder JSON-Datei mit Bild-URLs</li>
 </ul>
 
 Auf Deutsch und Englisch verfügbar.

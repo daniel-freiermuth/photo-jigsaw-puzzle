@@ -8,7 +8,6 @@ import androidx.compose.ui.res.stringResource
 import dev.daniel.jigsaw.R
 import dev.daniel.jigsaw.puzzle.UndecodableImageException
 import dev.daniel.jigsaw.source.HttpStatusException
-import dev.daniel.jigsaw.source.TooManyFoldersException
 import dev.daniel.jigsaw.source.UnexpectedResponseException
 import java.net.ConnectException
 import java.net.HttpURLConnection.HTTP_FORBIDDEN
@@ -45,8 +44,6 @@ fun Throwable.toUiText(): UiText = when (this) {
     is SSLException -> UiText(R.string.error_tls)
 
     is UnexpectedResponseException -> UiText(R.string.error_unexpected_response)
-
-    is TooManyFoldersException -> UiText(R.string.error_too_many_folders, listOf(limit))
 
     is UndecodableImageException -> UiText(R.string.error_not_an_image)
 

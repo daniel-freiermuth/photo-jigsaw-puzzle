@@ -9,7 +9,7 @@
     <string name="action_settings">Settings</string>
 
     <!-- Gallery -->
-    <string name="gallery_no_sources">No image sources yet. Add a Nextcloud share, Immich shared link, or URL list in Settings.</string>
+    <string name="gallery_no_sources">No image sources yet. Add an Immich shared link in Settings.</string>
     <string name="gallery_open_settings">Open settings</string>
     <string name="gallery_list_failed">Couldn’t list images:</string>
     <string name="gallery_retry">Retry</string>
@@ -33,7 +33,7 @@
 
     <!-- Settings -->
     <string name="settings_sources">Image sources</string>
-    <string name="settings_no_sources">Add a Nextcloud public share, an Immich shared link, or a URL list to start puzzling.</string>
+    <string name="settings_no_sources">Add an Immich shared link to start puzzling.</string>
     <string name="settings_add_source">Add source</string>
     <string name="settings_puzzle">Puzzle</string>
     <string name="settings_pieces">Pieces</string>
@@ -54,18 +54,13 @@
     <!-- Add source dialog -->
     <string name="source_add_title">Add image source</string>
     <string name="source_add">Add</string>
-    <string name="source_kind_nextcloud" translatable="false">Nextcloud</string>
     <string name="source_kind_immich" translatable="false">Immich</string>
-    <string name="source_kind_url_list">URL list</string>
     <string name="source_link">Share link</string>
     <string name="source_name">Name (optional)</string>
-    <string name="source_password">Share password (if any)</string>
-    <string name="source_invalid_nextcloud">Not a Nextcloud share link (expected …/s/&lt;token&gt;)</string>
     <string name="source_invalid_immich">Not an Immich shared link (expected …/share/&lt;key&gt; or …/s/&lt;slug&gt;)</string>
-    <string name="source_invalid_url_list">Not a valid web address</string>
 
     <!-- Errors -->
-    <string name="error_access_denied">Access denied. Is the share password correct?</string>
+    <string name="error_access_denied">Access denied. The shared link may have been disabled or need a password.</string>
     <string name="error_not_found">Not found. The share may have been deleted or have expired.</string>
     <string name="error_http">The server answered with error %1$d.</string>
     <string name="error_unknown_host">Server not found. Check the address and your internet connection.</string>
@@ -73,7 +68,6 @@
     <string name="error_connect">Couldn’t connect to the server.</string>
     <string name="error_tls">Secure connection to the server failed.</string>
     <string name="error_unexpected_response">The server sent an answer the app doesn’t understand.</string>
-    <string name="error_too_many_folders">The share has too many folders (the limit is %1$d). Share a smaller folder.</string>
     <string name="error_not_an_image">This file is not a picture the app can show.</string>
     <string name="error_other">Something went wrong: %1$s</string>
 </resources>
