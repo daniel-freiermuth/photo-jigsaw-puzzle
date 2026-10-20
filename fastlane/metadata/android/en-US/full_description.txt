@@ -1,4 +1,4 @@
-Turn your own photos into jigsaw puzzles. Album Jigsaw Puzzle shows the pictures of shared albums and folders you add — a Nextcloud public share, an Immich shared link, or a simple list of image URLs — on one timeline, newest first. Tap a picture to puzzle it.
+Turn your own photos into jigsaw puzzles. Album Jigsaw Puzzle shows the pictures of the Immich shared albums you add on one timeline, newest first. Tap a picture to puzzle it.
 
 <b>Puzzling</b>
 <ul>
@@ -19,9 +19,7 @@ Turn your own photos into jigsaw puzzles. Album Jigsaw Puzzle shows the pictures
 
 <b>Sources</b>
 <ul>
-<li>Nextcloud public shares (with or without password), including sub-folders</li>
 <li>Immich shared links to albums or individual photos</li>
-<li>A text or JSON file listing image URLs</li>
 </ul>
 
 Available in English and German.

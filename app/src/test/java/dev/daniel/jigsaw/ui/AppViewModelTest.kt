@@ -47,7 +47,7 @@ class AppViewModelTest {
     @TempDir
     lateinit var tmp: File
 
-    private val source = SourceConfig.UrlList("src", "Pictures", "https://p/list.txt")
+    private val source = SourceConfig.ImmichShare("src", "Pictures", "https://p/share/k")
     private val image = GalleryImage(
         source,
         RemoteImage("a.jpg", "a", HttpResource("https://p/thumb/a.jpg"), HttpResource("https://p/a.jpg")),

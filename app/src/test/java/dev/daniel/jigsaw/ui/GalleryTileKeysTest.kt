@@ -17,7 +17,7 @@ class GalleryTileKeysTest {
     private val picture = RemoteImage(url, "cat.jpg", HttpResource(url), HttpResource(url))
 
     private fun listed(sourceId: String) =
-        GalleryImage(SourceConfig.UrlList(sourceId, "List", "https://p/list.txt"), picture)
+        GalleryImage(SourceConfig.ImmichShare(sourceId, "Album", "https://p/share/k"), picture)
 
     @Test
     fun `one picture listed by two sources gets an untouched tile per source`() {

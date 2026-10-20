@@ -16,7 +16,7 @@ Status: proposal, needs a decision. Nothing in the build changes with this docum
   31 August 2026) therefore does not apply, and targetSdk 36 would meet it anyway. F-Droid sets no target-API
   floor. **No external deadline forces this bump.**
 - The manifest declares only `INTERNET` and sets `android:usesCleartextTraffic="true"`: plain-HTTP servers
-  on the home network (Nextcloud, Immich, a URL list on a NAS) are a supported setup.
+  on the home network (Immich) are a supported setup.
 
 ## What changes at targetSdk 37, applied to this app
 
@@ -28,7 +28,7 @@ Source: <https://developer.android.com/about/versions/17/behavior-changes-17> (u
 | Certificate Transparency on by default | Unlikely. No network security config, so only system CAs are trusted already; public CAs log to CT. A server with a private CA never worked. |
 | Encrypted Client Hello (ECH) on by default | No action: only active when the TLS stack (OkHttp here) and the server support it; otherwise GREASE. |
 | Orientation/resizability/aspect-ratio limits ignored on sw ≥ 600dp, no opt-out | No: the manifest sets no `screenOrientation`, `resizeableActivity` or aspect ratios. Tablet layout is worth a look but is not a regression. |
-| Hide password characters when typing on a physical keyboard | Cosmetic, Nextcloud share password field (`SettingsScreen.kt`). |
+| Hide password characters when typing on a physical keyboard | Not used: the app has no password fields. |
 | Lock-free `MessageQueue`; `static final` fields unmodifiable by reflection | No: no reflection on either (grep for `setAccessible`, `declaredField`, `MessageQueue` finds nothing). |
 | `setContentCaptureEnabled(false)` ignored | Not used. |
 | Native DCL read-only, RemoteViews memory limit, background audio, CP2 contacts, SMS OTP delay, Bluetooth RFCOMM `read()` | Not used. |
@@ -55,7 +55,7 @@ without the declaration, no entry at all.
 
 What this means for users:
 
-- A Nextcloud/Immich server on the **same Wi-Fi subnet** stops working the moment targetSdk is 37, and
+- An Immich server on the **same Wi-Fi subnet** stops working the moment targetSdk is 37, and
   the user sees a misleading "server took too long" after a 15 s wait. The same server keeps working over
   mobile data or via a public address routed through a gateway — so it looks like a flaky home network.
 - The last row suggests "local" means on-link, not every RFC 1918 address; split-horizon DNS (a public
@@ -103,7 +103,7 @@ learns a new API level, and the existing comment in `config/lint/lint.xml` alrea
 5. Raise `targetSdk = 37`; update README ("Runs on…", smoke-test list).
 6. Test: `./gradlew check :app:assembleRelease`; API 37 emulator with a source on `10.0.2.2` (deny, allow,
    revoke in Settings while running); API 26 and API 36 emulators to confirm nothing changes there; a real
-   device on home Wi-Fi with a LAN Nextcloud/Immich server, including split-horizon DNS if available.
+   device on home Wi-Fi with a LAN Immich server, including split-horizon DNS if available.
 
 Effort: about 1–2 days including device testing. Rollback: revert the `targetSdk` line; the permission
 declaration and request UI are inert below 37.

@@ -58,7 +58,7 @@ class PuzzleGesturesTest {
     )
     private val game = PuzzleGame(
         image = GalleryImage(
-            SourceConfig.UrlList("src", "Pictures", "https://p/list.txt"),
+            SourceConfig.ImmichShare("src", "Pictures", "https://p/share/k"),
             RemoteImage("a.jpg", "a", HttpResource("https://p/thumb/a.jpg"), HttpResource("https://p/a.jpg")),
         ),
         seed = 0,

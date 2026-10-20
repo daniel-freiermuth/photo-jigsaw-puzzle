@@ -48,7 +48,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
@@ -295,28 +294,19 @@ private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 }
 
 private enum class SourceKind(@param:StringRes val title: Int, @param:StringRes val invalid: Int, val hint: String) {
-    Nextcloud(
-        R.string.source_kind_nextcloud,
-        R.string.source_invalid_nextcloud,
-        "https://cloud.example.com/s/AbCdEf123",
-    ),
     Immich(R.string.source_kind_immich, R.string.source_invalid_immich, "https://photos.example.com/share/…"),
-    UrlList(R.string.source_kind_url_list, R.string.source_invalid_url_list, "https://example.com/puzzles.txt"),
 }
 
 private val SourceConfig.kind
     get() = when (this) {
-        is SourceConfig.NextcloudShare -> SourceKind.Nextcloud
         is SourceConfig.ImmichShare -> SourceKind.Immich
-        is SourceConfig.UrlList -> SourceKind.UrlList
     }
 
 @Composable
 private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> Boolean, modifier: Modifier = Modifier) {
-    var kind by rememberSaveable { mutableStateOf(SourceKind.Nextcloud) }
+    var kind by rememberSaveable { mutableStateOf(SourceKind.Immich) }
     var label by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
     var invalid by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -349,21 +339,11 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> B
                     label = { Text(stringResource(R.string.source_name)) },
                     singleLine = true,
                 )
-                if (kind == SourceKind.Nextcloud) {
-                    OutlinedTextField(
-                        password,
-                        { password = it },
-                        label = { Text(stringResource(R.string.source_password)) },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    )
-                }
                 if (invalid) Text(stringResource(kind.invalid), color = MaterialTheme.colorScheme.error)
             }
         },
         confirmButton = {
-            TextButton(onClick = { invalid = !onSubmit(newSourceConfig(kind, label, url, password)) }) {
+            TextButton(onClick = { invalid = !onSubmit(newSourceConfig(kind, label, url)) }) {
                 Text(stringResource(R.string.source_add))
             }
         },
@@ -385,13 +365,11 @@ private fun KindChips(selected: SourceKind, onSelect: (SourceKind) -> Unit, modi
     }
 }
 
-private fun newSourceConfig(kind: SourceKind, label: String, url: String, password: String): SourceConfig {
+private fun newSourceConfig(kind: SourceKind, label: String, url: String): SourceConfig {
     val trimmed = url.trim()
     val name = label.trim().ifEmpty { trimmed.toHttpUrlOrNull()?.host ?: trimmed }
     val id = UUID.randomUUID().toString()
     return when (kind) {
-        SourceKind.Nextcloud -> SourceConfig.NextcloudShare(id, name, trimmed, password)
         SourceKind.Immich -> SourceConfig.ImmichShare(id, name, trimmed)
-        SourceKind.UrlList -> SourceConfig.UrlList(id, name, trimmed)
     }
 }

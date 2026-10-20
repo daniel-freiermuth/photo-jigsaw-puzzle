@@ -1,1 +1,1 @@
-Puzzles aus deinen eigenen Fotos von Nextcloud, Immich oder einem Webserver
+Puzzles aus deinen eigenen Fotos auf Immich

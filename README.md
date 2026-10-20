@@ -1,6 +1,6 @@
 # Album Jigsaw Puzzle
 
-Android jigsaw puzzle game that pulls its pictures from an online folder you already have.
+Android jigsaw puzzle game that pulls its pictures from an Immich album you already have.
 
 ## Image sources
 
@@ -9,18 +9,17 @@ a thumbnail and a full-size version. Built in:
 
 | Type | Link you paste | How it's read |
 |---|---|---|
-| **Nextcloud** public share | `https://cloud.example.com/s/<token>` (subpaths and `index.php/` are fine) | WebDAV `PROPFIND` on `public.php/dav/files/<token>/` (Nextcloud 29+; falls back to the legacy `public.php/webdav/` on older servers), recursing into subfolders. Gallery uses the share's server-side previews. Optional share password. |
 | **Immich** shared link | `https://photos.example.com/share/<key>` or custom `…/s/<slug>` | `GET /api/shared-links/me`; album shares list assets via `/api/albums/{id}` on older servers, or the timeline API (`/api/timeline/buckets` + `/bucket`) on servers whose album response no longer includes assets (e.g. Immich 3.x). Gallery uses `size=thumbnail`, puzzles use the ~1440 px `size=preview`. Videos are skipped. Password-protected Immich links are not supported. |
-| **URL list** | any URL to a text file (one image URL per line, `#` comments) or a JSON array of URLs | Relative entries resolve against the list's URL. |
 
 Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant (`@Serializable` with a new
 `@SerialName`, its stored `type`), and wire it in `toImageSource()` and the add-source dialog.
 
+Nextcloud shares and URL lists were supported up to 0.3.0; such sources are dropped on update.
+
 ## Gameplay
 
 - The main view shows every image from all configured sources on one timeline, newest first (Immich: capture
-  time; Nextcloud: capture time where the server provides it — Nextcloud 28+ — else modification time; URL lists
-  have no dates and go last). A source that fails to load is reported above the grid without hiding the others.
+  time). A source that fails to load is reported above the grid without hiding the others.
 - Updating the gallery:
   - **Never older than a minute while visible:** while the gallery is on screen and the app is in the
     foreground, the sources are listed again whenever the list reaches one minute old. Coming back to it
@@ -34,9 +33,8 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant (`@S
     with the reason in the card above the grid.
 - Downloaded pictures are kept in a 250 MB disk cache (`cache/http`), so thumbnails aren't downloaded again
   on every start and opening a puzzle doesn't download its picture again.
-  - **Revisions:** Immich pictures are versioned by their thumbhash, Nextcloud files by their ETag. A
-    picture is reused until it changes on the server, whatever caching headers the server sends.
-  - **URL lists** follow the image server's own caching headers.
+  - **Revisions:** Immich pictures are versioned by their thumbhash. A picture is reused until it changes on
+    the server, whatever caching headers the server sends.
   - **Offline:** cached pictures are used, so started puzzles stay playable. Listings are always fetched
     from the server.
 - **Settings** (gear icon) holds the image sources (add/remove; tap a share link to open it in the browser) and
@@ -153,7 +151,7 @@ secret.
 
 ```
 app/src/main/java/dev/daniel/jigsaw/
-  source/   ImageSource + Nextcloud / Immich / URL-list implementations; Http (disk cache, revisions,
+  source/   ImageSource + Immich implementation; Http (disk cache, revisions,
             offline fallback); persisted SourceStore and ImageListStore (last listings)
   puzzle/   JigsawCut (tab geometry), PuzzleBoard (pure game state), PieceRenderer, ImageDecoding
   ui/       Compose screens: gallery (main view), settings, puzzle canvas; AppViewModel; GalleryFeed
