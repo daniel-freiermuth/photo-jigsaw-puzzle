@@ -68,9 +68,15 @@ class SourceParsingTest {
 
     @Test
     fun `source store reads what earlier versions saved and writes the same format back`() {
-        val sources = listOf(SourceConfig.ImmichShare("2", "Im", "https://p/share/k"))
-        // Byte for byte what the org.json encoder wrote on a device (Android escapes `/`).
-        val saved = """[{"type":"immich","id":"2","label":"Im","url":"https:\/\/p\/share\/k"}]"""
+        val camera = "content://com.android.externalstorage.documents/tree/primary%3ADCIM"
+        val sources = listOf(
+            SourceConfig.ImmichShare("2", "Im", "https://p/share/k"),
+            SourceConfig.LocalFolder("3", "Camera", camera),
+        )
+        // The Immich entry byte for byte as the org.json encoder wrote it on a device (Android escapes `/`).
+        val saved = """[{"type":"immich","id":"2","label":"Im","url":"https:\/\/p\/share\/k"},""" +
+            """{"type":"folder","id":"3","label":"Camera",""" +
+            """"uri":"content:\/\/com.android.externalstorage.documents\/tree\/primary%3ADCIM"}]"""
         assertEquals(sources, SourceStore.decode(saved))
         assertEquals(Json.parseToJsonElement(saved), Json.parseToJsonElement(SourceStore.encode(sources)))
     }
@@ -90,11 +96,16 @@ class SourceParsingTest {
               42,
               {"type": "smugmug", "id": "3", "label": "Smug", "url": "https://s/g"},
               {"id": "5", "label": "Untyped", "url": "https://u/x"},
-              {"type": "nextcloud", "id": "4", "label": "NC", "url": "https://c/s/t", "password": "pw"}
+              {"type": "folder", "id": "6", "label": "No URI"},
+              {"type": "nextcloud", "id": "4", "label": "NC", "url": "https://c/s/t", "password": "pw"},
+              {"type": "folder", "id": "7", "label": "Pics", "uri": "content://p/tree/x"}
             ]
         """.trimIndent()
         assertEquals(
-            listOf(SourceConfig.ImmichShare("1", "Im", "https://p/share/k")),
+            listOf(
+                SourceConfig.ImmichShare("1", "Im", "https://p/share/k"),
+                SourceConfig.LocalFolder("7", "Pics", "content://p/tree/x"),
+            ),
             SourceStore.decode(json),
         )
     }

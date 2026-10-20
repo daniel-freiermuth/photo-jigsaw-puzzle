@@ -13,37 +13,46 @@ class ImageListStoreTest {
     lateinit var tmp: File
 
     private val listings = mapOf(
-        "nc" to listOf(
+        "im" to listOf(
             RemoteImage(
-                id = "/a b.jpg",
+                id = "a1",
                 name = "a b.jpg",
-                thumbnail = HttpResource("https://c/preview?file=%2Fa%20b.jpg", revision = "\"e1\""),
-                full = HttpResource("https://c/dav/a%20b.jpg", mapOf("Authorization" to "Basic eDp5"), "\"e1\""),
+                thumbnail = HttpResource("https://p/api/assets/a1/thumbnail?key=k&size=thumbnail", revision = "h1"),
+                full = HttpResource("https://p/api/assets/a1/thumbnail", mapOf("X-Test" to "1"), "h1"),
                 takenAt = 1_714_564_800_000,
             ),
         ),
-        "urls" to listOf(RemoteImage("u", "u", HttpResource("https://e/u.png"), HttpResource("https://e/u.png"))),
+        "folder" to listOf(
+            RemoteImage("d", "d.png", DocumentResource("content://p/d", "5:9"), DocumentResource("content://p/d")),
+        ),
         "empty" to emptyList(),
     )
 
     @Test
-    fun `saved listings come back intact, including auth headers, revisions and missing dates`() = runTest {
+    fun `saved listings come back intact, including headers, revisions and missing dates`() = runTest {
         val store = ImageListStore(File(tmp, "gallery/listings.json"), StandardTestDispatcher(testScheduler))
         store.save(listings)
         assertEquals(listings, store.load())
     }
 
     @Test
-    fun `listings saved by earlier versions load, and are written back in the same format`() {
-        // Byte for byte what the org.json encoder wrote on a device (Android escapes `/`).
-        val v1 = """{"version":1,"sources":{"nc":[{"id":"\/a b.jpg","name":"a b.jpg",""" +
-            """"thumbnail":{"url":"https:\/\/c\/preview?file=%2Fa%20b.jpg","headers":{},"revision":"\"e1\""},""" +
-            """"full":{"url":"https:\/\/c\/dav\/a%20b.jpg","headers":{"Authorization":"Basic eDp5"},""" +
-            """"revision":"\"e1\""},"takenAt":1714564800000}],""" +
-            """"urls":[{"id":"u","name":"u","thumbnail":{"url":"https:\/\/e\/u.png","headers":{}},""" +
-            """"full":{"url":"https:\/\/e\/u.png","headers":{}}}],"empty":[]}}"""
-        assertEquals(listings, ImageListStore.decode(v1))
-        assertEquals(Json.parseToJsonElement(v1), Json.parseToJsonElement(ImageListStore.encode(listings)))
+    fun `the file format tags each picture with its kind`() {
+        val v2 = """{"version":2,"sources":{"im":[{"id":"a1","name":"a b.jpg",""" +
+            """"thumbnail":{"type":"http","url":"https://p/api/assets/a1/thumbnail?key=k&size=thumbnail",""" +
+            """"headers":{},"revision":"h1"},""" +
+            """"full":{"type":"http","url":"https://p/api/assets/a1/thumbnail","headers":{"X-Test":"1"},""" +
+            """"revision":"h1"},"takenAt":1714564800000}],""" +
+            """"folder":[{"id":"d","name":"d.png","thumbnail":{"type":"document","uri":"content://p/d",""" +
+            """"revision":"5:9"},"full":{"type":"document","uri":"content://p/d"}}],"empty":[]}}"""
+        assertEquals(listings, ImageListStore.decode(v2))
+        assertEquals(Json.parseToJsonElement(v2), Json.parseToJsonElement(ImageListStore.encode(listings)))
+    }
+
+    @Test
+    fun `listings of the previous format are dropped, to be listed anew`() {
+        val v1 = """{"version":1,"sources":{"u":[{"id":"u","name":"u",""" +
+            """"thumbnail":{"url":"https://e/u.png","headers":{}},"full":{"url":"https://e/u.png","headers":{}}}]}}"""
+        assertEquals(emptyMap<String, List<RemoteImage>>(), ImageListStore.decode(v1))
     }
 
     @Test

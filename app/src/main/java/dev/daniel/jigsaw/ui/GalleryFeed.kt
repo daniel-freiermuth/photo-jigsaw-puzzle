@@ -7,7 +7,6 @@ import androidx.compose.runtime.setValue
 import dev.daniel.jigsaw.source.ImageListStore
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
-import dev.daniel.jigsaw.source.toImageSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -64,7 +63,7 @@ class GalleryFeed(
     private val imageLists: ImageListStore,
     /** Monotonic milliseconds. */
     private val clock: () -> Long,
-    private val list: suspend (SourceConfig) -> List<RemoteImage> = { it.toImageSource().listImages() },
+    private val list: suspend (SourceConfig) -> List<RemoteImage>,
     /** Runs before new content is shown (the gallery tiles are read from the saved puzzles here). */
     private val beforeShow: suspend (GalleryContent) -> Unit = {},
 ) {

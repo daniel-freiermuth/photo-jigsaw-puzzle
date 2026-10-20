@@ -1,4 +1,4 @@
-Turn your own photos into jigsaw puzzles. Album Jigsaw Puzzle shows the pictures of the Immich shared albums you add on one timeline, newest first. Tap a picture to puzzle it.
+Turn your own photos into jigsaw puzzles. Album Jigsaw Puzzle shows the pictures of the folders and shared albums you add — a folder on your phone or an Immich shared link — on one timeline, newest first. Tap a picture to puzzle it.
 
 <b>Puzzling</b>
 <ul>
@@ -11,7 +11,7 @@ Turn your own photos into jigsaw puzzles. Album Jigsaw Puzzle shows the pictures
 
 <b>Your photos stay yours</b>
 <ul>
-<li>No account, no tracking, no ads: the app only talks to the servers you add</li>
+<li>No account, no tracking, no ads: the app only reads the folders you pick and talks only to the servers you add</li>
 <li>Every puzzle keeps its progress; the gallery shows each one as you left it</li>
 <li>Pictures are cached, so puzzles you started keep working offline</li>
 <li>New photos appear by themselves: the gallery stays current while it is open</li>
@@ -19,6 +19,7 @@ Turn your own photos into jigsaw puzzles. Album Jigsaw Puzzle shows the pictures
 
 <b>Sources</b>
 <ul>
+<li>Folders on your device, including sub-folders — no storage permission needed</li>
 <li>Immich shared links to albums or individual photos</li>
 </ul>
 

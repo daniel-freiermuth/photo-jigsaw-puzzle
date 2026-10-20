@@ -2,6 +2,8 @@ package dev.daniel.jigsaw.ui
 
 import android.content.ActivityNotFoundException
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -57,6 +59,7 @@ import dev.daniel.jigsaw.R
 import dev.daniel.jigsaw.puzzle.PieceCount
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.source.SourceConfig
+import dev.daniel.jigsaw.source.folderPath
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.util.UUID
 
@@ -236,7 +239,7 @@ private fun SourceRow(source: SourceConfig, onRemove: () -> Unit, modifier: Modi
     }
 }
 
-/** "Kind · url" with the URL as a link that opens the share in the browser. */
+/** "Kind · link" with an Immich link opening the share in the browser, or "Kind · folder path". */
 @Composable
 private fun sourceLinkText(source: SourceConfig): AnnotatedString {
     val uriHandler = LocalUriHandler.current
@@ -247,16 +250,22 @@ private fun sourceLinkText(source: SourceConfig): AnnotatedString {
     )
     return buildAnnotatedString {
         append("$kind · ")
-        val link = LinkAnnotation.Url(source.url, linkStyle) {
-            try {
-                uriHandler.openUri(source.url)
-            } catch (_: ActivityNotFoundException) {
-                Toast.makeText(context, R.string.settings_link_no_app, Toast.LENGTH_SHORT).show()
-            } catch (_: IllegalArgumentException) {
-                Toast.makeText(context, R.string.settings_link_invalid, Toast.LENGTH_SHORT).show()
+        when (source) {
+            is SourceConfig.LocalFolder -> append(folderPath(source.uri))
+
+            is SourceConfig.ImmichShare -> {
+                val link = LinkAnnotation.Url(source.url, linkStyle) {
+                    try {
+                        uriHandler.openUri(source.url)
+                    } catch (_: ActivityNotFoundException) {
+                        Toast.makeText(context, R.string.settings_link_no_app, Toast.LENGTH_SHORT).show()
+                    } catch (_: IllegalArgumentException) {
+                        Toast.makeText(context, R.string.settings_link_invalid, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                withLink(link) { append(source.url) }
             }
         }
-        withLink(link) { append(source.url) }
     }
 }
 
@@ -293,20 +302,23 @@ private fun SectionHeader(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-private enum class SourceKind(@param:StringRes val title: Int, @param:StringRes val invalid: Int, val hint: String) {
-    Immich(R.string.source_kind_immich, R.string.source_invalid_immich, "https://photos.example.com/share/…"),
+private enum class SourceKind(@param:StringRes val title: Int, @param:StringRes val invalid: Int) {
+    LocalFolder(R.string.source_kind_local_folder, R.string.source_no_folder),
+    Immich(R.string.source_kind_immich, R.string.source_invalid_immich),
 }
 
 private val SourceConfig.kind
     get() = when (this) {
+        is SourceConfig.LocalFolder -> SourceKind.LocalFolder
         is SourceConfig.ImmichShare -> SourceKind.Immich
     }
 
 @Composable
 private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> Boolean, modifier: Modifier = Modifier) {
-    var kind by rememberSaveable { mutableStateOf(SourceKind.Immich) }
+    var kind by rememberSaveable { mutableStateOf(SourceKind.LocalFolder) }
     var label by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
+    var folder by rememberSaveable { mutableStateOf<String?>(null) }
     var invalid by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -322,17 +334,27 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> B
                         invalid = false
                     },
                 )
-                OutlinedTextField(
-                    url,
-                    { input ->
-                        url = input
-                        invalid = false
-                    },
-                    label = { Text(stringResource(R.string.source_link)) },
-                    placeholder = { Text(kind.hint) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                )
+                when (kind) {
+                    SourceKind.LocalFolder -> FolderButton(
+                        folder,
+                        onPick = {
+                            folder = it
+                            invalid = false
+                        },
+                    )
+
+                    SourceKind.Immich -> OutlinedTextField(
+                        url,
+                        { input ->
+                            url = input
+                            invalid = false
+                        },
+                        label = { Text(stringResource(R.string.source_link)) },
+                        placeholder = { Text("https://photos.example.com/share/…") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    )
+                }
                 OutlinedTextField(
                     label,
                     { label = it },
@@ -343,12 +365,39 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> B
             }
         },
         confirmButton = {
-            TextButton(onClick = { invalid = !onSubmit(newSourceConfig(kind, label, url)) }) {
+            TextButton(onClick = { invalid = newSourceConfig(kind, label, url, folder)?.let(onSubmit) != true }) {
                 Text(stringResource(R.string.source_add))
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+/** Opens the system folder picker; shows the picked folder's path once there is one. */
+@Composable
+private fun FolderButton(folder: String?, onPick: (String) -> Unit, modifier: Modifier = Modifier) {
+    var noPicker by remember { mutableStateOf(false) }
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { picked ->
+        if (picked != null) onPick(picked.toString())
+    }
+    Column(modifier) {
+        OutlinedButton(
+            onClick = {
+                try {
+                    pickFolder.launch(null)
+                } catch (_: ActivityNotFoundException) {
+                    noPicker = true
+                }
+            },
+        ) {
+            Text(
+                folder?.let(::folderPath) ?: stringResource(R.string.source_choose_folder),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (noPicker) Text(stringResource(R.string.source_no_folder_picker), color = MaterialTheme.colorScheme.error)
+    }
 }
 
 @Composable
@@ -365,11 +414,19 @@ private fun KindChips(selected: SourceKind, onSelect: (SourceKind) -> Unit, modi
     }
 }
 
-private fun newSourceConfig(kind: SourceKind, label: String, url: String): SourceConfig {
-    val trimmed = url.trim()
-    val name = label.trim().ifEmpty { trimmed.toHttpUrlOrNull()?.host ?: trimmed }
+/** Null if no folder was picked yet. Unnamed sources are named after the server or the folder. */
+private fun newSourceConfig(kind: SourceKind, label: String, url: String, folder: String?): SourceConfig? {
     val id = UUID.randomUUID().toString()
     return when (kind) {
-        SourceKind.Immich -> SourceConfig.ImmichShare(id, name, trimmed)
+        SourceKind.LocalFolder -> folder?.let {
+            val path = folderPath(it)
+            val name = label.trim().ifEmpty { path.substringAfterLast('/').substringAfterLast(':').ifEmpty { path } }
+            SourceConfig.LocalFolder(id, name, it)
+        }
+
+        SourceKind.Immich -> {
+            val trimmed = url.trim()
+            SourceConfig.ImmichShare(id, label.trim().ifEmpty { trimmed.toHttpUrlOrNull()?.host ?: trimmed }, trimmed)
+        }
     }
 }

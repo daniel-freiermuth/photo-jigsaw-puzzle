@@ -17,13 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import dev.daniel.jigsaw.puzzle.CanvasSpec
 import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.puzzle.renderProgress
 import dev.daniel.jigsaw.puzzle.renderUntouched
-import dev.daniel.jigsaw.source.Http
+import dev.daniel.jigsaw.source.read
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Semaphore
@@ -86,7 +87,8 @@ fun GalleryThumbnail(
     modifier: Modifier = Modifier,
 ) {
     val resource = item.image.thumbnail
-    val picture = { decodeSampled(Http.getImage(resource), MAX_SIDE) }
+    val resolver = LocalContext.current.contentResolver
+    val picture = { decodeSampled(resource.read(resolver), MAX_SIDE) }
     val content = tileContent(resource)
     val inProgress = (saved as? SavedPuzzle.InProgress)?.takeUnless { it.needsRecut(settings) }
     when {

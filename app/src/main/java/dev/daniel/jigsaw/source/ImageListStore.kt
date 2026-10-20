@@ -32,7 +32,8 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
     }
 
     companion object {
-        private const val FORMAT_VERSION = 1
+        /** 2: pictures are tagged `http` or `document` resources. */
+        private const val FORMAT_VERSION = 2
         private const val TAG = "ImageListStore"
 
         fun encode(listings: Map<String, List<RemoteImage>>): String =

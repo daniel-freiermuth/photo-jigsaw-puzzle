@@ -2,6 +2,7 @@ package dev.daniel.jigsaw.ui
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -10,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.daniel.jigsaw.puzzle.BitmapPicture
@@ -25,12 +27,12 @@ import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.puzzle.cutNew
 import dev.daniel.jigsaw.puzzle.cutSaved
 import dev.daniel.jigsaw.puzzle.decodeSampled
-import dev.daniel.jigsaw.source.Http
-import dev.daniel.jigsaw.source.HttpResource
 import dev.daniel.jigsaw.source.ImageListStore
+import dev.daniel.jigsaw.source.ImageResource
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
 import dev.daniel.jigsaw.source.SourceStore
+import dev.daniel.jigsaw.source.read
 import dev.daniel.jigsaw.source.toImageSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -98,8 +100,8 @@ class AppViewModel @JvmOverloads constructor(
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
     /** Monotonic milliseconds, for deciding when the gallery is due for a refresh. */
     clock: () -> Long = SystemClock::elapsedRealtime,
-    /** Downloads a puzzle's picture or thumbnail; blocking, run on [ioDispatcher]. */
-    private val fetchImage: (HttpResource) -> ByteArray = Http::getImage,
+    /** Reads a puzzle's picture or thumbnail; blocking, run on [ioDispatcher]. */
+    private val fetchImage: (ImageResource) -> ByteArray = { it.read(app.contentResolver) },
     /** Decodes downloaded bytes to at most the given longest side; CPU-heavy, run on [computeDispatcher]. */
     private val decodePicture: (ByteArray, Int) -> PuzzlePicture = { bytes, maxSide ->
         BitmapPicture(decodeSampled(bytes, maxSide))
@@ -143,6 +145,7 @@ class AppViewModel @JvmOverloads constructor(
         sources = { sources },
         imageLists = ImageListStore(File(app.filesDir, "gallery/listings.json"), ioDispatcher),
         clock = clock,
+        list = { it.toImageSource(app.contentResolver).listImages() },
         beforeShow = { content ->
             tiles = withContext(puzzleIo) {
                 puzzles.deleteLegacyPreviews()
@@ -162,25 +165,50 @@ class AppViewModel @JvmOverloads constructor(
         }
     }
 
-    /** Validates [config] (URL shape) and saves it; false if the URL isn't a link of that kind. */
+    /**
+     * Validates [config] (link shape or folder) and saves it; false if it isn't a source of that kind.
+     * A folder's read access is kept across restarts until the source is removed.
+     */
     fun addSource(config: SourceConfig): Boolean {
-        try {
-            config.toImageSource()
+        val resolver = getApplication<Application>().contentResolver
+        val accepted = try {
+            config.toImageSource(resolver)
+            if (config is SourceConfig.LocalFolder) {
+                resolver.takePersistableUriPermission(config.uri.toUri(), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            true
         } catch (_: IllegalArgumentException) {
-            return false
+            false
+        } catch (_: SecurityException) {
+            false
         }
-        sources = sources + config
-        store.save(sources)
-        feed.invalidate()
-        return true
+        if (accepted) {
+            sources = sources + config
+            store.save(sources)
+            feed.invalidate()
+        }
+        return accepted
     }
 
     fun removeSource(id: String) {
-        sources = sources.filterNot { it.id == id }
+        val removed = sources.find { it.id == id } ?: return
+        sources = sources - removed
         store.save(sources)
+        val folder = (removed as? SourceConfig.LocalFolder)?.uri
+        if (folder != null && sources.none { it is SourceConfig.LocalFolder && it.uri == folder }) releaseFolder(folder)
         tiles = tiles.filterKeys { it.sourceId != id }
         feed.forgetSource(id)
         viewModelScope.launch(puzzleIo) { puzzles.clearSource(id) }
+    }
+
+    private fun releaseFolder(uri: String) {
+        try {
+            getApplication<Application>().contentResolver
+                .releasePersistableUriPermission(uri.toUri(), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (e: SecurityException) {
+            // Already gone (e.g. revoked in the system settings): nothing left to release.
+            Log.w(TAG, "Folder access was already released", e)
+        }
     }
 
     fun openSettings() {
