@@ -39,6 +39,8 @@ class LocalFolderSourceTest {
                         file("root/b.JPG", "image/jpeg", lastModified = 300, size = 7),
                         file("root/notes.txt", "text/plain"),
                         file("root/logo.svg", "image/svg+xml"),
+                        file("root/scan.tif", "image/tiff"),
+                        file("root/layers.psd", "image/vnd.adobe.photoshop"),
                         file("root/.trashed-1-x.jpg", "image/jpeg"),
                         folder("root/.thumbnails"),
                         folder("root/sub"),
