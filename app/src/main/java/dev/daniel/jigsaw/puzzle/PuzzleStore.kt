@@ -96,6 +96,12 @@ class PuzzleStore(private val root: File) {
         File(root, hash(sourceId)).deleteRecursively()
     }
 
+    /** Drops the puzzles of every source not in [sourceIds], e.g. of sources whose type an update removed. */
+    fun keepOnlySources(sourceIds: Collection<String>) {
+        val kept = sourceIds.mapTo(HashSet(), ::hash)
+        root.listFiles()?.filter { it.isDirectory && it.name !in kept }?.forEach { it.deleteRecursively() }
+    }
+
     /** Removes layout images written by earlier versions; tiles are now rendered from the saved state. */
     fun deleteLegacyPreviews() {
         root.walkTopDown().filter { it.isFile && it.name.endsWith(LEGACY_PREVIEW_SUFFIX) }.forEach { it.delete() }
