@@ -436,6 +436,29 @@ class AppViewModelTest {
         assertNull(vm.tiles[image.puzzleKey])
     }
 
+    @Test
+    fun `saves of stored sources this version drops are deleted, those of kept sources stay`() = runTest {
+        val app = TestApp(tmp)
+        val stored = """[
+            {"type": "immich", "id": "src", "label": "Pictures", "url": "https://p/share/k"},
+            {"type": "nextcloud", "id": "nc", "label": "NC", "url": "https://c/s/t", "password": "pw"},
+            {"type": "urllist", "id": "list", "label": "List", "url": "https://e/l.txt"}
+        ]"""
+        app.getSharedPreferences("sources", 0).edit().putString("sources", stored).apply()
+        val store = PuzzleStore(File(tmp, "puzzles"))
+        val dropped = listOf(PuzzleKey("nc", "a.jpg"), PuzzleKey("list", "https://e/b.jpg"))
+        for (key in dropped + image.puzzleKey) store.save(key, SavedPuzzle.Solved)
+
+        val vm = viewModel(app)
+        advanceUntilIdle()
+
+        assertEquals(listOf(source), vm.sources)
+        assertEquals(SavedPuzzle.Solved, saved)
+        for (key in dropped) assertNull(store.load(key), key.toString())
+        // Nothing is left of the dropped sources, not even their directories.
+        assertEquals(1, File(tmp, "puzzles").list()!!.size)
+    }
+
     /** A [width] × [height] picture whose pieces have no pixels: android.graphics only works on a device. */
     private inner class FakePicture(override val width: Int = 1200, override val height: Int = 800) : PuzzlePicture {
         override fun asImageBitmap(): ImageBitmap = FakeImageBitmap(width, height)
