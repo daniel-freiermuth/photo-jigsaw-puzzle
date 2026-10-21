@@ -156,6 +156,13 @@ class AppViewModel @JvmOverloads constructor(
         },
     )
 
+    init {
+        // Sources dropped on load (types an update removed) never pass through removeSource. Queued first
+        // on puzzleIo, so it runs before any save of a source added from here on.
+        val kept = sources.map { it.id }
+        viewModelScope.launch(puzzleIo) { puzzles.keepOnlySources(kept) }
+    }
+
     fun updateSettings(new: PuzzleSettings) {
         settings = new
         prefs.edit {
