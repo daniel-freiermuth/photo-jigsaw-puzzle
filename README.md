@@ -16,7 +16,8 @@ Adding a new backend: implement `ImageSource`, add a `SourceConfig` variant (`@S
 `@SerialName`, its stored `type`), and wire it in `toImageSource()` and the add-source dialog. Pictures are
 `ImageResource`s: an `HttpResource` (fetched through `Http`) or a `DocumentResource` (a `content://` URI).
 
-Nextcloud shares and URL lists were supported up to 0.3.0; such sources are dropped on update.
+Nextcloud shares and URL lists were supported up to 0.3.0; such sources are dropped on update, together with
+their saved puzzles.
 
 ## Gameplay
 
