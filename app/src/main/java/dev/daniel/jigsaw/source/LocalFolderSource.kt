@@ -149,11 +149,14 @@ internal inline fun <T> folderAccess(block: () -> T): T = try {
     throw FolderUnavailableException(e)
 }
 
-/** A MIME type the puzzle can decode: any raster image. */
-internal fun String.isPuzzleImage(): Boolean {
-    val type = substringBefore(';').trim().lowercase()
-    return type.startsWith("image/") && type != "image/svg+xml"
-}
+/** A MIME type the puzzle can decode: the raster formats BitmapFactory reads (no TIFF, PSD or SVG). */
+internal fun String.isPuzzleImage(): Boolean = substringBefore(';').trim().lowercase() in decodableImageTypes
+
+private val decodableImageTypes = setOf(
+    "image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/gif", "image/webp",
+    "image/bmp", "image/x-ms-bmp", "image/vnd.wap.wbmp", "image/x-icon", "image/vnd.microsoft.icon",
+    "image/heic", "image/heif", "image/avif", "image/x-adobe-dng",
+)
 
 /** The folder's path for display, e.g. `primary:DCIM/Camera`; [treeUri] as given if it isn't a tree URI. */
 fun folderPath(treeUri: String): String = try {
