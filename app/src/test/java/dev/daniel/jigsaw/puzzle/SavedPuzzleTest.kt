@@ -44,6 +44,27 @@ class SavedPuzzleTest {
     }
 
     @Test
+    fun `turning a joined strip in the tray does not swing it onto the board`() {
+        val grid = Grid(rows = 2, cols = 3)
+        // Pieces 0, 1 and 2 joined into a strip in the tray's top row, just below the board; the rest loose below.
+        val board = BoardSnapshot(
+            xs = listOf(0f, 1f, 2f, 0f, 2f, 4f),
+            ys = listOf(2.4f, 2.4f, 2.4f, 4f, 4f, 4f),
+            groups = listOf(0, 0, 0, 3, 4, 5),
+            locked = List(6) { false },
+            order = (0 until 6).toList(),
+        )
+        // The strip's group comes first, so the first draw picks its turns: three quarters swing it upwards.
+        val seed = (0L..100L).first { Random(it).nextInt(PuzzleBoard.QUARTERS) == 3 }
+        val saved = SavedPuzzle.InProgress(grid = grid, seed = seed, board = board)
+        assertFalse(saved.started)
+        val turned = saved.withRotation(rotatePieces = true, cellAspect = 1f)
+        assertTrue(turned.board.rotatable)
+        assertFalse(turned.started)
+        assertFalse(turned.withRotation(rotatePieces = false, cellAspect = 1f).board.rotatable)
+    }
+
+    @Test
     fun `a started puzzle or one already in the requested mode is left alone`() {
         val saved = unstarted(rotatable = false)
         assertSame(saved, saved.withRotation(rotatePieces = false, cellAspect = 1f))
