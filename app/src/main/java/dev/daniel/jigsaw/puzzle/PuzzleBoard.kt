@@ -329,8 +329,9 @@ fun BoardSnapshot.anyOnBoard(grid: Grid): Boolean = xs.indices.any { i ->
 
 /**
  * The same layout switched to [rotatable] mode: each group (joined pieces stay joined) is turned a
- * random number of quarter turns when enabling, or back upright when disabling. Positions stay put
- * apart from the turn around each group's first piece.
+ * random number of quarter turns when enabling, or back upright when disabling. Each group turns in
+ * place: its bounding box keeps the corner facing the board, so a group lying beside the board (as
+ * in the tray) stays beside it rather than swinging onto it, where it would count as placed.
  */
 fun BoardSnapshot.withRotatable(
     rotatable: Boolean,
@@ -341,8 +342,25 @@ fun BoardSnapshot.withRotatable(
     if (rotatable == this.rotatable) return this
     val board = PuzzleBoard(grid, copy(rotatable = true), cellAspect)
     for (pivot in groups.indices.distinctBy { groups[it] }) {
+        val members = groups.indices.filter { groups[it] == groups[pivot] }
+
+        // Span of the members' cell corners (x, y), not of the cells themselves.
+        fun corners() = Bounds(
+            minX = members.minOf { board.x(it) },
+            minY = members.minOf { board.y(it) },
+            maxX = members.maxOf { board.x(it) },
+            maxY = members.maxOf { board.y(it) },
+        )
+        val before = corners()
         val quarters = if (rotatable) random.nextInt(PuzzleBoard.QUARTERS) else -board.turns(pivot)
         repeat(quarters.mod(PuzzleBoard.QUARTERS)) { board.rotateGroup(pivot) }
+        val after = corners()
+        // On each axis keep the side whose cells lie nearer the board's middle, so the group grows away from the board.
+        board.moveGroup(
+            pivot,
+            if (before.minX + before.maxX + 1 >= grid.cols) before.minX - after.minX else before.maxX - after.maxX,
+            if (before.minY + before.maxY + 1 >= grid.rows) before.minY - after.minY else before.maxY - after.maxY,
+        )
     }
     return board.snapshot.copy(rotatable = rotatable)
 }
