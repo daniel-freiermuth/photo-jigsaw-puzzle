@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.puzzle
 
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.random.Random
@@ -101,10 +102,15 @@ class JigsawCut(val grid: Grid, random: Random) {
 
         /** Picks rows × cols ≈ [pieces] pieces with cells as close to square as possible. */
         fun gridFor(imageWidth: Int, imageHeight: Int, pieces: PieceCount): Grid {
-            val aspect = imageWidth.toFloat() / imageHeight
-            val cols = max(2, sqrt(pieces.target * aspect).roundToInt())
-            val rows = max(2, (pieces.target / cols.toFloat()).roundToInt())
-            return Grid(rows = rows, cols = cols)
+            // Lay the grid out along the long side, so a tall picture is cut as the transpose of the wide one.
+            val aspect = max(imageWidth, imageHeight).toFloat() / min(imageWidth, imageHeight)
+            val along = max(2, sqrt(pieces.target * aspect).roundToInt())
+            val across = max(2, (pieces.target / along.toFloat()).roundToInt())
+            return if (imageWidth >= imageHeight) {
+                Grid(rows = across, cols = along)
+            } else {
+                Grid(rows = along, cols = across)
+            }
         }
     }
 }

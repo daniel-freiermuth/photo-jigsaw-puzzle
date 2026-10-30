@@ -81,6 +81,16 @@ class JigsawCutTest {
         assertFalse(grid.rows < 2 || grid.cols < 2)
     }
 
+    @Test
+    fun `gridFor cuts a tall picture as the transpose of the same picture turned sideways`() {
+        for ((w, h) in listOf(400 to 4000, 1080 to 8000, 900 to 1600, 200 to 4000)) {
+            for (pieces in PieceCount.entries) {
+                val wide = JigsawCut.gridFor(h, w, pieces)
+                assertEquals(Grid(rows = wide.cols, cols = wide.rows), JigsawCut.gridFor(w, h, pieces), "$w×$h $pieces")
+            }
+        }
+    }
+
     private companion object {
         // Indices into JigsawCut.outline(), which runs clockwise from the top edge.
         const val TOP = 0
