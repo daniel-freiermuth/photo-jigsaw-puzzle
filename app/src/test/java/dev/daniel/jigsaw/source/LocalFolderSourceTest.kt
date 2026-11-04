@@ -9,13 +9,17 @@ import org.junit.jupiter.api.assertThrows
 
 class LocalFolderSourceTest {
 
-    /** Folders by document id; a document's URI is `content://t/<id>`. */
-    private class FakeTree(private val folders: Map<String, List<Document>>) : DocumentTree {
+    /** Folders by document id; a document's URI is `content://t/<id>`. Listing a folder in [gone] fails as missing. */
+    private class FakeTree(
+        private val folders: Map<String, List<Document>>,
+        private val gone: Set<String> = emptySet(),
+    ) : DocumentTree {
         val listed = mutableListOf<String>()
         override val rootId = "root"
 
         override fun children(documentId: String): List<Document> {
             listed += documentId
+            if (documentId in gone) throw java.io.FileNotFoundException(documentId)
             return folders.getValue(documentId)
         }
 
@@ -84,6 +88,24 @@ class LocalFolderSourceTest {
     @Test
     fun `a folder with exactly 200 folders is listed in full`() = runTest {
         assertEquals(200, list(folderChain(depth = 200)).listImages().size)
+    }
+
+    @Test
+    fun `a subfolder deleted while the folder is walked is skipped, the rest still listed`() = runTest {
+        val tree = FakeTree(
+            mapOf(
+                "root" to listOf(folder("root/gone"), folder("root/sub"), file("root/a.jpg", "image/jpeg")),
+                "root/sub" to listOf(file("root/sub/b.jpg", "image/jpeg")),
+            ),
+            gone = setOf("root/gone"),
+        )
+        assertEquals(listOf("a.jpg", "b.jpg"), list(tree).listImages().map { it.name })
+    }
+
+    @Test
+    fun `a picked folder that is gone still fails the listing`() = runTest {
+        val tree = FakeTree(emptyMap(), gone = setOf("root"))
+        assertThrows<java.io.FileNotFoundException> { list(tree).listImages() }
     }
 
     /** [depth] nested folders (the root included), each holding one picture and the next folder. */
