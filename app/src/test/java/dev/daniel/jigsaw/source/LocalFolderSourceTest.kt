@@ -99,3 +99,31 @@ class LocalFolderSourceTest {
         )
     }
 }
+
+class ReadDocumentTest {
+
+    /** ExternalStorageProvider's isChildDocument check on a tree URI fails this way when it can't resolve a file. */
+    private val notAChild = IllegalArgumentException("Failed to determine if primary:a.jpg is child of primary:")
+
+    @Test
+    fun `a picture deleted since the listing is reported as a missing file, not an unreadable folder`() {
+        val e = assertThrows<java.io.IOException> {
+            readDocument("content://t/primary%3Aa.jpg", folderReadable = { true }) { throw notAChild }
+        }
+        assertEquals(java.io.FileNotFoundException::class.java, e.javaClass)
+    }
+
+    @Test
+    fun `a picture whose folder or storage is gone is reported as an unavailable folder`() {
+        assertThrows<FolderUnavailableException> {
+            readDocument("content://t/primary%3Aa.jpg", folderReadable = { false }) { throw notAChild }
+        }
+    }
+
+    @Test
+    fun `a revoked grant is still reported as an unavailable folder`() {
+        assertThrows<FolderUnavailableException> {
+            readDocument("content://t/a", folderReadable = { true }) { throw SecurityException("Permission Denial") }
+        }
+    }
+}
