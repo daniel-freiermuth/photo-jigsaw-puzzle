@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.source
 
 import android.content.ContentResolver
+import android.database.Cursor
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
@@ -15,8 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
 import java.io.IOException
-
 import java.io.InputStream
+
 /**
  * Lists the pictures in a folder on the device, including its subfolders. The folder comes from the
  * system folder picker (Storage Access Framework), so the app needs no storage permission; files and
@@ -33,7 +34,15 @@ class LocalFolderSource(
         var visited = 0
         while (pending.isNotEmpty() && visited < MAX_FOLDERS) {
             visited++
-            for (document in tree.children(pending.removeFirst())) {
+            val id = pending.removeFirst()
+            val children = try {
+                tree.children(id)
+            } catch (e: FileNotFoundException) {
+                // A subfolder deleted since its parent was listed holds no pictures; the picked folder must exist.
+                if (id == tree.rootId) throw e
+                emptyList()
+            }
+            for (document in children) {
                 when {
                     document.name.startsWith(".") -> Unit
                     document.isFolder -> pending.addLast(document.id)
@@ -77,7 +86,10 @@ data class Document(
 interface DocumentTree {
     val rootId: String
 
-    /** The folder's direct children; throws [IOException] if it can't be read. */
+    /**
+     * The folder's direct children; throws [FileNotFoundException] if the folder is gone while the tree's root is
+     * still there, any other [IOException] if it can't be read.
+     */
     fun children(documentId: String): List<Document>
 
     /** The `content://` URI a document's bytes are read from. */
@@ -94,8 +106,7 @@ class ResolverDocumentTree(private val resolver: ContentResolver, treeUri: Strin
 
     override fun children(documentId: String): List<Document> {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, documentId)
-        val cursor = folderAccess { resolver.query(children, COLUMNS, null, null, null) }
-            ?: throw FolderUnavailableException()
+        val cursor = queryChildren(children, documentId) ?: throw FolderUnavailableException()
         return cursor.use { c ->
             buildList {
                 while (c.moveToNext()) {
@@ -113,6 +124,14 @@ class ResolverDocumentTree(private val resolver: ContentResolver, treeUri: Strin
                 }
             }
         }
+    }
+
+    private fun queryChildren(children: Uri, documentId: String): Cursor? = try {
+        folderAccess { resolver.query(children, COLUMNS, null, null, null) }
+    } catch (e: FolderUnavailableException) {
+        // ExternalStorageProvider's isChildDocument check fails this way for a subfolder that is gone too.
+        val missing = e.cause is IllegalArgumentException && documentId != rootId && resolver.treeRootReadable(tree)
+        throw if (missing) FileNotFoundException(documentId).apply { initCause(e.cause) } else e
     }
 
     override fun uri(documentId: String): String =
@@ -158,6 +177,20 @@ internal fun readDocument(uri: String, folderReadable: () -> Boolean, open: () -
     throw FileNotFoundException(uri).apply { initCause(e) }
 } ?: throw FileNotFoundException(uri)
 
+/**
+ * Whether the root of the tree [uri] (a tree URI or a document URI under one) belongs to still resolves. A
+ * provider returns no cursor for a root document that is gone (DocumentsProvider.query swallows queryDocument's
+ * FileNotFoundException).
+ */
+internal fun ContentResolver.treeRootReadable(uri: Uri): Boolean = try {
+    val root = DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))
+    query(root, arrayOf(COLUMN_DOCUMENT_ID), null, null, null)?.use { it.moveToFirst() } == true
+} catch (_: SecurityException) {
+    false
+} catch (_: IllegalArgumentException) {
+    false
+}
+
 /** Document providers report a folder that is gone or no longer granted with these, rather than IOExceptions. */
 internal inline fun <T> folderAccess(block: () -> T): T = try {
     block()
@@ -177,19 +210,5 @@ internal fun String.isPuzzleImage(): Boolean {
 fun folderPath(treeUri: String): String = try {
     DocumentsContract.getTreeDocumentId(treeUri.toUri())
 } catch (_: IllegalArgumentException) {
-/**
- * Whether the root of the tree [uri] (a tree URI or a document URI under one) belongs to still resolves. A
- * provider returns no cursor for a root document that is gone (DocumentsProvider.query swallows queryDocument's
- * FileNotFoundException).
- */
-internal fun ContentResolver.treeRootReadable(uri: Uri): Boolean = try {
-    val root = DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))
-    query(root, arrayOf(COLUMN_DOCUMENT_ID), null, null, null)?.use { it.moveToFirst() } == true
-} catch (_: SecurityException) {
-    false
-} catch (_: IllegalArgumentException) {
-    false
-}
-
     treeUri
 }
