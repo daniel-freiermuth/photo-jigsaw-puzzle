@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.source
 
 import android.content.ContentResolver
+import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
 import android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID
@@ -15,6 +16,7 @@ import kotlinx.coroutines.withContext
 import java.io.FileNotFoundException
 import java.io.IOException
 
+import java.io.InputStream
 /**
  * Lists the pictures in a folder on the device, including its subfolders. The folder comes from the
  * system folder picker (Storage Access Framework), so the app needs no storage permission; files and
@@ -136,8 +138,24 @@ class ResolverDocumentTree(private val resolver: ContentResolver, treeUri: Strin
 class FolderUnavailableException(cause: Throwable? = null) : IOException("The folder can't be read", cause)
 
 /** The document's bytes, from [uri]. */
-internal fun readDocument(resolver: ContentResolver, uri: String): ByteArray = folderAccess {
-    resolver.openInputStream(uri.toUri())?.use { it.readBytes() }
+internal fun readDocument(resolver: ContentResolver, uri: String): ByteArray =
+    readDocument(uri, folderReadable = { resolver.treeRootReadable(uri.toUri()) }) {
+        resolver.openInputStream(uri.toUri())
+    }
+
+/**
+ * The bytes [open] gives for [uri]. On a tree URI, ExternalStorageProvider reports a document it can't resolve
+ * with an IllegalArgumentException (its isChildDocument check fails), whether the document, the picked folder or
+ * the storage holding it is gone, so [folderReadable] tells the missing file apart from the missing folder.
+ * A lost grant (SecurityException) means the folder is unavailable.
+ */
+internal fun readDocument(uri: String, folderReadable: () -> Boolean, open: () -> InputStream?): ByteArray = try {
+    open()?.use { it.readBytes() }
+} catch (e: SecurityException) {
+    throw FolderUnavailableException(e)
+} catch (e: IllegalArgumentException) {
+    if (!folderReadable()) throw FolderUnavailableException(e)
+    throw FileNotFoundException(uri).apply { initCause(e) }
 } ?: throw FileNotFoundException(uri)
 
 /** Document providers report a folder that is gone or no longer granted with these, rather than IOExceptions. */
@@ -159,5 +177,19 @@ internal fun String.isPuzzleImage(): Boolean {
 fun folderPath(treeUri: String): String = try {
     DocumentsContract.getTreeDocumentId(treeUri.toUri())
 } catch (_: IllegalArgumentException) {
+/**
+ * Whether the root of the tree [uri] (a tree URI or a document URI under one) belongs to still resolves. A
+ * provider returns no cursor for a root document that is gone (DocumentsProvider.query swallows queryDocument's
+ * FileNotFoundException).
+ */
+internal fun ContentResolver.treeRootReadable(uri: Uri): Boolean = try {
+    val root = DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))
+    query(root, arrayOf(COLUMN_DOCUMENT_ID), null, null, null)?.use { it.moveToFirst() } == true
+} catch (_: SecurityException) {
+    false
+} catch (_: IllegalArgumentException) {
+    false
+}
+
     treeUri
 }
