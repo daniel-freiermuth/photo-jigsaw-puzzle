@@ -3,6 +3,7 @@ package dev.daniel.jigsaw.source
 import android.content.ContentResolver
 import android.database.Cursor
 import android.net.Uri
+import android.os.Build
 import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME
 import android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID
@@ -200,13 +201,22 @@ internal inline fun <T> folderAccess(block: () -> T): T = try {
     throw FolderUnavailableException(e)
 }
 
-/** A MIME type the puzzle can decode: the raster formats BitmapFactory reads (no TIFF, PSD or SVG). */
-internal fun String.isPuzzleImage(): Boolean = substringBefore(';').trim().lowercase() in decodableImageTypes
+/**
+ * A MIME type the puzzle can decode on API [sdkInt]: the raster formats BitmapFactory reads (no TIFF, PSD or SVG).
+ * HEIF decodes from Android 9 and AVIF from Android 12.
+ */
+internal fun String.isPuzzleImage(sdkInt: Int = Build.VERSION.SDK_INT): Boolean =
+    when (substringBefore(';').trim().lowercase()) {
+        in decodableImageTypes -> true
+        "image/heic", "image/heif" -> sdkInt >= Build.VERSION_CODES.P
+        "image/avif" -> sdkInt >= Build.VERSION_CODES.S
+        else -> false
+    }
 
 private val decodableImageTypes = setOf(
     "image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/gif", "image/webp",
     "image/bmp", "image/x-ms-bmp", "image/vnd.wap.wbmp", "image/x-icon", "image/vnd.microsoft.icon",
-    "image/heic", "image/heif", "image/avif", "image/x-adobe-dng",
+    "image/x-adobe-dng",
 )
 
 /** The folder's path for display, e.g. `primary:DCIM/Camera`; [treeUri] as given if it isn't a tree URI. */
