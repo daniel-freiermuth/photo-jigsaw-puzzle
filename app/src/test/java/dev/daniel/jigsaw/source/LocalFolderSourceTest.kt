@@ -151,3 +151,13 @@ class ReadDocumentTest {
         }
     }
 }
+
+class PuzzleImageTypeTest {
+    @Test
+    fun `HEIF and AVIF count as pictures only on the API levels BitmapFactory decodes them`() {
+        assertEquals(listOf(false, true, true), listOf(26, 28, 31).map { "image/heic".isPuzzleImage(it) })
+        assertEquals(listOf(false, true), listOf(27, 28).map { "image/heif".isPuzzleImage(it) })
+        assertEquals(listOf(false, true), listOf(30, 31).map { "image/avif".isPuzzleImage(it) })
+        assertEquals(true, "image/jpeg".isPuzzleImage(26))
+    }
+}
