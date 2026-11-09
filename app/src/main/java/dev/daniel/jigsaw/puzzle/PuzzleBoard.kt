@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.puzzle
 
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.random.Random
 
@@ -321,17 +322,22 @@ fun PuzzleBoard.keepAllReachable(screen: Bounds, tray: Bounds, random: Random) {
 }
 
 /** Whether any piece's centre lies inside the target area of a [grid]-sized board, i.e. the puzzle has begun. */
-fun BoardSnapshot.anyOnBoard(grid: Grid): Boolean = xs.indices.any { i ->
-    val cx = xs[i] + PuzzleBoard.PIECE_CENTER
-    val cy = ys[i] + PuzzleBoard.PIECE_CENTER
-    cx in 0f..grid.cols.toFloat() && cy in 0f..grid.rows.toFloat()
+fun BoardSnapshot.anyOnBoard(grid: Grid): Boolean = xs.indices.any { i -> isOnBoard(xs[i], ys[i], grid) }
+
+/** Whether the centre of the piece whose cell corner is at ([x], [y]) lies on a [grid]-sized board. */
+private fun isOnBoard(x: Float, y: Float, grid: Grid): Boolean {
+    val cx = x + PuzzleBoard.PIECE_CENTER
+    val cy = y + PuzzleBoard.PIECE_CENTER
+    return cx in 0f..grid.cols.toFloat() && cy in 0f..grid.rows.toFloat()
 }
 
 /**
  * The same layout switched to [rotatable] mode: each group (joined pieces stay joined) is turned a
  * random number of quarter turns when enabling, or back upright when disabling. Each group turns in
  * place: its bounding box keeps the corner facing the board, so a group lying beside the board (as
- * in the tray) stays beside it rather than swinging onto it, where it would count as placed.
+ * in the tray) stays beside it rather than swinging onto it, where it would count as placed. A group
+ * off the board that the turn would still bring onto it (such as an L wrapped around a board corner)
+ * is pushed the shortest way to just past a board edge.
  */
 fun BoardSnapshot.withRotatable(
     rotatable: Boolean,
@@ -343,6 +349,8 @@ fun BoardSnapshot.withRotatable(
     val board = PuzzleBoard(grid, copy(rotatable = true), cellAspect)
     for (pivot in groups.indices.distinctBy { groups[it] }) {
         val members = groups.indices.filter { groups[it] == groups[pivot] }
+        fun onBoard() = members.any { isOnBoard(board.x(it), board.y(it), grid) }
+        val wasOnBoard = onBoard()
 
         // Span of the members' cell corners (x, y), not of the cells themselves.
         fun corners() = Bounds(
@@ -361,6 +369,16 @@ fun BoardSnapshot.withRotatable(
             if (before.minX + before.maxX + 1 >= grid.cols) before.minX - after.minX else before.maxX - after.maxX,
             if (before.minY + before.maxY + 1 >= grid.rows) before.minY - after.minY else before.maxY - after.maxY,
         )
+        if (!wasOnBoard && onBoard()) {
+            val turned = corners()
+            val (dx, dy) = listOf(
+                grid.cols - turned.minX to 0f,
+                -1f - turned.maxX to 0f,
+                0f to grid.rows - turned.minY,
+                0f to -1f - turned.maxY,
+            ).minBy { (dx, dy) -> abs(dx) + abs(dy) }
+            board.moveGroup(pivot, dx, dy)
+        }
     }
     return board.snapshot.copy(rotatable = rotatable)
 }
