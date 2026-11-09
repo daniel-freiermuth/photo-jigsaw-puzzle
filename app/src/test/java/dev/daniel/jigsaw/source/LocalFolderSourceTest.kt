@@ -214,4 +214,14 @@ class PuzzleImageTypeTest {
         assertEquals(listOf(false, true), listOf(30, 31).map { "image/avif".isPuzzleImage(it) })
         assertEquals(true, "image/jpeg".isPuzzleImage(26))
     }
+
+    @Test
+    fun `camera RAW types the platform decoder reads count as pictures, like DNG`() {
+        val raw = listOf(
+            "image/x-adobe-dng", "image/x-canon-cr2", "image/x-fuji-raf", "image/x-nikon-nef", "image/x-nikon-nrw",
+            "image/x-olympus-orf", "image/x-panasonic-rw2", "image/x-pentax-pef", "image/x-samsung-srw",
+            "image/x-sony-arw",
+        )
+        assertEquals(raw.map { it to true }, raw.map { it to it.isPuzzleImage(26) })
+    }
 }
