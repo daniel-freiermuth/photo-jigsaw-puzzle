@@ -65,6 +65,32 @@ class SavedPuzzleTest {
     }
 
     @Test
+    fun `turning a joined corner hugging the board's corner does not swing it onto the board`() {
+        val grid = Grid(rows = 4, cols = 4)
+        // Pieces 11, 14 and 15, the picture's bottom-right corner, joined into an L wrapped around the
+        // board's bottom-right corner, every centre off the board; the rest loose in the tray below.
+        val corner = mapOf(11 to (4.2f to 3.2f), 14 to (3.2f to 4.2f), 15 to (4.2f to 4.2f))
+        val board = BoardSnapshot(
+            xs = List(16) { corner[it]?.first ?: (it % 8 * 1.2f) },
+            ys = List(16) { corner[it]?.second ?: (6f + it / 8 * 1.2f) },
+            groups = List(16) { if (it in corner) 11 else it },
+            locked = List(16) { false },
+            order = (0 until 16).toList(),
+        )
+        // Pieces 0 to 10 come first, one draw each, so the twelfth draw picks the L's turns.
+        for (quarters in 1 until PuzzleBoard.QUARTERS) {
+            val seed = (0L..1000L).first { s ->
+                Random(s).let { r -> List(12) { r.nextInt(PuzzleBoard.QUARTERS) }.last() } == quarters
+            }
+            val saved = SavedPuzzle.InProgress(grid = grid, seed = seed, board = board)
+            assertFalse(saved.started)
+            val turned = saved.withRotation(rotatePieces = true, cellAspect = 1f)
+            assertEquals(quarters, turned.board.turns[11])
+            assertFalse(turned.started, "turned $quarters quarters")
+        }
+    }
+
+    @Test
     fun `a started puzzle or one already in the requested mode is left alone`() {
         val saved = unstarted(rotatable = false)
         assertSame(saved, saved.withRotation(rotatePieces = false, cellAspect = 1f))
