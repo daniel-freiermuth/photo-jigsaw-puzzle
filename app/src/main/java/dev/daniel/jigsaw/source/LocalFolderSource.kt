@@ -148,9 +148,10 @@ class ResolverDocumentTree(private val resolver: ContentResolver, treeUri: Strin
 }
 
 /**
- * The children cursor [query] gives for the folder [documentId]. ExternalStorageProvider's isChildDocument check
- * fails with an IllegalArgumentException for a subfolder that is gone too, so [rootReadable] tells the missing
- * subfolder ([FileNotFoundException]) apart from the missing tree ([FolderUnavailableException]).
+ * The children cursor [query] gives for the folder [documentId]. A subfolder that is gone shows up as no cursor, or
+ * on ExternalStorageProvider as an IllegalArgumentException from its isChildDocument check, the same way a missing
+ * tree does, so [rootReadable] tells the missing subfolder ([FileNotFoundException]) apart from the missing tree
+ * ([FolderUnavailableException]).
  */
 internal fun <T : Any> queryFolder(
     documentId: String,
@@ -164,7 +165,9 @@ internal fun <T : Any> queryFolder(
         val missing = e.cause is IllegalArgumentException && !isRoot && rootReadable()
         throw if (missing) FileNotFoundException(documentId).apply { initCause(e.cause) } else e
     }
-    return cursor ?: throw FolderUnavailableException()
+    // DocumentsProvider.query returns no cursor when queryChildDocuments can't find the folder.
+    val missing = cursor == null && !isRoot && rootReadable()
+    return cursor ?: throw if (missing) FileNotFoundException(documentId) else FolderUnavailableException()
 }
 
 /** The folder is gone, or the app lost its access to it (e.g. the storage holding it was removed). */
