@@ -1,9 +1,11 @@
 package dev.daniel.jigsaw.ui
 
 import dev.daniel.jigsaw.R
+import dev.daniel.jigsaw.source.FolderUnavailableException
 import dev.daniel.jigsaw.source.HttpStatusException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.io.FileNotFoundException
 import java.io.IOException
 
 class UiTextTest {
@@ -13,6 +15,15 @@ class UiTextTest {
         assertEquals(UiText(R.string.error_access_denied), HttpStatusException(403, "u").toUiText())
         assertEquals(UiText(R.string.error_not_found), HttpStatusException(404, "u").toUiText())
         assertEquals(UiText(R.string.error_http, listOf(502)), HttpStatusException(502, "u").toUiText())
+    }
+
+    @Test
+    fun `an unreadable folder and a vanished file get their own explanation`() {
+        assertEquals(
+            UiText(R.string.error_folder_unavailable),
+            FolderUnavailableException(SecurityException("Permission Denial")).toUiText(),
+        )
+        assertEquals(UiText(R.string.error_file_missing), FileNotFoundException("content://t/a.jpg").toUiText())
     }
 
     @Test
