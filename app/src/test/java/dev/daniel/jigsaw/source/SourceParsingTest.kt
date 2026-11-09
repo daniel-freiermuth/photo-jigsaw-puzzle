@@ -110,5 +110,33 @@ class SourceParsingTest {
         )
     }
 
+    @Test
+    fun `source store drops entries whose link or folder can't become a source`() {
+        val json = """
+            [
+              {"type": "immich", "id": "1", "label": "No share", "url": "https://p/photos"},
+              {"type": "immich", "id": "2", "label": "Not a URL", "url": "not a url"},
+              {"type": "folder", "id": "3", "label": "Not a tree", "uri": "content://p/document/x"},
+              {"type": "folder", "id": "4", "label": "Pics", "uri": "content://p/tree/x"},
+              {"type": "folder", "id": "5", "label": "Query in authority", "uri": "content://p?x/tree/y"},
+              {"type": "folder", "id": "6", "label": "Fragment in authority", "uri": "content://p#/tree/y"},
+              {"type": "folder", "id": "7", "label": "Opaque", "uri": "content:tree/y"},
+              {"type": "folder", "id": "8", "label": "Empty segments", "uri": "content://p//tree//x"},
+              {"type": "folder", "id": "9", "label": "Encoded", "uri": "content://p/%74ree/x"},
+              {"type": "folder", "id": "10", "label": "Backslash in authority", "uri": "content://p\\/tree/x"},
+              {"type": "folder", "id": "11", "label": "Non-ASCII digits", "uri": "content://p/%\u0667\u0664ree/x"},
+              {"type": "folder", "id": "12", "label": "Fullwidth digits", "uri": "content://p/%\uFF17\uFF14ree/x"}
+            ]
+        """.trimIndent()
+        assertEquals(
+            listOf(
+                SourceConfig.LocalFolder("4", "Pics", "content://p/tree/x"),
+                SourceConfig.LocalFolder("8", "Empty segments", "content://p//tree//x"),
+                SourceConfig.LocalFolder("9", "Encoded", "content://p/%74ree/x"),
+            ),
+            SourceStore.decode(json),
+        )
+    }
+
     private fun millis(iso: String) = Instant.parse(iso).toEpochMilli()
 }
