@@ -22,6 +22,9 @@ class SourceStore(context: Context) {
         private const val KEY = "sources"
         private const val TAG = "SourceStore"
 
+        /** `%` and two hex digits. */
+        private const val ESCAPE_LENGTH = 3
+
         fun encode(sources: List<SourceConfig>): String = WireJson.encodeToString(sources)
 
         /**
@@ -38,12 +41,67 @@ class SourceStore(context: Context) {
             // One entry at a time, so a single unknown `type` or broken entry costs only that source.
             return entries.mapIndexedNotNull { index, entry ->
                 try {
-                    WireJson.decodeFromJsonElement<SourceConfig>(entry)
+                    WireJson.decodeFromJsonElement<SourceConfig>(entry).also(::requireBuildable)
                 } catch (e: SerializationException) {
                     Log.w(TAG, "Dropping unreadable stored source #$index", e)
                     null
+                } catch (e: IllegalArgumentException) {
+                    Log.w(TAG, "Dropping stored source #$index that can't become a source", e)
+                    null
                 }
             }
+        }
+
+        /** Throws [IllegalArgumentException] where [toImageSource] would, without needing Android. */
+        private fun requireBuildable(config: SourceConfig) {
+            when (config) {
+                is SourceConfig.ImmichShare -> ImmichShareSource.parseShareUrl(config.url)
+
+                // As DocumentsContract.getTreeDocumentId requires: path segments starting `tree`, `<id>`.
+                is SourceConfig.LocalFolder -> {
+                    val segments = uriPathSegments(config.uri)
+                    require(segments.size >= 2 && segments[0] == "tree") { "Not a folder tree URI: ${config.uri}" }
+                }
+            }
+        }
+
+        /**
+         * What `Uri.parse(uri).pathSegments` returns, as android.net.Uri's StringUri parses it: an opaque URI has
+         * none, the authority ends at `/`, `\` (WHATWG host state), `?` or `#`, the path at `?` or `#`, and segments
+         * are non-empty and percent-decoded.
+         */
+        private fun uriPathSegments(uri: String): List<String> {
+            val schemeEnd = uri.indexOf(':')
+            if (schemeEnd >= 0 && uri.getOrNull(schemeEnd + 1) != '/') return emptyList()
+            var pathStart = schemeEnd + 1
+            if (uri.startsWith("//", pathStart)) {
+                // An authority ending at `?` or `#` leaves an empty path: the search below ends it right there.
+                val authorityEnd = uri.indexOfAny(charArrayOf('/', '\\', '?', '#'), pathStart + 2)
+                pathStart = if (authorityEnd < 0) uri.length else authorityEnd
+            }
+            val pathEnd = uri.indexOfAny(charArrayOf('?', '#'), pathStart).let { if (it < 0) uri.length else it }
+            return uri.substring(pathStart, pathEnd).split('/').filter { it.isNotEmpty() }.map(::percentDecode)
+        }
+
+        /** Like `Uri.decode`: only ASCII hex digits escape, and malformed escapes become U+FFFD rather than failing. */
+        private fun percentDecode(segment: String): String {
+            if ('%' !in segment) return segment
+            val bytes = java.io.ByteArrayOutputStream()
+            var i = 0
+            while (i < segment.length) {
+                val c = segment[i]
+                val escape = if (c == '%' && i + 2 < segment.length) segment.substring(i + 1, i + ESCAPE_LENGTH) else ""
+                val isEscape = escape.length == 2 && escape.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }
+                val hex = if (isEscape) escape.toInt(16) else null
+                if (hex != null) {
+                    bytes.write(hex)
+                    i += ESCAPE_LENGTH
+                } else {
+                    bytes.write((if (c == '%') "\uFFFD" else c.toString()).toByteArray(Charsets.UTF_8))
+                    i++
+                }
+            }
+            return bytes.toString(Charsets.UTF_8.name())
         }
     }
 }
