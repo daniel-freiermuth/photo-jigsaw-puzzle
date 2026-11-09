@@ -4,15 +4,21 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class LocalFolderSourceTest {
 
-    /** Folders by document id; a document's URI is `content://t/<id>`. Listing a folder in [gone] fails as missing. */
+    /**
+     * Folders by document id; a document's URI is `content://t/<id>`. Listing a folder in [gone] fails as missing,
+     * one in [unavailable] as unreadable (revoked grant, removed storage).
+     */
     private class FakeTree(
         private val folders: Map<String, List<Document>>,
         private val gone: Set<String> = emptySet(),
+        private val unavailable: Set<String> = emptySet(),
     ) : DocumentTree {
         val listed = mutableListOf<String>()
         override val rootId = "root"
@@ -20,6 +26,7 @@ class LocalFolderSourceTest {
         override fun children(documentId: String): List<Document> {
             listed += documentId
             if (documentId in gone) throw java.io.FileNotFoundException(documentId)
+            if (documentId in unavailable) throw FolderUnavailableException(SecurityException("Permission Denial"))
             return folders.getValue(documentId)
         }
 
@@ -110,6 +117,26 @@ class LocalFolderSourceTest {
         assertThrows<java.io.FileNotFoundException> { list(tree).listImages() }
     }
 
+    @Test
+    fun `a picked folder that can't be read fails the listing`() = runTest {
+        val tree = FakeTree(emptyMap(), unavailable = setOf("root"))
+        assertThrows<FolderUnavailableException> { list(tree).listImages() }
+    }
+
+    @Test
+    fun `a subfolder that can't be read deep in the walk fails the listing rather than leaving it partial`() =
+        runTest {
+            val tree = FakeTree(
+                mapOf(
+                    "root" to listOf(file("root/a.jpg", "image/jpeg"), folder("root/sub")),
+                    "root/sub" to listOf(file("root/sub/b.jpg", "image/jpeg"), folder("root/sub/deep")),
+                ),
+                unavailable = setOf("root/sub/deep"),
+            )
+            assertThrows<FolderUnavailableException> { list(tree).listImages() }
+            assertEquals(listOf("root", "root/sub", "root/sub/deep"), tree.listed)
+        }
+
     /** [depth] nested folders (the root included), each holding one picture and the next folder. */
     private fun folderChain(depth: Int): FakeTree {
         val ids = List(depth) { if (it == 0) "root" else "f$it" }
@@ -149,6 +176,33 @@ class ReadDocumentTest {
         assertThrows<FolderUnavailableException> {
             readDocument("content://t/a", folderReadable = { true }) { throw SecurityException("Permission Denial") }
         }
+    }
+}
+
+class FolderAccessTest {
+
+    // Callers catch only IOException: anything else thrown here crashes the app.
+    @Test
+    fun `a revoked grant becomes an unavailable folder, an IOException keeping the cause`() {
+        val revoked = SecurityException("Permission Denial")
+        val e = assertThrows<java.io.IOException> { folderAccess { throw revoked } }
+        assertInstanceOf(FolderUnavailableException::class.java, e)
+        assertSame(revoked, e.cause)
+    }
+
+    @Test
+    fun `a provider rejecting the document becomes an unavailable folder, an IOException keeping the cause`() {
+        val rejected = IllegalArgumentException("Failed to determine if primary:a is child of primary:")
+        val e = assertThrows<java.io.IOException> { folderAccess { throw rejected } }
+        assertInstanceOf(FolderUnavailableException::class.java, e)
+        assertSame(rejected, e.cause)
+    }
+
+    @Test
+    fun `a result passes through and IOExceptions are left as they are`() {
+        assertEquals(42, folderAccess { 42 })
+        val missing = java.io.FileNotFoundException("a.jpg")
+        assertSame(missing, assertThrows<java.io.IOException> { folderAccess { throw missing } })
     }
 }
 
