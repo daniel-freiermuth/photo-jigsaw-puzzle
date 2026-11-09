@@ -1,7 +1,6 @@
 package dev.daniel.jigsaw.source
 
 import android.content.ContentResolver
-import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
@@ -107,7 +106,9 @@ class ResolverDocumentTree(private val resolver: ContentResolver, treeUri: Strin
 
     override fun children(documentId: String): List<Document> {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, documentId)
-        val cursor = queryChildren(children, documentId) ?: throw FolderUnavailableException()
+        val cursor = queryFolder(documentId, isRoot = documentId == rootId, rootReadable = {
+            resolver.treeRootReadable(tree)
+        }) { resolver.query(children, COLUMNS, null, null, null) }
         return cursor.use { c ->
             buildList {
                 while (c.moveToNext()) {
@@ -127,14 +128,6 @@ class ResolverDocumentTree(private val resolver: ContentResolver, treeUri: Strin
         }
     }
 
-    private fun queryChildren(children: Uri, documentId: String): Cursor? = try {
-        folderAccess { resolver.query(children, COLUMNS, null, null, null) }
-    } catch (e: FolderUnavailableException) {
-        // ExternalStorageProvider's isChildDocument check fails this way for a subfolder that is gone too.
-        val missing = e.cause is IllegalArgumentException && documentId != rootId && resolver.treeRootReadable(tree)
-        throw if (missing) FileNotFoundException(documentId).apply { initCause(e.cause) } else e
-    }
-
     override fun uri(documentId: String): String =
         DocumentsContract.buildDocumentUriUsingTree(tree, documentId).toString()
 
@@ -152,6 +145,26 @@ class ResolverDocumentTree(private val resolver: ContentResolver, treeUri: Strin
         const val LAST_MODIFIED = 3
         const val SIZE = 4
     }
+}
+
+/**
+ * The children cursor [query] gives for the folder [documentId]. ExternalStorageProvider's isChildDocument check
+ * fails with an IllegalArgumentException for a subfolder that is gone too, so [rootReadable] tells the missing
+ * subfolder ([FileNotFoundException]) apart from the missing tree ([FolderUnavailableException]).
+ */
+internal fun <T : Any> queryFolder(
+    documentId: String,
+    isRoot: Boolean,
+    rootReadable: () -> Boolean,
+    query: () -> T?,
+): T {
+    val cursor = try {
+        folderAccess(query)
+    } catch (e: FolderUnavailableException) {
+        val missing = e.cause is IllegalArgumentException && !isRoot && rootReadable()
+        throw if (missing) FileNotFoundException(documentId).apply { initCause(e.cause) } else e
+    }
+    return cursor ?: throw FolderUnavailableException()
 }
 
 /** The folder is gone, or the app lost its access to it (e.g. the storage holding it was removed). */
