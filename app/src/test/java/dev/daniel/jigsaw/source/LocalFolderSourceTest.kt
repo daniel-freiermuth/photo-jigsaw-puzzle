@@ -206,6 +206,52 @@ class FolderAccessTest {
     }
 }
 
+class QueryFolderTest {
+
+    /** ExternalStorageProvider's isChildDocument check on a tree URI fails this way when it can't resolve a folder. */
+    private val notAChild = IllegalArgumentException("Failed to determine if primary:a is child of primary:")
+
+    @Test
+    fun `a subfolder the provider has no children for, under a readable root, is reported as missing`() {
+        // DocumentsProvider.query swallows queryChildDocuments' FileNotFoundException and returns no cursor.
+        val e = assertThrows<java.io.IOException> {
+            queryFolder<Any>("primary:a", isRoot = false, rootReadable = { true }) { null }
+        }
+        assertEquals(java.io.FileNotFoundException::class.java, e.javaClass)
+    }
+
+    @Test
+    fun `a subfolder with no children cursor whose root is gone is reported as an unavailable folder`() {
+        assertThrows<FolderUnavailableException> {
+            queryFolder<Any>("primary:a", isRoot = false, rootReadable = { false }) { null }
+        }
+    }
+
+    @Test
+    fun `a picked folder with no children cursor is reported as an unavailable folder`() {
+        assertThrows<FolderUnavailableException> {
+            queryFolder<Any>("primary:", isRoot = true, rootReadable = { true }) { null }
+        }
+    }
+
+    @Test
+    fun `a subfolder failing the provider's child check under a readable root is reported as missing`() {
+        val e = assertThrows<java.io.IOException> {
+            queryFolder<Any>("primary:a", isRoot = false, rootReadable = { true }) { throw notAChild }
+        }
+        assertEquals(java.io.FileNotFoundException::class.java, e.javaClass)
+    }
+
+    @Test
+    fun `a revoked grant is reported as an unavailable folder`() {
+        assertThrows<FolderUnavailableException> {
+            queryFolder<Any>("primary:a", isRoot = false, rootReadable = { true }) {
+                throw SecurityException("Permission Denial")
+            }
+        }
+    }
+}
+
 class PuzzleImageTypeTest {
     @Test
     fun `HEIF and AVIF count as pictures only on the API levels BitmapFactory decodes them`() {
