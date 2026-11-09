@@ -216,7 +216,8 @@ internal fun String.isPuzzleImage(sdkInt: Int = Build.VERSION.SDK_INT): Boolean 
 private val decodableImageTypes = setOf(
     "image/jpeg", "image/jpg", "image/pjpeg", "image/png", "image/gif", "image/webp",
     "image/bmp", "image/x-ms-bmp", "image/vnd.wap.wbmp", "image/x-icon", "image/vnd.microsoft.icon",
-    "image/x-adobe-dng",
+    "image/x-adobe-dng", "image/x-canon-cr2", "image/x-fuji-raf", "image/x-nikon-nef", "image/x-nikon-nrw",
+    "image/x-olympus-orf", "image/x-panasonic-rw2", "image/x-pentax-pef", "image/x-samsung-srw", "image/x-sony-arw",
 )
 
 /** The folder's path for display, e.g. `primary:DCIM/Camera`; [treeUri] as given if it isn't a tree URI. */
