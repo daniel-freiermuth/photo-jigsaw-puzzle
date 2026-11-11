@@ -21,7 +21,7 @@ concurrency:
 jobs:
   apk:
     name: just release-apk
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     outputs:
       version-name: ${{ steps.version.outputs.name }}
@@ -127,7 +127,7 @@ jobs:
   reproducible:
     name: reproduce in F-Droid's build environment
     needs: apk
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 40
     # The image F-Droid's build server runs (Debian trixie, the Android SDK in /opt/android-sdk). Its default
     # JDK is trixie's OpenJDK 21; the build installs OpenJDK 25 from trixie, as the F-Droid recipe does.
@@ -184,7 +184,7 @@ jobs:
     name: publish GitHub Release
     needs: [apk, reproducible]
     if: needs.apk.outputs.release == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       # Creating the release tag and GitHub Release.
