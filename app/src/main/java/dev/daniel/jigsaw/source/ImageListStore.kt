@@ -39,13 +39,30 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
         fun encode(listings: Map<String, List<RemoteImage>>): String =
             WireJson.encodeToString(ListingsFile(FORMAT_VERSION, listings))
 
-        /** Anything unreadable or from another format version counts as no saved list. */
+        /**
+         * Anything unreadable or from another format version counts as no saved list. Pictures whose
+         * URL or headers can't make a request are dropped: loading them would throw outside IOException.
+         */
         fun decode(json: String): Map<String, List<RemoteImage>> = try {
             val saved = WireJson.decodeFromString<ListingsFile>(json)
-            if (saved.version == FORMAT_VERSION) saved.sources else emptyMap()
+            if (saved.version == FORMAT_VERSION) {
+                saved.sources.mapValues { (_, images) ->
+                    images.filter { canRequest(it.thumbnail) && canRequest(it.full) }
+                }
+            } else {
+                emptyMap()
+            }
         } catch (e: SerializationException) {
             Log.w(TAG, "Saved image lists are unreadable, starting with none", e)
             emptyMap()
+        }
+
+        private fun canRequest(resource: ImageResource): Boolean = resource !is HttpResource || try {
+            Http.request(resource)
+            true
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "Dropping saved picture ${resource.url}: not a valid request", e)
+            false
         }
     }
 
