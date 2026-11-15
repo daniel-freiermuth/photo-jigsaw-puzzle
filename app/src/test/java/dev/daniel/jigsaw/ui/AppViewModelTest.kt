@@ -2,9 +2,15 @@ package dev.daniel.jigsaw.ui
 
 import android.app.Application
 import android.content.SharedPreferences
+import android.content.pm.ApplicationInfo
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageBitmapConfig
 import androidx.compose.ui.graphics.colorspace.ColorSpaces
+import androidx.datastore.core.DataStore
+import androidx.datastore.core.DataStoreFactory
+import dev.daniel.jigsaw.AppConfig
+import dev.daniel.jigsaw.AppConfigSerializer
+import dev.daniel.jigsaw.appConfigMigrations
 import dev.daniel.jigsaw.puzzle.Bounds
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.JigsawCut
@@ -19,8 +25,14 @@ import dev.daniel.jigsaw.source.HttpResource
 import dev.daniel.jigsaw.source.ImageResource
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.plus
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
@@ -70,14 +82,34 @@ class AppViewModelTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
     }
 
+    /**
+     * Runs the config stores. Not the test's backgroundScope: advanceUntilIdle doesn't wait for background
+     * work, so the sources and settings would never be read.
+     */
+    private val stores = Job()
+
     @AfterEach
     fun resetMain() {
+        stores.cancel()
         Dispatchers.resetMain()
     }
 
-    /** I/O and decoding queue on one test dispatcher and run when the test advances. */
-    private fun TestScope.viewModel(app: Application = TestApp(tmp)): AppViewModel {
+    /**
+     * I/O and decoding queue on one test dispatcher and run when the test advances. The sources and settings
+     * are read before this returns. [storeScope] runs the config store; cancel it to restart the app.
+     * [wrapStore] lets a test stand between the view model and the store.
+     */
+    private fun TestScope.viewModel(
+        app: TestApp = TestApp(tmp),
+        storeScope: CoroutineScope = CoroutineScope(stores),
+        wrapStore: (DataStore<AppConfig>) -> DataStore<AppConfig> = { it },
+    ): AppViewModel {
         val background = StandardTestDispatcher(testScheduler)
+        val configStore = DataStoreFactory.create(
+            serializer = AppConfigSerializer,
+            migrations = appConfigMigrations(app),
+            scope = storeScope + background,
+        ) { File(app.filesDir, "datastore/config.json") }
         return AppViewModel(
             app,
             ioDispatcher = background,
@@ -85,7 +117,11 @@ class AppViewModelTest {
             clock = { testScheduler.currentTime },
             fetchImage = { fetch(it) },
             decodePicture = { bytes, _ -> decode(bytes) },
-        )
+            configStore = wrapStore(configStore),
+        ).also {
+            advanceUntilIdle()
+            assertTrue(it.loaded)
+        }
     }
 
     private fun decode(bytes: ByteArray) = sizes[bytes.decodeToString()]?.let { (w, h) -> FakePicture(w, h) }
@@ -207,7 +243,7 @@ class AppViewModelTest {
     @Test
     fun `an unfinished board is saved and tiled with its seed, piece count and layout`() = runTest {
         val vm = viewModel()
-        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P48))
+        vm.updateSettings { it.copy(pieces = PieceCount.P48) }
         vm.openImage(image)
         advanceUntilIdle()
         val game = vm.game
@@ -267,7 +303,7 @@ class AppViewModelTest {
         old.scatter()
         old.placeFirstPiece()
         vm.back()
-        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P96))
+        vm.updateSettings { it.copy(pieces = PieceCount.P96) }
 
         vm.openImage(image)
         advanceUntilIdle()
@@ -288,7 +324,7 @@ class AppViewModelTest {
         vm.back()
         advanceUntilIdle()
         assertInstanceOf(SavedPuzzle.InProgress::class.java, saved)
-        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P96))
+        vm.updateSettings { it.copy(pieces = PieceCount.P96) }
 
         vm.openImage(image)
         advanceUntilIdle()
@@ -301,8 +337,11 @@ class AppViewModelTest {
 
     @Test
     fun `a stored piece count this version does not offer loads as the default`() = runTest {
+        // A fresh app (files and preferences) per value, as each one is moved into the new store only once.
         fun storedPieces(target: Int) = viewModel(
-            TestApp(tmp).apply { getSharedPreferences("settings", 0).edit().putInt("pieces", target).apply() },
+            TestApp(File(tmp, "$target")).apply {
+                getSharedPreferences("settings", 0).edit().putInt("pieces", target).apply()
+            },
         ).settings.pieces
 
         assertEquals(PieceCount.P96, storedPieces(PieceCount.P96.target))
@@ -316,7 +355,7 @@ class AppViewModelTest {
         sizes[image.image.thumbnail.location] = 255 to 250
         sizes[image.image.full.location] = 1471 to 1440
         val vm = viewModel()
-        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P12))
+        vm.updateSettings { it.copy(pieces = PieceCount.P12) }
 
         vm.openImage(image)
         advanceUntilIdle()
@@ -330,7 +369,7 @@ class AppViewModelTest {
         sizes[image.image.full.location] = 1471 to 1440
         fetch = { if (it == image.image.thumbnail) throw IOException("offline") else it.location.encodeToByteArray() }
         val vm = viewModel()
-        vm.updateSettings(PuzzleSettings(pieces = PieceCount.P12))
+        vm.updateSettings { it.copy(pieces = PieceCount.P12) }
 
         vm.openImage(image)
         advanceUntilIdle()
@@ -459,6 +498,82 @@ class AppViewModelTest {
         assertEquals(1, File(tmp, "puzzles").list()!!.size)
     }
 
+    @Test
+    fun `sources and settings saved by earlier versions move to the new store once, then changes stick`() = runTest {
+        val app = TestApp(tmp)
+        // As an earlier version left them (Android's org.json escapes `/`).
+        app.getSharedPreferences("sources", 0).edit()
+            .putString("sources", """[{"type":"immich","id":"src","label":"Pictures","url":"https:\/\/p\/share\/k"}]""")
+            .apply()
+        app.getSharedPreferences("settings", 0).edit()
+            .putBoolean("snapToBoard", true)
+            .putBoolean("rotatePieces", true)
+            .putInt("pieces", PieceCount.P96.target)
+            .apply()
+        val firstRun = CoroutineScope(Job())
+        val migratedSettings = PuzzleSettings(snapToBoard = true, rotatePieces = true, pieces = PieceCount.P96)
+
+        val migrated = viewModel(app, firstRun)
+
+        assertEquals(listOf(source), migrated.sources)
+        assertEquals(migratedSettings, migrated.settings)
+        // Emptied once moved, so the next start doesn't move them again over newer changes.
+        for (name in listOf("sources", "settings")) {
+            assertEquals(emptyMap<String, Any>(), app.getSharedPreferences(name, 0).all, name)
+        }
+
+        migrated.updateSettings { it.copy(pieces = PieceCount.P12) }
+        migrated.removeSource(source.id)
+        advanceUntilIdle()
+        firstRun.cancel()
+        val restarted = viewModel(app)
+
+        assertEquals(emptyList<SourceConfig>(), restarted.sources)
+        assertEquals(migratedSettings.copy(pieces = PieceCount.P12), restarted.settings)
+    }
+
+    @Test
+    fun `after a failed read, changing one setting keeps the other stored settings`() = runTest {
+        val stored = PuzzleSettings(snapToBoard = true, pieces = PieceCount.P96)
+        File(tmp, "datastore/config.json").apply {
+            parentFile!!.mkdirs()
+            writeText(AppConfigSerializer.encode(AppConfig(settings = stored)))
+        }
+        val firstRun = CoroutineScope(Job())
+        val vm = viewModel(storeScope = firstRun, wrapStore = ::UnreadableStore)
+        assertEquals(PuzzleSettings(), vm.settings)
+
+        // As the Settings screen turns on rotation.
+        vm.updateSettings { it.copy(rotatePieces = true) }
+        advanceUntilIdle()
+        firstRun.cancel()
+
+        assertEquals(stored.copy(rotatePieces = true), viewModel().settings)
+    }
+
+    @Test
+    fun `a failed read keeps the puzzle saves of the stored sources`() = runTest {
+        File(tmp, "datastore/config.json").apply {
+            parentFile!!.mkdirs()
+            writeText(AppConfigSerializer.encode(AppConfig(sources = listOf(source))))
+        }
+        PuzzleStore(File(tmp, "puzzles")).save(image.puzzleKey, SavedPuzzle.Solved)
+
+        val vm = viewModel(wrapStore = ::UnreadableStore)
+        advanceUntilIdle()
+
+        // Read as no sources, but not taken as all of them removed.
+        assertEquals(emptyList<SourceConfig>(), vm.sources)
+        assertEquals(SavedPuzzle.Solved, saved)
+    }
+
+    /** A config store whose reads fail; writes reach [store]. */
+    private class UnreadableStore(private val store: DataStore<AppConfig>) : DataStore<AppConfig> {
+        override val data: Flow<AppConfig> = flow { throw IOException("Unreadable") }
+
+        override suspend fun updateData(transform: suspend (t: AppConfig) -> AppConfig) = store.updateData(transform)
+    }
+
     /** A [width] × [height] picture whose pieces have no pixels: android.graphics only works on a device. */
     private inner class FakePicture(override val width: Int = 1200, override val height: Int = 800) : PuzzlePicture {
         override fun asImageBitmap(): ImageBitmap = FakeImageBitmap(width, height)
@@ -499,6 +614,9 @@ private class TestApp(private val files: File) : Application() {
 
     override fun getSharedPreferences(name: String, mode: Int): SharedPreferences =
         preferences.getOrPut(name, ::MemoryPreferences)
+
+    /** Where DataStore deletes moved preferences files: Build.VERSION.SDK_INT is 0 in JVM tests. */
+    override fun getApplicationInfo() = ApplicationInfo().apply { dataDir = files.path }
 }
 
 /** In-memory [SharedPreferences]; android.jar only has stubs in JVM tests. */

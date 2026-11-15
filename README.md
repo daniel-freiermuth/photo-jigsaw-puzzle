@@ -155,8 +155,9 @@ secret.
 
 ```
 app/src/main/java/dev/daniel/jigsaw/
+  AppConfig sources and puzzle settings, stored with Jetpack DataStore (files/datastore/config.json)
   source/   ImageSource + local-folder / Immich implementations; Http (disk cache, revisions,
-            offline fallback); persisted SourceStore and ImageListStore (last listings)
+            offline fallback); StoredSources (stored source format) and ImageListStore (last listings)
   puzzle/   JigsawCut (tab geometry), PuzzleBoard (pure game state), PieceRenderer, ImageDecoding
   ui/       Compose screens: gallery (main view), settings, puzzle canvas; AppViewModel; GalleryFeed
             (listing, refresh timing, saved lists); UiText (localised errors)

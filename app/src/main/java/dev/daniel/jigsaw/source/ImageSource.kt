@@ -75,7 +75,7 @@ interface ImageSource {
 
 /**
  * Persisted description of a source, as entered by the user. This is also the stored format (see
- * [SourceStore]): the `type` tag comes from the [SerialName]s and the fields from the property names.
+ * [StoredSources]): the `type` tag comes from the [SerialName]s and the fields from the property names.
  */
 @Serializable
 sealed interface SourceConfig {

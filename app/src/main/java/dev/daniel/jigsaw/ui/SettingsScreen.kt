@@ -70,7 +70,8 @@ fun SettingsScreen(
     onAdd: (SourceConfig) -> Boolean,
     onRemove: (String) -> Unit,
     settings: PuzzleSettings,
-    onSettingsChange: (PuzzleSettings) -> Unit,
+    /** Called with the change to apply, e.g. `{ it.copy(snapToBoard = true) }`. */
+    onSettingsChange: ((PuzzleSettings) -> PuzzleSettings) -> Unit,
     language: AppLanguage,
     onLanguageChange: (AppLanguage) -> Unit,
     onBack: () -> Unit,
@@ -132,15 +133,18 @@ fun SettingsScreen(
     }
 }
 
-private fun LazyListScope.puzzleSettingsItems(settings: PuzzleSettings, onChange: (PuzzleSettings) -> Unit) {
+private fun LazyListScope.puzzleSettingsItems(
+    settings: PuzzleSettings,
+    onChange: ((PuzzleSettings) -> PuzzleSettings) -> Unit,
+) {
     item { SectionHeader(stringResource(R.string.settings_puzzle), Modifier.padding(top = 16.dp)) }
-    item { PieceCountRow(settings.pieces, onSelect = { onChange(settings.copy(pieces = it)) }) }
+    item { PieceCountRow(settings.pieces, onSelect = { pieces -> onChange { it.copy(pieces = pieces) } }) }
     item {
         SwitchRow(
             title = stringResource(R.string.settings_snap),
             description = stringResource(R.string.settings_snap_description),
             checked = settings.snapToBoard,
-            onCheckedChange = { onChange(settings.copy(snapToBoard = it)) },
+            onCheckedChange = { snap -> onChange { it.copy(snapToBoard = snap) } },
         )
     }
     item {
@@ -148,7 +152,7 @@ private fun LazyListScope.puzzleSettingsItems(settings: PuzzleSettings, onChange
             title = stringResource(R.string.settings_rotate),
             description = stringResource(R.string.settings_rotate_description),
             checked = settings.rotatePieces,
-            onCheckedChange = { onChange(settings.copy(rotatePieces = it)) },
+            onCheckedChange = { rotate -> onChange { it.copy(rotatePieces = rotate) } },
         )
     }
 }

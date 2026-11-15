@@ -1,7 +1,6 @@
 package dev.daniel.jigsaw.ui
 
 import android.app.Application
-import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import android.util.Log
@@ -10,10 +9,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.datastore.core.DataStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import dev.daniel.jigsaw.AppConfig
+import dev.daniel.jigsaw.appConfig
 import dev.daniel.jigsaw.puzzle.BitmapPicture
 import dev.daniel.jigsaw.puzzle.CutPuzzle
 import dev.daniel.jigsaw.puzzle.Grid
@@ -31,12 +32,13 @@ import dev.daniel.jigsaw.source.ImageListStore
 import dev.daniel.jigsaw.source.ImageResource
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
-import dev.daniel.jigsaw.source.SourceStore
 import dev.daniel.jigsaw.source.read
 import dev.daniel.jigsaw.source.toImageSource
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -94,6 +96,8 @@ class PuzzleGame(
     var solved by mutableStateOf(false)
 }
 
+// Everything after app is a test seam with the production default: the system creates it from app alone.
+@Suppress("LongParameterList")
 class AppViewModel @JvmOverloads constructor(
     app: Application,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -106,15 +110,18 @@ class AppViewModel @JvmOverloads constructor(
     private val decodePicture: (ByteArray, Int) -> PuzzlePicture = { bytes, maxSide ->
         BitmapPicture(decodeSampled(bytes, maxSide))
     },
+    /** The stored sources and settings. */
+    private val configStore: DataStore<AppConfig> = app.appConfig,
 ) : AndroidViewModel(app) {
-    private val store = SourceStore(app)
-    private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val puzzles = PuzzleStore(File(app.filesDir, "puzzles"))
 
     /** All puzzle-file access runs here, one at a time, so a load always sees the latest save. */
     private val puzzleIo = ioDispatcher.limitedParallelism(1)
 
-    var sources by mutableStateOf(store.load())
+    /** False until the stored [sources] and [settings] are read; until then they are empty and the defaults. */
+    var loaded by mutableStateOf(false)
+        private set
+    var sources by mutableStateOf(emptyList<SourceConfig>())
         private set
     var screen by mutableStateOf<Screen>(Screen.Gallery)
         private set
@@ -125,13 +132,7 @@ class AppViewModel @JvmOverloads constructor(
     var tiles by mutableStateOf<Map<PuzzleKey, SavedPuzzle>>(emptyMap())
         private set
 
-    var settings by mutableStateOf(
-        PuzzleSettings(
-            snapToBoard = prefs.getBoolean(KEY_SNAP_TO_BOARD, false),
-            rotatePieces = prefs.getBoolean(KEY_ROTATE_PIECES, false),
-            pieces = PieceCount.fromTarget(prefs.getInt(KEY_PIECES, PieceCount.DEFAULT.target)),
-        ),
-    )
+    var settings by mutableStateOf(PuzzleSettings())
         private set
 
     private var puzzleJob: Job? = null
@@ -157,18 +158,50 @@ class AppViewModel @JvmOverloads constructor(
     )
 
     init {
-        // Sources dropped on load (types an update removed) never pass through removeSource. Queued first
-        // on puzzleIo, so it runs before any save of a source added from here on.
-        val kept = sources.map { it.id }
-        viewModelScope.launch(puzzleIo) { puzzles.keepOnlySources(kept) }
+        viewModelScope.launch {
+            val stored = try {
+                configStore.data.first()
+            } catch (e: IOException) {
+                Log.w(TAG, "Could not read the stored sources and settings, starting without", e)
+                null
+            }
+            if (stored != null) {
+                sources = stored.sources
+                settings = stored.settings
+                // Sources dropped on load (types an update removed) never pass through removeSource. Queued
+                // before anything can be added, so it runs before any save of a source added from here on.
+                // Not after a failed read: that would delete the saves of every source.
+                val kept = stored.sources.map { it.id }
+                launch(puzzleIo) { puzzles.keepOnlySources(kept) }
+            }
+            loaded = true
+        }
     }
 
-    fun updateSettings(new: PuzzleSettings) {
-        settings = new
-        prefs.edit {
-            putBoolean(KEY_SNAP_TO_BOARD, new.snapToBoard)
-            putBoolean(KEY_ROTATE_PIECES, new.rotatePieces)
-            putInt(KEY_PIECES, new.pieces.target)
+    /**
+     * Applies [change] (e.g. `{ it.copy(snapToBoard = true) }`) to the settings on screen and, separately, to
+     * the stored ones, so a change to one setting never overwrites the others on disk with what is on screen.
+     */
+    fun updateSettings(change: (PuzzleSettings) -> PuzzleSettings) {
+        settings = change(settings)
+        persist { it.copy(settings = change(it.settings)) }
+    }
+
+    /**
+     * Stores [transform] of the stored config; the state on screen already shows the change. Applied to what
+     * is on disk, not to the state on screen, so nothing stored is lost after a failed read. Finishes even
+     * when the view model is cleared right after, and writes land in call order.
+     */
+    private fun persist(transform: (AppConfig) -> AppConfig) {
+        viewModelScope.launch {
+            withContext(NonCancellable) {
+                try {
+                    configStore.updateData(transform)
+                } catch (e: IOException) {
+                    // Nothing to show: the change stays in effect until the app is closed.
+                    Log.w(TAG, "Could not save the sources and settings", e)
+                }
+            }
         }
     }
 
@@ -191,7 +224,7 @@ class AppViewModel @JvmOverloads constructor(
         }
         if (accepted) {
             sources = sources + config
-            store.save(sources)
+            persist { it.copy(sources = it.sources + config) }
             feed.invalidate()
         }
         return accepted
@@ -200,7 +233,7 @@ class AppViewModel @JvmOverloads constructor(
     fun removeSource(id: String) {
         val removed = sources.find { it.id == id } ?: return
         sources = sources - removed
-        store.save(sources)
+        persist { stored -> stored.copy(sources = stored.sources.filterNot { it.id == id }) }
         val folder = (removed as? SourceConfig.LocalFolder)?.uri
         if (folder != null && sources.none { it is SourceConfig.LocalFolder && it.uri == folder }) releaseFolder(folder)
         tiles = tiles.filterKeys { it.sourceId != id }
@@ -376,8 +409,5 @@ class AppViewModel @JvmOverloads constructor(
     private companion object {
         const val TAG = "AppViewModel"
         const val MAX_PUZZLE_SIDE = 1600
-        const val KEY_SNAP_TO_BOARD = "snapToBoard"
-        const val KEY_ROTATE_PIECES = "rotatePieces"
-        const val KEY_PIECES = "pieces"
     }
 }

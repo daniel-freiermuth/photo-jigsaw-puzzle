@@ -51,6 +51,9 @@ internal fun App(
 ) {
     // Hoisted above the screen switch so the gallery's scroll position survives visiting other screens.
     val galleryGrid = rememberLazyGridState()
+    // Nothing to show before the sources and settings are read (one small file, off the main thread), so no
+    // screen ever shows or edits the empty defaults in their place.
+    if (!vm.loaded) return
     BackHandler(enabled = vm.screen != Screen.Gallery) { vm.back() }
     when (val screen = vm.screen) {
         Screen.Gallery -> {

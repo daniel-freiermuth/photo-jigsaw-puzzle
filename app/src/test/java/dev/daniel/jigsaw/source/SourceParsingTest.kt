@@ -67,7 +67,7 @@ class SourceParsingTest {
     }
 
     @Test
-    fun `source store reads what earlier versions saved and writes the same format back`() {
+    fun `stored sources read what earlier versions saved and write the same format back`() {
         val camera = "content://com.android.externalstorage.documents/tree/primary%3ADCIM"
         val sources = listOf(
             SourceConfig.ImmichShare("2", "Im", "https://p/share/k"),
@@ -77,18 +77,18 @@ class SourceParsingTest {
         val saved = """[{"type":"immich","id":"2","label":"Im","url":"https:\/\/p\/share\/k"},""" +
             """{"type":"folder","id":"3","label":"Camera",""" +
             """"uri":"content:\/\/com.android.externalstorage.documents\/tree\/primary%3ADCIM"}]"""
-        assertEquals(sources, SourceStore.decode(saved))
-        assertEquals(Json.parseToJsonElement(saved), Json.parseToJsonElement(SourceStore.encode(sources)))
+        assertEquals(sources, StoredSources.decode(saved))
+        assertEquals(Json.parseToJsonElement(saved), StoredSources.encode(sources))
     }
 
     @Test
-    fun `source store survives unreadable data`() {
-        assertEquals(emptyList<SourceConfig>(), SourceStore.decode("not json"))
-        assertEquals(emptyList<SourceConfig>(), SourceStore.decode("""{"id": "1"}"""))
+    fun `stored sources survive unreadable data`() {
+        assertEquals(emptyList<SourceConfig>(), StoredSources.decode("not json"))
+        assertEquals(emptyList<SourceConfig>(), StoredSources.decode("""{"id": "1"}"""))
     }
 
     @Test
-    fun `source store drops malformed, unknown and no longer supported entries and keeps the rest`() {
+    fun `stored sources drop malformed, unknown and no longer supported entries and keep the rest`() {
         val json = """
             [
               {"type": "immich", "id": "1", "label": "Im", "url": "https://p/share/k"},
@@ -106,12 +106,12 @@ class SourceParsingTest {
                 SourceConfig.ImmichShare("1", "Im", "https://p/share/k"),
                 SourceConfig.LocalFolder("7", "Pics", "content://p/tree/x"),
             ),
-            SourceStore.decode(json),
+            StoredSources.decode(json),
         )
     }
 
     @Test
-    fun `source store drops entries whose link or folder can't become a source`() {
+    fun `stored sources drop entries whose link or folder can't become a source`() {
         val json = """
             [
               {"type": "immich", "id": "1", "label": "No share", "url": "https://p/photos"},
@@ -134,7 +134,7 @@ class SourceParsingTest {
                 SourceConfig.LocalFolder("8", "Empty segments", "content://p//tree//x"),
                 SourceConfig.LocalFolder("9", "Encoded", "content://p/%74ree/x"),
             ),
-            SourceStore.decode(json),
+            StoredSources.decode(json),
         )
     }
 
