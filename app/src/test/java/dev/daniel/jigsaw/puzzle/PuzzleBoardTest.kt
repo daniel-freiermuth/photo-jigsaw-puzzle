@@ -168,6 +168,27 @@ class PuzzleBoardTest {
     }
 
     @Test
+    fun `keepGroupReachable pulls groups back from the left and bottom edges by exactly the overlap`() {
+        val board = scatteredBoard()
+        moveTo(board, 1, 11f, 10f)
+        board.drop(1, snapToBoard = false) // group spans x 10..12, y 10..11
+        // Straddling the left and bottom edges: still reachable, so left where it is.
+        board.keepGroupReachable(0, Bounds(11f, 0f, 30f, 10.75f))
+        assertEquals(10f, board.x(0), 1e-5f)
+        assertEquals(10f, board.y(0), 1e-5f)
+        val leftAndBelow = Bounds(13f, 0f, 30f, 9f)
+        board.keepGroupReachable(0, leftAndBelow)
+        assertEquals(11.5f, board.x(0), 1e-5f) // maxX == 13.5: half a cell inside the left edge
+        assertEquals(8.5f, board.y(0), 1e-5f) // minY == 8.5: half a cell inside the bottom edge
+        assertEquals(board.x(0) + 1f, board.x(1), 1e-5f) // group moved as one
+        assertEquals(board.y(0), board.y(1), 1e-5f)
+        // Exactly at the threshold on both axes: left where it is.
+        board.keepGroupReachable(0, leftAndBelow)
+        assertEquals(11.5f, board.x(0), 1e-5f)
+        assertEquals(8.5f, board.y(0), 1e-5f)
+    }
+
+    @Test
     fun `scatter keeps whole cells within bounds`() {
         val board = PuzzleBoard(Grid(rows = 4, cols = 5))
         board.scatter(Bounds(-2f, 5f, 6f, 9f), Random(42))
