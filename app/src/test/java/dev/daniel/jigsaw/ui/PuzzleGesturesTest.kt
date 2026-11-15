@@ -132,6 +132,39 @@ class PuzzleGesturesTest {
         assertEquals(listOf(CORNER), settled)
     }
 
+    @Test
+    fun `a tap on a solved rotatable puzzle leaves the finished picture upright`() = runTest {
+        // Both pieces joined and upright, but loose (no snap to board): solved wherever the group lies.
+        val solved = PuzzleBoard(
+            Grid(rows = 1, cols = 2),
+            BoardSnapshot(
+                xs = listOf(2f, 3f),
+                ys = listOf(2f, 2f),
+                groups = listOf(0, 0),
+                locked = listOf(false, false),
+                order = listOf(0, 1),
+                turns = listOf(0, 0),
+                rotatable = true,
+            ),
+        )
+        val cut = CutPuzzle(
+            source = FakeImageBitmap(CELL * 2, CELL),
+            board = solved,
+            pieces = List(solved.size) { cellPiece() },
+            cellWidth = CELL.toFloat(),
+            cellHeight = CELL.toFloat(),
+        )
+        val game = PuzzleGame(game.image, 0, game.pieces, cut, Random(0), scattered = true)
+        game.solved = true
+        val screen = PointerInputHost(this) { tapToRotate(game, mutableStateOf(layout), settled::add) }
+        screen.down(0, Offset(350f, 350f)) // on piece 0
+        screen.up(0)
+
+        assertEquals(0, solved.turns(0))
+        assertEquals(true, solved.isSolved)
+        assertEquals(emptyList<Int>(), settled)
+    }
+
     /** A piece whose hit region is exactly its cell (inside the tab padding around it). */
     private fun cellPiece(): PieceImage {
         val pad = (JigsawCut.PAD * CELL).toInt()
