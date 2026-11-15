@@ -56,6 +56,27 @@ class ImageListStoreTest {
     }
 
     @Test
+    fun `pictures whose URL or headers can't make a request are dropped`() {
+        fun image(id: String, thumbnail: String, full: String = """{"type":"http","url":"https://e/$id.png"}""") =
+            """{"id":"$id","name":"$id","thumbnail":$thumbnail,"full":$full}"""
+        val good = """{"type":"http","url":"https://e/g.png"}"""
+        val json = """{"version":2,"sources":{"s":[""" +
+            image("ok", """{"type":"http","url":"https://e/ok.png","headers":{"X-Test":"1"}}""") + "," +
+            image("url", """{"type":"http","url":"not a url"}""") + "," +
+            image("name", """{"type":"http","url":"https://e/n.png","headers":{"bad name":"1"}}""") + "," +
+            image("value", """{"type":"http","url":"https://e/v.png","headers":{"X":"a\nb"}}""") + "," +
+            image("fullUrl", good, """{"type":"http","url":"not a url"}""") + "," +
+            image("fullHeader", good, """{"type":"http","url":"https://e/f.png","headers":{"bad name":"1"}}""") +
+            """]}}"""
+        val decoded = ImageListStore.decode(json)
+        assertEquals(listOf("ok"), decoded.getValue("s").map { it.id })
+        decoded.getValue("s").forEach {
+            Http.request(it.thumbnail as HttpResource)
+            Http.request(it.full as HttpResource)
+        }
+    }
+
+    @Test
     fun `a missing or corrupt file means no saved listings`() = runTest {
         val file = File(tmp, "listings.json")
         val store = ImageListStore(file, StandardTestDispatcher(testScheduler))
