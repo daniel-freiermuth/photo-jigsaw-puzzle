@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Replaces the deprecated android:usesCleartextTraffic="true", which is ignored for apps targeting
+  API 38 and above (https://developer.android.com/guide/topics/manifest/application-element#usesCleartextTraffic).
+  Sources are user-entered hosts, including plain-HTTP servers on the home network (Immich, URL lists),
+  so cleartext has to be allowed in base-config: a domain-config cannot list them.
+  Only system CAs are trusted, as before.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
