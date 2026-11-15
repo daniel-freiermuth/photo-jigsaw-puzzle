@@ -40,15 +40,31 @@ fun renderUntouched(picture: Bitmap, canvas: CanvasSpec, settings: PuzzleSetting
 }
 
 /** Just the pieces, framed tightly around them. */
-private fun renderPile(cut: CutPuzzle, board: BoardSnapshot, maxSide: Int): Bitmap {
-    val pad = JigsawCut.PAD
-    val frame = Bounds(
-        minX = board.xs.min() - pad,
-        minY = board.ys.min() - pad,
-        maxX = board.xs.max() + 1f + pad,
-        maxY = board.ys.max() + 1f + pad,
-    )
-    return render(cut, board, frame, maxSide, drawBoard = false)
+private fun renderPile(cut: CutPuzzle, board: BoardSnapshot, maxSide: Int): Bitmap =
+    render(cut, board, pileFrame(board, cut.cellWidth, cut.cellHeight), maxSide, drawBoard = false)
+
+/**
+ * Grid-unit frame holding every piece with room for its tabs, as turned: a quarter-turned piece on
+ * a non-square cell spans the other axis's cell size, so its half-extents swap.
+ */
+internal fun pileFrame(board: BoardSnapshot, cellWidth: Float, cellHeight: Float): Bounds {
+    val half = 0.5f + JigsawCut.PAD
+    var minX = Float.POSITIVE_INFINITY
+    var minY = Float.POSITIVE_INFINITY
+    var maxX = Float.NEGATIVE_INFINITY
+    var maxY = Float.NEGATIVE_INFINITY
+    for (i in board.xs.indices) {
+        val sideways = board.turns.getOrElse(i) { 0 } % 2 != 0
+        val halfX = if (sideways) half * cellHeight / cellWidth else half
+        val halfY = if (sideways) half * cellWidth / cellHeight else half
+        val cx = board.xs[i] + 0.5f
+        val cy = board.ys[i] + 0.5f
+        minX = minOf(minX, cx - halfX)
+        maxX = maxOf(maxX, cx + halfX)
+        minY = minOf(minY, cy - halfY)
+        maxY = maxOf(maxY, cy + halfY)
+    }
+    return Bounds(minX, minY, maxX, maxY)
 }
 
 /** Draws the pieces (and optionally the board) within [frame], in grid units, clipped to it. */
