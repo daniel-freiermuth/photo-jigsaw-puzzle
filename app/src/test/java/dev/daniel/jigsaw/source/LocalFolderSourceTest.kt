@@ -240,14 +240,32 @@ class QueryFolderTest {
             queryFolder<Any>("primary:a", isRoot = false, rootReadable = { true }) { throw notAChild }
         }
         assertEquals(java.io.FileNotFoundException::class.java, e.javaClass)
+        assertSame(notAChild, e.cause)
     }
 
     @Test
-    fun `a revoked grant is reported as an unavailable folder`() {
+    fun `a subfolder failing the provider's child check whose root is gone is reported as an unavailable folder`() {
+        val e = assertThrows<FolderUnavailableException> {
+            queryFolder<Any>("primary:a", isRoot = false, rootReadable = { false }) { throw notAChild }
+        }
+        assertSame(notAChild, e.cause)
+    }
+
+    @Test
+    fun `the picked folder failing the provider's child check is reported as unavailable even if its root reads`() {
         assertThrows<FolderUnavailableException> {
-            queryFolder<Any>("primary:a", isRoot = false, rootReadable = { true }) {
-                throw SecurityException("Permission Denial")
+            queryFolder<Any>("primary:", isRoot = true, rootReadable = { true }) { throw notAChild }
+        }
+    }
+
+    @Test
+    fun `a revoked grant is reported as an unavailable folder, for the picked folder and a subfolder alike`() {
+        val denied = SecurityException("Permission Denial")
+        for (isRoot in listOf(true, false)) {
+            val e = assertThrows<FolderUnavailableException> {
+                queryFolder<Any>("primary:a", isRoot = isRoot, rootReadable = { true }) { throw denied }
             }
+            assertSame(denied, e.cause)
         }
     }
 }
