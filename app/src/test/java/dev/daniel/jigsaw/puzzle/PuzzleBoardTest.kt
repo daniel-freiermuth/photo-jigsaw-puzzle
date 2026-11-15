@@ -270,6 +270,71 @@ class PuzzleBoardTest {
     }
 
     @Test
+    fun `half-turned neighbours join with the right neighbour on the left`() {
+        val board = rotatableBoard()
+        repeat(2) {
+            board.rotateGroup(0)
+            board.rotateGroup(1)
+        }
+        moveTo(board, 1, 11f, 10f) // the upright slot is wrong once both are turned 180°
+        assertFalse(board.drop(1, snapToBoard = false))
+        moveTo(board, 1, 9.1f, 9.9f)
+        assertTrue(board.drop(1, snapToBoard = false))
+        assertTrue(board.sameGroup(0, 1))
+        assertEquals(9f, board.x(1), 1e-5f)
+        assertEquals(10f, board.y(1), 1e-5f)
+    }
+
+    @Test
+    fun `three-quarter-turned neighbours on wide cells join one picture width above`() {
+        // Cells twice as wide as tall: turned 270°, the right neighbour sits two height units above.
+        val board = rotatableBoard(cellAspect = 2f)
+        repeat(3) {
+            board.rotateGroup(0)
+            board.rotateGroup(1)
+        }
+        moveTo(board, 1, 10f, 9f) // one unit above: right direction, wrong distance
+        assertFalse(board.drop(1, snapToBoard = false))
+        moveTo(board, 1, 10.1f, 8.1f)
+        assertTrue(board.drop(1, snapToBoard = false))
+        assertTrue(board.sameGroup(0, 1))
+        assertEquals(10f, board.x(1), 1e-5f)
+        assertEquals(8f, board.y(1), 1e-5f)
+    }
+
+    @Test
+    fun `quarter-turned vertical neighbours on wide cells join half a unit to the left`() {
+        // Piece 1 sits below piece 0; turned 90° clockwise it belongs to the left, 1 / cellAspect away.
+        val board = PuzzleBoard(Grid(rows = 2, cols = 1), cellAspect = 2f, rotatable = true)
+        moveTo(board, 0, 10f, 10f)
+        moveTo(board, 1, 20f, 10f)
+        board.rotateGroup(0)
+        board.rotateGroup(1)
+        moveTo(board, 1, 9f, 10f) // a whole unit to the left is too far
+        assertFalse(board.drop(1, snapToBoard = false))
+        moveTo(board, 1, 9.55f, 10.05f)
+        assertTrue(board.drop(1, snapToBoard = false))
+        assertTrue(board.sameGroup(0, 1))
+        assertEquals(9.5f, board.x(1), 1e-5f)
+        assertEquals(10f, board.y(1), 1e-5f)
+    }
+
+    @Test
+    fun `turned neighbours snap within the tolerance and not beyond it`() {
+        val tolerance = PuzzleBoard.SNAP_TOLERANCE
+        for ((offset, joins) in listOf(tolerance - 0.01f to true, tolerance + 0.01f to false)) {
+            val board = rotatableBoard()
+            repeat(2) {
+                board.rotateGroup(0)
+                board.rotateGroup(1)
+            }
+            moveTo(board, 1, 9f - offset, 10f) // belongs at (9, 10)
+            assertEquals(joins, board.drop(1, snapToBoard = false), "offset $offset")
+            assertEquals(joins, board.sameGroup(0, 1), "offset $offset")
+        }
+    }
+
+    @Test
     fun `only upright groups lock onto the board or count as solved`() {
         val board = rotatableBoard()
         moveTo(board, 1, 11f, 10f)
