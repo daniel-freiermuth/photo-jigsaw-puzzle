@@ -15,8 +15,9 @@ Status: proposal, needs a decision. Nothing in the build changes with this docum
   builds and F-Droid"), not Google Play. Play's target-API floor (API 36 for new apps and updates since
   31 August 2026) therefore does not apply, and targetSdk 36 would meet it anyway. F-Droid sets no target-API
   floor. **No external deadline forces this bump.**
-- The manifest declares only `INTERNET` and sets `android:usesCleartextTraffic="true"`: plain-HTTP servers
-  on the home network (Immich) are a supported setup.
+- The manifest declares only `INTERNET`. Cleartext is allowed by `res/xml/network_security_config.xml`
+  (`base-config cleartextTrafficPermitted="true"`, system CAs only), referenced by
+  `android:networkSecurityConfig`: plain-HTTP servers on the home network (Immich) are a supported setup.
 
 ## What changes at targetSdk 37, applied to this app
 
@@ -25,7 +26,8 @@ Source: <https://developer.android.com/about/versions/17/behavior-changes-17> (u
 | Change for apps targeting 37 | Affects this app? |
 |---|---|
 | **Local network access needs the `ACCESS_LOCAL_NETWORK` runtime permission** | **Yes — breaks LAN-hosted sources.** See below. |
-| Certificate Transparency on by default | Unlikely. No network security config, so only system CAs are trusted already; public CAs log to CT. A server with a private CA never worked. |
+| Certificate Transparency on by default | Unlikely. The network security config trusts only system CAs; public CAs log to CT. A server with a private CA never worked. |
+| `android:usesCleartextTraffic` deprecated (not on behavior-changes-17; the Android 17 Beta 1 post set enforcement at 37, the [manifest reference](https://developer.android.com/guide/topics/manifest/application-element#usesCleartextTraffic) now says "ignored for apps targeting API levels 38 and above") | Already handled: the app sets cleartext through a network security config instead of the attribute. |
 | Encrypted Client Hello (ECH) on by default | No action: only active when the TLS stack (OkHttp here) and the server support it; otherwise GREASE. |
 | Orientation/resizability/aspect-ratio limits ignored on sw ≥ 600dp, no opt-out | No: the manifest sets no `screenOrientation`, `resizeableActivity` or aspect ratios. Tablet layout is worth a look but is not a regression. |
 | Hide password characters when typing on a physical keyboard | Not used: the app has no password fields. |
