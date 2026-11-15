@@ -301,13 +301,26 @@ private fun Modifier.puzzleGestures(
         onMoveEnd.value()
     }
     return pointerInput(game) { dragGroups(game, layout, ::settle) }.pointerInput(game) {
-        detectTapGestures { pos ->
-            if (!board.rotatable) return@detectTapGestures
-            layout.value?.let { hitTest(game.cut, it, pos) }?.let {
-                board.bringToFront(it)
-                board.rotateGroup(it)
-                settle(it)
-            }
+        tapToRotate(game, layout, ::settle)
+    }
+}
+
+/**
+ * On rotatable boards, turns the tapped group a quarter turn clockwise and [settle]s it. A solved puzzle
+ * ignores taps: turning the finished picture would unsolve it under the "Solved" card and overwrite its save.
+ */
+internal suspend fun PointerInputScope.tapToRotate(
+    game: PuzzleGame,
+    layout: State<BoardLayout?>,
+    settle: (Int) -> Unit,
+) {
+    val board = game.cut.board
+    detectTapGestures { pos ->
+        if (!board.rotatable || game.solved) return@detectTapGestures
+        layout.value?.let { hitTest(game.cut, it, pos) }?.let {
+            board.bringToFront(it)
+            board.rotateGroup(it)
+            settle(it)
         }
     }
 }
