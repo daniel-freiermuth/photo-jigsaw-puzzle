@@ -94,8 +94,8 @@ class JigsawCut(val grid: Grid, random: Random) {
     }
 
     companion object {
-        const val TAB_SIZE = 0.09f
-        const val JITTER = 0.035f
+        private const val TAB_SIZE = 0.09f
+        private const val JITTER = 0.035f
 
         /** How far (in cell units) a tab can stick out past its cell: 3·t + jitter, plus slack. */
         const val PAD = 0.35f
