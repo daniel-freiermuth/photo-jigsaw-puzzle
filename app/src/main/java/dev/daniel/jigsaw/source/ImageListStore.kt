@@ -42,12 +42,14 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
         /**
          * Anything unreadable or from another format version counts as no saved list. Pictures whose
          * URL or headers can't make a request are dropped: loading them would throw outside IOException.
+         * A picture repeating an id within its source is dropped too, keeping the first: the gallery
+         * keys its grid by source and picture id, and two items with one key crash it.
          */
         fun decode(json: String): Map<String, List<RemoteImage>> = try {
             val saved = WireJson.decodeFromString<ListingsFile>(json)
             if (saved.version == FORMAT_VERSION) {
                 saved.sources.mapValues { (_, images) ->
-                    images.filter { canRequest(it.thumbnail) && canRequest(it.full) }
+                    images.filter { canRequest(it.thumbnail) && canRequest(it.full) }.distinctBy { it.id }
                 }
             } else {
                 emptyMap()
