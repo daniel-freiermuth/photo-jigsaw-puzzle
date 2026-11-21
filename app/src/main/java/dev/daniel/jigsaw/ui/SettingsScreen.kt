@@ -23,7 +23,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -233,12 +232,7 @@ private fun SourceRow(source: SourceConfig, onRemove: () -> Unit, modifier: Modi
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            IconButton(onClick = onRemove) {
-                Icon(
-                    painterResource(R.drawable.ic_delete),
-                    contentDescription = stringResource(R.string.settings_remove),
-                )
-            }
+            ResourceIconButton(R.drawable.ic_delete, R.string.settings_remove, onRemove)
         }
     }
 }

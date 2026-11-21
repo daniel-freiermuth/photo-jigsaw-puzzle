@@ -18,8 +18,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -30,7 +28,6 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -61,19 +58,9 @@ fun GalleryScreen(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     if (hasSources) {
-                        IconButton(onClick = onRefresh) {
-                            Icon(
-                                painterResource(R.drawable.ic_refresh),
-                                contentDescription = stringResource(R.string.action_refresh),
-                            )
-                        }
+                        ResourceIconButton(R.drawable.ic_refresh, R.string.action_refresh, onRefresh)
                     }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            painterResource(R.drawable.ic_settings),
-                            contentDescription = stringResource(R.string.action_settings),
-                        )
-                    }
+                    ResourceIconButton(R.drawable.ic_settings, R.string.action_settings, onOpenSettings)
                 },
             )
         },
