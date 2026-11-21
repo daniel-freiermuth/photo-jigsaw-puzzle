@@ -15,7 +15,7 @@ class JigsawCutTest {
         for (r in 0 until cut.rows) {
             for (c in 0 until cut.cols) {
                 val edges = cut.outline(r, c)
-                for (k in edges.indices) assertEquals(edges[k].end, edges[(k + 1) % edges.size].start)
+                for (k in edges.indices) assertEquals(edges[k].points.last(), edges[(k + 1) % edges.size].start)
                 assertEquals(Pt(c.toFloat(), r.toFloat()), edges[0].start)
             }
         }

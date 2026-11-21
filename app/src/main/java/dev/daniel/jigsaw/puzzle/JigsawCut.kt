@@ -15,7 +15,6 @@ data class Pt(val x: Float, val y: Float)
  */
 data class Edge(val points: List<Pt>) {
     val start get() = points.first()
-    val end get() = points.last()
     fun reversed() = Edge(points.asReversed().toList())
     val isStraight get() = points.size == 2
 }
