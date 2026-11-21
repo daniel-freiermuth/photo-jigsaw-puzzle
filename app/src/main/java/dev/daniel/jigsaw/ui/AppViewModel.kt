@@ -30,6 +30,7 @@ import dev.daniel.jigsaw.puzzle.cutSaved
 import dev.daniel.jigsaw.puzzle.decodeSampled
 import dev.daniel.jigsaw.source.ImageListStore
 import dev.daniel.jigsaw.source.ImageResource
+import dev.daniel.jigsaw.source.ImageSource
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
 import dev.daniel.jigsaw.source.read
@@ -55,6 +56,17 @@ sealed interface Load<out T> {
     data object Loading : Load<Nothing>
     data class Failed(val reason: UiText) : Load<Nothing>
     data class Ready<T>(val value: T) : Load<T>
+}
+
+/** What [AppViewModel.addSource] did with a source. */
+sealed interface AddSourceResult {
+    data object Added : AddSourceResult
+
+    /** The link or folder isn't one of the source's kind: the user has to change it. */
+    data object Invalid : AddSourceResult
+
+    /** The folder is fine, but its provider refused to keep read access across restarts. */
+    data object FolderAccessDenied : AddSourceResult
 }
 
 /** An image plus the source it came from; ids are only unique within one source. */
@@ -112,6 +124,12 @@ class AppViewModel @JvmOverloads constructor(
     },
     /** The stored sources and settings. */
     private val configStore: DataStore<AppConfig> = app.appConfig,
+    /** Opens a source to list it; throws [IllegalArgumentException] if the config isn't one of its kind. */
+    private val openSource: (SourceConfig) -> ImageSource = { it.toImageSource(app.contentResolver) },
+    /** Keeps read access to a picked folder tree URI across restarts; throws [SecurityException] if refused. */
+    private val keepFolderAccess: (String) -> Unit = {
+        app.contentResolver.takePersistableUriPermission(it.toUri(), Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    },
 ) : AndroidViewModel(app) {
     private val puzzles = PuzzleStore(File(app.filesDir, "puzzles"))
 
@@ -146,7 +164,7 @@ class AppViewModel @JvmOverloads constructor(
         sources = { sources },
         imageLists = ImageListStore(File(app.filesDir, "gallery/listings.json"), ioDispatcher),
         clock = clock,
-        list = { it.toImageSource(app.contentResolver).listImages() },
+        list = { openSource(it).listImages() },
         beforeShow = { content ->
             tiles = withContext(puzzleIo) {
                 puzzles.deleteLegacyPreviews()
@@ -206,28 +224,30 @@ class AppViewModel @JvmOverloads constructor(
     }
 
     /**
-     * Validates [config] (link shape or folder) and saves it; false if it isn't a source of that kind.
+     * Validates [config] (link shape or folder) and saves it if it is a source of that kind.
      * A folder's read access is kept across restarts until the source is removed.
      */
-    fun addSource(config: SourceConfig): Boolean {
-        val resolver = getApplication<Application>().contentResolver
-        val accepted = try {
-            config.toImageSource(resolver)
-            if (config is SourceConfig.LocalFolder) {
-                resolver.takePersistableUriPermission(config.uri.toUri(), Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            true
-        } catch (_: IllegalArgumentException) {
-            false
-        } catch (_: SecurityException) {
-            false
-        }
-        if (accepted) {
+    fun addSource(config: SourceConfig): AddSourceResult {
+        val result = acceptSource(config)
+        if (result == AddSourceResult.Added) {
             sources = sources + config
             persist { it.copy(sources = it.sources + config) }
             feed.invalidate()
         }
-        return accepted
+        return result
+    }
+
+    /** Checks [config] and, for a folder, keeps its read access; only the grant throws [SecurityException]. */
+    private fun acceptSource(config: SourceConfig): AddSourceResult = try {
+        openSource(config)
+        if (config is SourceConfig.LocalFolder) keepFolderAccess(config.uri)
+        AddSourceResult.Added
+    } catch (_: IllegalArgumentException) {
+        // Not logged: the message holds the link, and an Immich link's key grants access to the album.
+        AddSourceResult.Invalid
+    } catch (e: SecurityException) {
+        Log.w(TAG, "The folder's provider refused to keep read access", e)
+        AddSourceResult.FolderAccessDenied
     }
 
     fun removeSource(id: String) {

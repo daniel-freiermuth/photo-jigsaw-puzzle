@@ -66,7 +66,7 @@ import java.util.UUID
 @Composable
 fun SettingsScreen(
     sources: List<SourceConfig>,
-    onAdd: (SourceConfig) -> Boolean,
+    onAdd: (SourceConfig) -> AddSourceResult,
     onRemove: (String) -> Unit,
     settings: PuzzleSettings,
     /** Called with the change to apply, e.g. `{ it.copy(snapToBoard = true) }`. */
@@ -116,7 +116,7 @@ fun SettingsScreen(
     if (adding) {
         AddSourceDialog(
             onDismiss = { adding = false },
-            onSubmit = { config -> onAdd(config).also { if (it) adding = false } },
+            onSubmit = { config -> onAdd(config).also { if (it == AddSourceResult.Added) adding = false } },
         )
     }
 
@@ -312,12 +312,18 @@ private val SourceConfig.kind
     }
 
 @Composable
-private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> Boolean, modifier: Modifier = Modifier) {
+private fun AddSourceDialog(
+    onDismiss: () -> Unit,
+    onSubmit: (SourceConfig) -> AddSourceResult,
+    modifier: Modifier = Modifier,
+) {
     var kind by rememberSaveable { mutableStateOf(SourceKind.LocalFolder) }
     var label by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
     var folder by rememberSaveable { mutableStateOf<String?>(null) }
-    var invalid by remember { mutableStateOf(false) }
+
+    // Why the last attempt to add wasn't accepted; null until one fails or after the input changes.
+    var error by remember { mutableStateOf<Int?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -329,7 +335,7 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> B
                     kind,
                     onSelect = {
                         kind = it
-                        invalid = false
+                        error = null
                     },
                 )
                 when (kind) {
@@ -337,7 +343,7 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> B
                         folder,
                         onPick = {
                             folder = it
-                            invalid = false
+                            error = null
                         },
                     )
 
@@ -345,7 +351,7 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> B
                         url,
                         { input ->
                             url = input
-                            invalid = false
+                            error = null
                         },
                         label = { Text(stringResource(R.string.source_link)) },
                         placeholder = { Text("https://photos.example.com/share/…") },
@@ -359,16 +365,24 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onSubmit: (SourceConfig) -> B
                     label = { Text(stringResource(R.string.source_name)) },
                     singleLine = true,
                 )
-                if (invalid) Text(stringResource(kind.invalid), color = MaterialTheme.colorScheme.error)
+                error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
-            TextButton(onClick = { invalid = newSourceConfig(kind, label, url, folder)?.let(onSubmit) != true }) {
+            TextButton(onClick = { error = addError(kind, newSourceConfig(kind, label, url, folder)?.let(onSubmit)) }) {
                 Text(stringResource(R.string.source_add))
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+/** Why [result] didn't add a source of [kind]; null if it did. A null [result] means no folder was picked. */
+@StringRes
+private fun addError(kind: SourceKind, result: AddSourceResult?): Int? = when (result) {
+    AddSourceResult.Added -> null
+    AddSourceResult.FolderAccessDenied -> R.string.source_folder_access_denied
+    AddSourceResult.Invalid, null -> kind.invalid
 }
 
 /** Opens the system folder picker; shows the picked folder's path once there is one. */

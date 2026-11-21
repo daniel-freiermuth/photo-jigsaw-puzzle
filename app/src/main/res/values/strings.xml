@@ -61,6 +61,7 @@
     <string name="source_name">Name (optional)</string>
     <string name="source_no_folder">Choose a folder first</string>
     <string name="source_no_folder_picker">This device has no app for choosing a folder</string>
+    <string name="source_folder_access_denied">This folder’s storage doesn’t allow keeping access to it. Choose another folder.</string>
     <string name="source_invalid_immich">Not an Immich shared link (expected …/share/&lt;key&gt; or …/s/&lt;slug&gt;)</string>
 
     <!-- Errors -->
