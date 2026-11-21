@@ -77,6 +77,17 @@ class ImageListStoreTest {
     }
 
     @Test
+    fun `documents whose uri isn't a content uri are dropped`() {
+        fun image(id: String, uri: String) =
+            """{"id":"$id","name":"$id","thumbnail":{"type":"document","uri":"$uri"},""" +
+                """"full":{"type":"document","uri":"content://p/$id"}}"""
+        val json = """{"version":2,"sources":{"s":[""" +
+            image("ok", "content://p/ok") + "," + image("file", "file:x.jpg") + "," +
+            image("bare", "file:") + "," + image("path", "file:///data/x.jpg") + """]}}"""
+        assertEquals(listOf("ok"), ImageListStore.decode(json).getValue("s").map { it.id })
+    }
+
+    @Test
     fun `a picture repeating an id within its source is dropped, keeping the first`() {
         fun image(id: String, name: String) =
             """{"id":"$id","name":"$name","thumbnail":{"type":"http","url":"https://e/$name.png"},""" +
