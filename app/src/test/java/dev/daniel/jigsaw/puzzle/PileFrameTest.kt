@@ -27,7 +27,7 @@ class PileFrameTest {
 
     @Test
     fun `upright pieces keep the plain padded frame`() {
-        val frame = pileFrame(snapshot.copy(turns = emptyList()), cellWidth = 3f, cellHeight = 4f)
+        val frame = pileFrame(snapshot.copy(turns = listOf(0, 0)), cellWidth = 3f, cellHeight = 4f)
         assertEquals(-JigsawCut.PAD, frame.minX, 1e-5f)
         assertEquals(-JigsawCut.PAD, frame.minY, 1e-5f)
         assertEquals(5f + JigsawCut.PAD, frame.maxX, 1e-5f)

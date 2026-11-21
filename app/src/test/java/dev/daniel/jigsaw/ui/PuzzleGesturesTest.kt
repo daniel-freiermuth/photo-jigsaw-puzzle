@@ -54,6 +54,7 @@ class PuzzleGesturesTest {
             groups = listOf(0, 1),
             locked = listOf(false, false),
             order = listOf(0, 1),
+            turns = listOf(0, 0),
         ),
     )
     private val game = PuzzleGame(

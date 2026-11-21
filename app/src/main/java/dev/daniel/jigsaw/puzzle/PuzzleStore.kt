@@ -3,7 +3,6 @@ package dev.daniel.jigsaw.puzzle
 import android.util.Log
 import dev.daniel.jigsaw.WireJson
 import dev.daniel.jigsaw.writeTextAtomically
-import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import java.io.File
@@ -141,7 +140,7 @@ class PuzzleStore(private val root: File) {
 
     /**
      * Save-file format 1 of a [SavedPuzzle.InProgress]: [SaveHeader] plus the board as flat lists. Every field is
-     * always written so that older app versions read the save; the defaults fill in what older versions left out.
+     * always written so that older app versions read the save.
      */
     @Suppress("LongParameterList") // One parameter per field of the file.
     @Serializable
@@ -151,16 +150,14 @@ class PuzzleStore(private val root: File) {
         val rows: Int,
         val cols: Int,
         val seed: Long,
-        // Absent in saves from before the setting existed: those were all cut for the default.
-        @EncodeDefault val pieces: Int = PieceCount.DEFAULT.target,
+        val pieces: Int,
         val xs: List<Float>,
         val ys: List<Float>,
         val groups: List<Int>,
         val locked: List<Boolean>,
         val order: List<Int>,
-        // Absent in saves from before rotation existed: all pieces upright.
-        @EncodeDefault val turns: List<Int> = emptyList(),
-        @EncodeDefault val rotatable: Boolean = false,
+        val turns: List<Int>,
+        val rotatable: Boolean,
     ) {
         fun toSavedPuzzle() = SavedPuzzle.InProgress(
             grid = Grid(rows = rows, cols = cols),

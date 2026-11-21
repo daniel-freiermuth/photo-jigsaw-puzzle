@@ -8,7 +8,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -28,17 +27,12 @@ class PuzzleStoreTest {
             groups = listOf(0, 0, 2, 3),
             locked = listOf(false, false, true, false),
             order = listOf(2, 3, 0, 1),
+            turns = List(4) { 0 },
         ),
         pieces = PieceCount.P48,
     )
 
     private val rotated = inProgress.copy(board = inProgress.board.copy(turns = listOf(3, 2, 0, 1), rotatable = true))
-
-    @Test
-    fun `saves from before the piece-count setting load as cut for the default count`() {
-        val legacy = encodedAndEdited(inProgress) { remove("pieces") }
-        assertEquals(inProgress.copy(pieces = PieceCount.DEFAULT), PuzzleStore.decode(legacy))
-    }
 
     @Test
     fun `saves cut for a piece count this version does not offer keep their board and load as the default count`() {
@@ -57,20 +51,6 @@ class PuzzleStoreTest {
     fun `rotatable boards keep their turns through save and load`() {
         PuzzleStore(tmp).save(PuzzleKey("s", "img"), rotated)
         assertEquals(rotated, PuzzleStore(tmp).load(PuzzleKey("s", "img")))
-    }
-
-    @Test
-    fun `saves from before rotation load as an upright, non-rotatable board`() {
-        val legacy = encodedAndEdited(rotated) {
-            remove("turns")
-            remove("rotatable")
-        }
-        val decoded = PuzzleStore.decode(legacy) as SavedPuzzle.InProgress
-        assertEquals(rotated.board.copy(turns = emptyList(), rotatable = false), decoded.board)
-
-        val board = PuzzleBoard(decoded.grid, decoded.board)
-        assertFalse(board.rotatable)
-        assertEquals(List(board.size) { 0 }, List(board.size) { board.turns(it) })
     }
 
     @Test
