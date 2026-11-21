@@ -77,6 +77,19 @@ class ImageListStoreTest {
     }
 
     @Test
+    fun `a picture repeating an id within its source is dropped, keeping the first`() {
+        fun image(id: String, name: String) =
+            """{"id":"$id","name":"$name","thumbnail":{"type":"http","url":"https://e/$name.png"},""" +
+                """"full":{"type":"http","url":"https://e/$name.png"}}"""
+        val json = """{"version":2,"sources":{"s":[""" +
+            image("a", "first") + "," + image("b", "b") + "," + image("a", "second") +
+            """],"t":[""" + image("a", "other") + """]}}"""
+        val decoded = ImageListStore.decode(json)
+        assertEquals(listOf("a" to "first", "b" to "b"), decoded.getValue("s").map { it.id to it.name })
+        assertEquals(listOf("a"), decoded.getValue("t").map { it.id })
+    }
+
+    @Test
     fun `a missing or corrupt file means no saved listings`() = runTest {
         val file = File(tmp, "listings.json")
         val store = ImageListStore(file, StandardTestDispatcher(testScheduler))
