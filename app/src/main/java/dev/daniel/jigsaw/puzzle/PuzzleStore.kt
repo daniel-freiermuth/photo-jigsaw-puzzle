@@ -26,7 +26,7 @@ sealed interface SavedPuzzle {
         val grid: Grid,
         val seed: Long,
         val board: BoardSnapshot,
-        val pieces: PieceCount = PieceCount.DEFAULT,
+        val pieces: PieceCount,
     ) : SavedPuzzle {
         init {
             board.requireFits(grid)

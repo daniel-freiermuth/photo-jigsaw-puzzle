@@ -19,7 +19,12 @@ class SavedPuzzleTest {
             moveGroup(1, x(0) + 1f - x(1), y(0) - y(1))
             drop(1, snapToBoard = false)
         }.snapshot.copy(rotatable = rotatable)
-        return SavedPuzzle.InProgress(grid = Grid(rows = 2, cols = 3), seed = 42L, board = joined)
+        return SavedPuzzle.InProgress(
+            grid = Grid(rows = 2, cols = 3),
+            seed = 42L,
+            board = joined,
+            pieces = PieceCount.DEFAULT,
+        )
     }
 
     @Test
@@ -56,7 +61,7 @@ class SavedPuzzleTest {
         )
         // The strip's group comes first, so the first draw picks its turns: three quarters swing it upwards.
         val seed = (0L..100L).first { Random(it).nextInt(PuzzleBoard.QUARTERS) == 3 }
-        val saved = SavedPuzzle.InProgress(grid = grid, seed = seed, board = board)
+        val saved = SavedPuzzle.InProgress(grid = grid, seed = seed, board = board, pieces = PieceCount.DEFAULT)
         assertFalse(saved.started)
         val turned = saved.withRotation(rotatePieces = true, cellAspect = 1f)
         assertTrue(turned.board.rotatable)
@@ -82,7 +87,7 @@ class SavedPuzzleTest {
             val seed = (0L..1000L).first { s ->
                 Random(s).let { r -> List(12) { r.nextInt(PuzzleBoard.QUARTERS) }.last() } == quarters
             }
-            val saved = SavedPuzzle.InProgress(grid = grid, seed = seed, board = board)
+            val saved = SavedPuzzle.InProgress(grid = grid, seed = seed, board = board, pieces = PieceCount.DEFAULT)
             assertFalse(saved.started)
             val turned = saved.withRotation(rotatePieces = true, cellAspect = 1f)
             assertEquals(quarters, turned.board.turns[11])
