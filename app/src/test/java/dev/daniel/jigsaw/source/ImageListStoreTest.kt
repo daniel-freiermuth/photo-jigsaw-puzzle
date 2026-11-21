@@ -18,7 +18,7 @@ class ImageListStoreTest {
                 id = "a1",
                 name = "a b.jpg",
                 thumbnail = HttpResource("https://p/api/assets/a1/thumbnail?key=k&size=thumbnail", revision = "h1"),
-                full = HttpResource("https://p/api/assets/a1/thumbnail", mapOf("X-Test" to "1"), "h1"),
+                full = HttpResource("https://p/api/assets/a1/thumbnail", "h1"),
                 takenAt = 1_714_564_800_000,
             ),
         ),
@@ -29,7 +29,7 @@ class ImageListStoreTest {
     )
 
     @Test
-    fun `saved listings come back intact, including headers, revisions and missing dates`() = runTest {
+    fun `saved listings come back intact, including revisions and missing dates`() = runTest {
         val store = ImageListStore(File(tmp, "gallery/listings.json"), StandardTestDispatcher(testScheduler))
         store.save(listings)
         assertEquals(listings, store.load())
@@ -39,13 +39,26 @@ class ImageListStoreTest {
     fun `the file format tags each picture with its kind`() {
         val v2 = """{"version":2,"sources":{"im":[{"id":"a1","name":"a b.jpg",""" +
             """"thumbnail":{"type":"http","url":"https://p/api/assets/a1/thumbnail?key=k&size=thumbnail",""" +
-            """"headers":{},"revision":"h1"},""" +
-            """"full":{"type":"http","url":"https://p/api/assets/a1/thumbnail","headers":{"X-Test":"1"},""" +
+            """"revision":"h1"},""" +
+            """"full":{"type":"http","url":"https://p/api/assets/a1/thumbnail",""" +
             """"revision":"h1"},"takenAt":1714564800000}],""" +
             """"folder":[{"id":"d","name":"d.png","thumbnail":{"type":"document","uri":"content://p/d",""" +
             """"revision":"5:9"},"full":{"type":"document","uri":"content://p/d"}}],"empty":[]}}"""
         assertEquals(listings, ImageListStore.decode(v2))
         assertEquals(Json.parseToJsonElement(v2), Json.parseToJsonElement(ImageListStore.encode(listings)))
+    }
+
+    @Test
+    fun `files from builds that saved request headers still load`() {
+        // As written before the headers field was removed: every http resource carries "headers":{}.
+        val v2 = """{"version":2,"sources":{"im":[{"id":"a1","name":"a b.jpg",""" +
+            """"thumbnail":{"type":"http","url":"https://p/api/assets/a1/thumbnail?key=k&size=thumbnail",""" +
+            """"headers":{},"revision":"h1"},""" +
+            """"full":{"type":"http","url":"https://p/api/assets/a1/thumbnail","headers":{},""" +
+            """"revision":"h1"},"takenAt":1714564800000}],""" +
+            """"folder":[{"id":"d","name":"d.png","thumbnail":{"type":"document","uri":"content://p/d",""" +
+            """"revision":"5:9"},"full":{"type":"document","uri":"content://p/d"}}],"empty":[]}}"""
+        assertEquals(listings, ImageListStore.decode(v2))
     }
 
     @Test
@@ -56,17 +69,14 @@ class ImageListStoreTest {
     }
 
     @Test
-    fun `pictures whose URL or headers can't make a request are dropped`() {
+    fun `pictures whose URL can't make a request are dropped`() {
         fun image(id: String, thumbnail: String, full: String = """{"type":"http","url":"https://e/$id.png"}""") =
             """{"id":"$id","name":"$id","thumbnail":$thumbnail,"full":$full}"""
         val good = """{"type":"http","url":"https://e/g.png"}"""
         val json = """{"version":2,"sources":{"s":[""" +
-            image("ok", """{"type":"http","url":"https://e/ok.png","headers":{"X-Test":"1"}}""") + "," +
+            image("ok", """{"type":"http","url":"https://e/ok.png"}""") + "," +
             image("url", """{"type":"http","url":"not a url"}""") + "," +
-            image("name", """{"type":"http","url":"https://e/n.png","headers":{"bad name":"1"}}""") + "," +
-            image("value", """{"type":"http","url":"https://e/v.png","headers":{"X":"a\nb"}}""") + "," +
-            image("fullUrl", good, """{"type":"http","url":"not a url"}""") + "," +
-            image("fullHeader", good, """{"type":"http","url":"https://e/f.png","headers":{"bad name":"1"}}""") +
+            image("fullUrl", good, """{"type":"http","url":"not a url"}""") +
             """]}}"""
         val decoded = ImageListStore.decode(json)
         assertEquals(listOf("ok"), decoded.getValue("s").map { it.id })

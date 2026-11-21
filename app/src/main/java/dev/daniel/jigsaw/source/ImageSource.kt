@@ -1,16 +1,13 @@
 package dev.daniel.jigsaw.source
 
 import android.content.ContentResolver
-import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import okhttp3.Cache
 import okhttp3.CacheControl
-import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.ResponseBody
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -28,14 +25,13 @@ sealed interface ImageResource {
 }
 
 /**
- * An HTTP GET target plus any headers needed to fetch it. With a [revision], the response is cached
- * for good, and a changed picture is fetched anew because it comes with a new revision.
+ * An HTTP GET target. With a [revision], the response is cached for good, and a changed picture is
+ * fetched anew because it comes with a new revision.
  */
 @Serializable
 @SerialName("http")
 data class HttpResource(
     val url: String,
-    @EncodeDefault val headers: Map<String, String> = emptyMap(),
     override val revision: String? = null,
 ) : ImageResource {
     override val location get() = url
@@ -169,7 +165,6 @@ object Http {
                     tag(Revisioned::class.java, Revisioned)
                 }
             }
-            .apply { resource.headers.forEach { (k, v) -> header(k, v) } }
             .build()
     }
 
@@ -181,7 +176,6 @@ object Http {
         client,
         request(resource).newBuilder().cacheControl(CacheControl.FORCE_NETWORK).build(),
         resource.url,
-        ResponseBody::bytes,
     )
 
     /** [getBytes] decoded as UTF-8, for JSON and text listings. */
@@ -195,13 +189,13 @@ object Http {
     fun getImage(resource: HttpResource, client: OkHttpClient = this.client): ByteArray {
         val request = request(resource)
         return try {
-            execute(client, request, resource.url, ResponseBody::bytes)
+            execute(client, request, resource.url)
         } catch (e: HttpStatusException) {
             throw e
         } catch (e: IOException) {
             val offline = request.newBuilder().cacheControl(CacheControl.FORCE_CACHE).build()
             try {
-                execute(client, offline, resource.url, ResponseBody::bytes)
+                execute(client, offline, resource.url)
             } catch (_: HttpStatusException) {
                 // FORCE_CACHE answers 504 when nothing is cached: report the real network error.
                 throw e
@@ -209,28 +203,16 @@ object Http {
         }
     }
 
-    /** Blocking call handing the body to [read]; throws [HttpStatusException] on non-2xx, naming [url]. */
-    fun <T> execute(client: OkHttpClient, request: Request, url: String, read: (ResponseBody) -> T): T =
+    /** Blocking call returning the body bytes; throws [HttpStatusException] on non-2xx, naming [url]. */
+    private fun execute(client: OkHttpClient, request: Request, url: String): ByteArray =
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw HttpStatusException(response.code, url)
-            read(response.body)
+            response.body.bytes()
         }
 
     /** Request tag: the response is pinned in the cache (see [HttpResource.revision]). */
     private object Revisioned
 }
-
-/**
- * This URL's scheme/host/port with the path replaced by the non-empty [segments] plus a trailing
- * slash (so relative path appends work uniformly); query and fragment are dropped.
- */
-internal fun HttpUrl.baseWithPath(segments: List<String>): HttpUrl = newBuilder()
-    .query(null)
-    .fragment(null)
-    .encodedPath("/")
-    .apply { segments.filter { it.isNotEmpty() }.forEach { addPathSegment(it) } }
-    .addPathSegment("")
-    .build()
 
 /** The server answered, but not with success. */
 class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code for $url")

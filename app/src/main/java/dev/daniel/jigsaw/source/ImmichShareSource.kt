@@ -130,6 +130,18 @@ class ImmichShareSource(
             return Share(base, param, segments[index + 1])
         }
 
+        /**
+         * This URL's scheme/host/port with the path replaced by the non-empty [segments] plus a trailing
+         * slash (so relative path appends work uniformly); query and fragment are dropped.
+         */
+        private fun HttpUrl.baseWithPath(segments: List<String>): HttpUrl = newBuilder()
+            .query(null)
+            .fragment(null)
+            .encodedPath("/")
+            .apply { segments.filter { it.isNotEmpty() }.forEach { addPathSegment(it) } }
+            .addPathSegment("")
+            .build()
+
         /** Every image asset; videos and other types are skipped. */
         internal fun parseAssets(assets: List<Asset>): List<ImmichAsset> =
             assets.filter { it.type == "IMAGE" }.map {
