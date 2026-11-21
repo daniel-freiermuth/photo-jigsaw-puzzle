@@ -1,6 +1,7 @@
 package dev.daniel.jigsaw.source
 
 import android.content.ContentResolver
+import android.database.Cursor
 import android.net.Uri
 import android.os.Build
 import android.provider.DocumentsContract
@@ -10,6 +11,7 @@ import android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED
 import android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE
 import android.provider.DocumentsContract.Document.COLUMN_SIZE
 import android.provider.DocumentsContract.Document.MIME_TYPE_DIR
+import android.util.Log
 import androidx.core.net.toUri
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -109,41 +111,52 @@ class ResolverDocumentTree(private val resolver: ContentResolver, treeUri: Strin
         val cursor = queryFolder(documentId, isRoot = documentId == rootId, rootReadable = {
             resolver.treeRootReadable(tree)
         }) { resolver.query(children, COLUMNS, null, null, null) }
-        return cursor.use { c ->
-            buildList {
-                while (c.moveToNext()) {
-                    val mimeType = c.getString(MIME_TYPE).orEmpty()
-                    add(
-                        Document(
-                            id = c.getString(ID),
-                            name = c.getString(NAME).orEmpty(),
-                            mimeType = mimeType,
-                            isFolder = mimeType == MIME_TYPE_DIR,
-                            lastModified = if (c.isNull(LAST_MODIFIED)) null else c.getLong(LAST_MODIFIED),
-                            size = if (c.isNull(SIZE)) null else c.getLong(SIZE),
-                        ),
-                    )
-                }
-            }
-        }
+        return cursor.use(::documents)
     }
 
     override fun uri(documentId: String): String =
         DocumentsContract.buildDocumentUriUsingTree(tree, documentId).toString()
 
-    private companion object {
-        val COLUMNS = arrayOf(
+    internal companion object {
+        private const val TAG = "ResolverDocumentTree"
+
+        /**
+         * The documents in a children [cursor] queried with [COLUMNS]. Providers are third-party code: a row without
+         * a document id can't be addressed, so it is skipped rather than failing the whole folder.
+         */
+        fun documents(cursor: Cursor): List<Document> = buildList {
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(ID)
+                if (id == null) {
+                    Log.w(TAG, "Skipping a document without an id at row ${cursor.position}")
+                    continue
+                }
+                val mimeType = cursor.getString(MIME_TYPE).orEmpty()
+                add(
+                    Document(
+                        id = id,
+                        name = cursor.getString(NAME).orEmpty(),
+                        mimeType = mimeType,
+                        isFolder = mimeType == MIME_TYPE_DIR,
+                        lastModified = if (cursor.isNull(LAST_MODIFIED)) null else cursor.getLong(LAST_MODIFIED),
+                        size = if (cursor.isNull(SIZE)) null else cursor.getLong(SIZE),
+                    ),
+                )
+            }
+        }
+
+        private val COLUMNS = arrayOf(
             COLUMN_DOCUMENT_ID,
             COLUMN_DISPLAY_NAME,
             COLUMN_MIME_TYPE,
             COLUMN_LAST_MODIFIED,
             COLUMN_SIZE,
         )
-        const val ID = 0
-        const val NAME = 1
-        const val MIME_TYPE = 2
-        const val LAST_MODIFIED = 3
-        const val SIZE = 4
+        private const val ID = 0
+        private const val NAME = 1
+        private const val MIME_TYPE = 2
+        private const val LAST_MODIFIED = 3
+        private const val SIZE = 4
     }
 }
 

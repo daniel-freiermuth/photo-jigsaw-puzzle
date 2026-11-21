@@ -1,5 +1,6 @@
 package dev.daniel.jigsaw.source
 
+import android.database.Cursor
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.lang.reflect.Proxy
 
 class LocalFolderSourceTest {
 
@@ -203,6 +205,46 @@ class FolderAccessTest {
         assertEquals(42, folderAccess { 42 })
         val missing = java.io.FileNotFoundException("a.jpg")
         assertSame(missing, assertThrows<java.io.IOException> { folderAccess { throw missing } })
+    }
+}
+
+class ResolverDocumentTreeTest {
+
+    /**
+     * A children cursor over [rows] in ResolverDocumentTree's column order (id, name, MIME type, last modified,
+     * size). android.jar's cursors are stubs, so this proxies the Cursor interface with the calls the parsing makes.
+     */
+    private fun cursor(vararg rows: List<Any?>): Cursor {
+        var position = -1
+        return Proxy.newProxyInstance(Cursor::class.java.classLoader, arrayOf(Cursor::class.java)) { _, method, args ->
+            val column = args?.firstOrNull() as? Int
+            when (method.name) {
+                "moveToNext" -> ++position < rows.size
+                "getPosition" -> position
+                "isNull" -> rows[position][column!!] == null
+                "getString" -> rows[position][column!!] as String?
+                "getLong" -> rows[position][column!!] as Long
+                else -> error("Unexpected cursor call ${method.name}")
+            }
+        } as Cursor
+    }
+
+    @Test
+    fun `a provider row without a document id is skipped, the folder's other documents still listed`() {
+        val documents = ResolverDocumentTree.documents(
+            cursor(
+                listOf("primary:a.jpg", "a.jpg", "image/jpeg", 300L, 7L),
+                listOf(null, "ghost.jpg", "image/jpeg", 1L, 2L),
+                listOf("primary:sub", null, "vnd.android.document/directory", null, null),
+            ),
+        )
+        assertEquals(
+            listOf(
+                Document("primary:a.jpg", "a.jpg", "image/jpeg", isFolder = false, lastModified = 300, size = 7),
+                Document("primary:sub", "", "vnd.android.document/directory", isFolder = true),
+            ),
+            documents,
+        )
     }
 }
 
