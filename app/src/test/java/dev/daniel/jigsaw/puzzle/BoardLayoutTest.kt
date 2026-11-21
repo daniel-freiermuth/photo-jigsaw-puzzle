@@ -3,6 +3,7 @@ package dev.daniel.jigsaw.puzzle
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import kotlin.random.Random
 
 class BoardLayoutTest {
     private val margin = 12f
@@ -114,6 +115,32 @@ class BoardLayoutTest {
             val s = layout.screen
             assertTrue(s.minX <= 0f && s.minY <= 0f, "$case: screen $s misses the board's top-left")
             assertTrue(s.maxX >= case.cols && s.maxY >= case.rows, "$case: screen $s misses the board's bottom-right")
+        }
+    }
+
+    @Test
+    fun `quarter-turned pieces scattered on the tray keep their tabs on the canvas`() {
+        // 24 pieces of a 16:9 picture cut 3 × 7: cells narrower than tall. 12 of a square: 4 × 3, taller than wide.
+        val cases = listOf(
+            Case(CanvasSpec(2300f, 1080f, margin), 1600f, 900f, Grid(rows = 3, cols = 7)),
+            Case(CanvasSpec(1080f, 2300f, margin), 1600f, 900f, Grid(rows = 3, cols = 7)),
+            Case(CanvasSpec(1900f, 1080f, margin), 1000f, 1000f, Grid(rows = 4, cols = 3)),
+            Case(CanvasSpec(1080f, 1900f, margin), 1000f, 1000f, Grid(rows = 4, cols = 3)),
+        )
+        val eps = 1e-4f
+        for (case in cases) {
+            val layout = case.layout()
+            val cellW = case.pictureWidth / case.cols
+            val cellH = case.pictureHeight / case.rows
+            val board = PuzzleBoard(case.grid, cellW / cellH, rotatable = true)
+            for (seed in 0L until 50L) {
+                board.scatter(layout.scatter, Random(seed))
+                val frame = pileFrame(board.snapshot, cellW, cellH)
+                val s = layout.screen
+                val inside = frame.minX >= s.minX - eps && frame.minY >= s.minY - eps &&
+                    frame.maxX <= s.maxX + eps && frame.maxY <= s.maxY + eps
+                assertTrue(inside, "$case seed $seed: pieces span $frame, past the screen $s")
+            }
         }
     }
 
