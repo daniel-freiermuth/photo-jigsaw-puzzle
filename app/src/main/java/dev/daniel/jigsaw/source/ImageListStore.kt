@@ -59,12 +59,20 @@ class ImageListStore(private val file: File, private val ioDispatcher: Coroutine
             emptyMap()
         }
 
-        private fun canRequest(resource: ImageResource): Boolean = resource !is HttpResource || try {
-            Http.request(resource)
-            true
-        } catch (e: IllegalArgumentException) {
-            Log.w(TAG, "Dropping saved picture ${resource.url}: not a valid request", e)
-            false
+        private fun canRequest(resource: ImageResource): Boolean = when (resource) {
+            // Folder sources only list content URIs; anything else (e.g. `file:x.jpg`, whose path is null)
+            // makes ContentResolver.openInputStream throw outside IOException.
+            is DocumentResource -> resource.uri.startsWith("content://").also {
+                if (!it) Log.w(TAG, "Dropping saved picture ${resource.uri}: not a content URI")
+            }
+
+            is HttpResource -> try {
+                Http.request(resource)
+                true
+            } catch (e: IllegalArgumentException) {
+                Log.w(TAG, "Dropping saved picture ${resource.url}: not a valid request", e)
+                false
+            }
         }
     }
 
