@@ -20,7 +20,7 @@ enum class AppLanguage(val tag: String?) {
         /** The translation serving [tag] (any region, e.g. de-AT), or [System] for none or unknown. */
         fun fromTag(tag: String?): AppLanguage {
             val language = tag?.takeIf { it.isNotEmpty() }?.let { Locale.forLanguageTag(it).language }
-            return entries.firstOrNull { it.tag != null && it.tag == language } ?: System
+            return entries.firstOrNull { it.tag == language } ?: System
         }
     }
 }
