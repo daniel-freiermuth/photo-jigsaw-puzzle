@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.IOException
-import java.time.Instant
 
 class ImmichShareSourceTest {
 
@@ -183,6 +182,4 @@ class ImmichShareSourceTest {
             assertInstanceOf(UnexpectedResponseException::class.java, failure, "for $routes")
         }
     }
-
-    private fun millis(iso: String) = Instant.parse(iso).toEpochMilli()
 }
