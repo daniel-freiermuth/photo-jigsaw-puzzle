@@ -57,6 +57,7 @@
     <string name="source_name">Name (optional)</string>
     <string name="source_no_folder">Wähle zuerst einen Ordner aus</string>
     <string name="source_no_folder_picker">Auf diesem Gerät gibt es keine App zur Ordnerauswahl</string>
+    <string name="source_folder_access_denied">Der Speicher dieses Ordners erlaubt keinen dauerhaften Zugriff. Wähle einen anderen Ordner.</string>
     <string name="source_invalid_immich">Kein Immich-Freigabelink (erwartet: …/share/&lt;Schlüssel&gt; oder …/s/&lt;Kürzel&gt;)</string>
 
     <!-- Errors -->

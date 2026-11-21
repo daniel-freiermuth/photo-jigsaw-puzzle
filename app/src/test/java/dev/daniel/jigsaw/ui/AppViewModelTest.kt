@@ -23,6 +23,7 @@ import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.source.HttpResource
 import dev.daniel.jigsaw.source.ImageResource
+import dev.daniel.jigsaw.source.ImageSource
 import dev.daniel.jigsaw.source.RemoteImage
 import dev.daniel.jigsaw.source.SourceConfig
 import kotlinx.coroutines.CoroutineScope
@@ -72,6 +73,15 @@ class AppViewModelTest {
     /** Pixel size each download decodes to, by location; anything else decodes to 1200 × 800. */
     private val sizes = mutableMapOf<String, Pair<Int, Int>>()
 
+    /** Checks a source being added, as toImageSource does; a test makes it throw to reject the config. */
+    private var openSource: (SourceConfig) -> ImageSource = { NoImages }
+
+    /** Folder URIs whose read access the view model kept; a test makes it throw to refuse the grant. */
+    private val keptFolders = mutableListOf<String>()
+    private var keepFolderAccess: (String) -> Unit = { keptFolders += it }
+
+    private val folder = SourceConfig.LocalFolder("dir", "Camera", "content://docs/tree/primary%3ADCIM")
+
     /** The view model's puzzle files, read directly. */
     private val saved get() = PuzzleStore(File(tmp, "puzzles")).load(image.puzzleKey)
 
@@ -118,6 +128,8 @@ class AppViewModelTest {
             fetchImage = { fetch(it) },
             decodePicture = { bytes, _ -> decode(bytes) },
             configStore = wrapStore(configStore),
+            openSource = { openSource(it) },
+            keepFolderAccess = { keepFolderAccess(it) },
         ).also {
             advanceUntilIdle()
             assertTrue(it.loaded)
@@ -567,11 +579,46 @@ class AppViewModelTest {
         assertEquals(SavedPuzzle.Solved, saved)
     }
 
+    @Test
+    fun `a folder is added with its read access kept across restarts`() = runTest {
+        val vm = viewModel()
+
+        assertEquals(AddSourceResult.Added, vm.addSource(folder))
+
+        assertEquals(listOf(folder.uri), keptFolders)
+        assertEquals(listOf(folder), vm.sources)
+    }
+
+    @Test
+    fun `a folder whose provider refuses to keep access is a denied grant, not an invalid folder`() = runTest {
+        keepFolderAccess = { throw SecurityException("No persistable permission grants found") }
+        val vm = viewModel()
+
+        assertEquals(AddSourceResult.FolderAccessDenied, vm.addSource(folder))
+
+        assertEquals(emptyList<SourceConfig>(), vm.sources)
+    }
+
+    @Test
+    fun `a config that isn't a source of its kind is invalid, and no folder access is kept for it`() = runTest {
+        openSource = { throw IllegalArgumentException("Not a folder tree URI") }
+        val vm = viewModel()
+
+        assertEquals(AddSourceResult.Invalid, vm.addSource(folder))
+
+        assertEquals(emptyList<String>(), keptFolders)
+        assertEquals(emptyList<SourceConfig>(), vm.sources)
+    }
+
     /** A config store whose reads fail; writes reach [store]. */
     private class UnreadableStore(private val store: DataStore<AppConfig>) : DataStore<AppConfig> {
         override val data: Flow<AppConfig> = flow { throw IOException("Unreadable") }
 
         override suspend fun updateData(transform: suspend (t: AppConfig) -> AppConfig) = store.updateData(transform)
+    }
+
+    private object NoImages : ImageSource {
+        override suspend fun listImages() = emptyList<RemoteImage>()
     }
 
     /** A [width] × [height] picture whose pieces have no pixels: android.graphics only works on a device. */
