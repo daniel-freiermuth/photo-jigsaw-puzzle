@@ -164,24 +164,23 @@ class ResolverDocumentTree(private val resolver: ContentResolver, treeUri: Strin
  * The children cursor [query] gives for the folder [documentId]. A subfolder that is gone shows up as no cursor, or
  * on ExternalStorageProvider as an IllegalArgumentException from its isChildDocument check, the same way a missing
  * tree does, so [rootReadable] tells the missing subfolder ([FileNotFoundException]) apart from the missing tree
- * ([FolderUnavailableException]).
+ * ([FolderUnavailableException]). A lost grant (SecurityException) means the folder is unavailable.
  */
 internal fun <T : Any> queryFolder(
     documentId: String,
     isRoot: Boolean,
     rootReadable: () -> Boolean,
     query: () -> T?,
-): T {
-    val cursor = try {
-        folderAccess(query)
-    } catch (e: FolderUnavailableException) {
-        val missing = e.cause is IllegalArgumentException && !isRoot && rootReadable()
-        throw if (missing) FileNotFoundException(documentId).apply { initCause(e.cause) } else e
-    }
-    // DocumentsProvider.query returns no cursor when queryChildDocuments can't find the folder.
-    val missing = cursor == null && !isRoot && rootReadable()
-    return cursor ?: throw if (missing) FileNotFoundException(documentId) else FolderUnavailableException()
+): T = try {
+    query()
+} catch (e: SecurityException) {
+    throw FolderUnavailableException(e)
+} catch (e: IllegalArgumentException) {
+    if (!isRoot && rootReadable()) throw FileNotFoundException(documentId).apply { initCause(e) }
+    throw FolderUnavailableException(e)
 }
+    // DocumentsProvider.query returns no cursor when queryChildDocuments can't find the folder.
+    ?: throw if (!isRoot && rootReadable()) FileNotFoundException(documentId) else FolderUnavailableException()
 
 /** The folder is gone, or the app lost its access to it (e.g. the storage holding it was removed). */
 class FolderUnavailableException(cause: Throwable? = null) : IOException("The folder can't be read", cause)
@@ -219,15 +218,6 @@ internal fun ContentResolver.treeRootReadable(uri: Uri): Boolean = try {
     false
 } catch (_: IllegalArgumentException) {
     false
-}
-
-/** Document providers report a folder that is gone or no longer granted with these, rather than IOExceptions. */
-internal inline fun <T> folderAccess(block: () -> T): T = try {
-    block()
-} catch (e: SecurityException) {
-    throw FolderUnavailableException(e)
-} catch (e: IllegalArgumentException) {
-    throw FolderUnavailableException(e)
 }
 
 /**

@@ -5,7 +5,6 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -178,33 +177,6 @@ class ReadDocumentTest {
         assertThrows<FolderUnavailableException> {
             readDocument("content://t/a", folderReadable = { true }) { throw SecurityException("Permission Denial") }
         }
-    }
-}
-
-class FolderAccessTest {
-
-    // Callers catch only IOException: anything else thrown here crashes the app.
-    @Test
-    fun `a revoked grant becomes an unavailable folder, an IOException keeping the cause`() {
-        val revoked = SecurityException("Permission Denial")
-        val e = assertThrows<java.io.IOException> { folderAccess { throw revoked } }
-        assertInstanceOf(FolderUnavailableException::class.java, e)
-        assertSame(revoked, e.cause)
-    }
-
-    @Test
-    fun `a provider rejecting the document becomes an unavailable folder, an IOException keeping the cause`() {
-        val rejected = IllegalArgumentException("Failed to determine if primary:a is child of primary:")
-        val e = assertThrows<java.io.IOException> { folderAccess { throw rejected } }
-        assertInstanceOf(FolderUnavailableException::class.java, e)
-        assertSame(rejected, e.cause)
-    }
-
-    @Test
-    fun `a result passes through and IOExceptions are left as they are`() {
-        assertEquals(42, folderAccess { 42 })
-        val missing = java.io.FileNotFoundException("a.jpg")
-        assertSame(missing, assertThrows<java.io.IOException> { folderAccess { throw missing } })
     }
 }
 
