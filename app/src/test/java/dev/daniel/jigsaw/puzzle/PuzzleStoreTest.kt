@@ -174,17 +174,6 @@ class PuzzleStoreTest {
         tampered { noPieces().grid(65536, 65536) }
     }
 
-    @Test
-    fun `legacy preview images are removed while saves stay`() {
-        val store = PuzzleStore(tmp)
-        store.save(PuzzleKey("s", "img"), inProgress)
-        val sourceDir = tmp.listFiles()!!.single()
-        val legacy = sourceDir.resolve("old-preview.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
-        store.deleteLegacyPreviews()
-        assertFalse(legacy.exists())
-        assertEquals(inProgress, store.load(PuzzleKey("s", "img")))
-    }
-
     private fun encodedAndEdited(puzzle: SavedPuzzle, edit: MutableMap<String, JsonElement>.() -> Unit): String {
         val fields = Json.parseToJsonElement(PuzzleStore.encode(puzzle)).jsonObject.toMutableMap()
         return JsonObject(fields.apply(edit)).toString()

@@ -102,11 +102,6 @@ class PuzzleStore(private val root: File) {
         root.listFiles()?.filter { it.isDirectory && it.name !in kept }?.forEach { it.deleteRecursively() }
     }
 
-    /** Removes layout images written by earlier versions; tiles are now rendered from the saved state. */
-    fun deleteLegacyPreviews() {
-        root.walkTopDown().filter { it.isFile && it.name.endsWith(LEGACY_PREVIEW_SUFFIX) }.forEach { it.delete() }
-    }
-
     // Hashed names: ids are arbitrary strings (paths, URLs) and must not escape the directory.
     private fun fileFor(key: PuzzleKey) = File(File(root, hash(key.sourceId)), hash(key.imageId) + ".json")
 
@@ -116,7 +111,6 @@ class PuzzleStore(private val root: File) {
 
     companion object {
         private const val FORMAT_VERSION = 1
-        private const val LEGACY_PREVIEW_SUFFIX = ".png"
         private const val TAG = "PuzzleStore"
 
         fun encode(puzzle: SavedPuzzle): String = when (puzzle) {

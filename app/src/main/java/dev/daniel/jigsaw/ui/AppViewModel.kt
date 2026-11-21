@@ -167,7 +167,6 @@ class AppViewModel @JvmOverloads constructor(
         list = { openSource(it).listImages() },
         beforeShow = { content ->
             tiles = withContext(puzzleIo) {
-                puzzles.deleteLegacyPreviews()
                 content.images.mapNotNull { image ->
                     puzzles.load(image.puzzleKey)?.let { image.puzzleKey to it }
                 }.toMap()
