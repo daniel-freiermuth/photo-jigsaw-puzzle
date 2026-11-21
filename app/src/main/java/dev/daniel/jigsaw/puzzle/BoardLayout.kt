@@ -33,8 +33,13 @@ fun boardLayout(canvas: CanvasSpec, pictureWidth: Float, pictureHeight: Float, g
     val h = canvas.height
     val margin = canvas.margin
     val portrait = h >= w
-    val pad = JigsawCut.PAD
-    val trayCells = 1 + 2 * pad
+    // A quarter-turned piece spans the other axis's cell size, so pad each axis for the longer of the
+    // two padded half-extents, in that axis's own cells: pieces may start turned either way.
+    val cellAspect = (pictureWidth / cols) / (pictureHeight / rows)
+    val half = 0.5f + JigsawCut.PAD
+    val padX = half * maxOf(1f, 1f / cellAspect) - 0.5f
+    val padY = half * maxOf(1f, cellAspect) - 0.5f
+    val trayCells = 1 + 2 * (if (portrait) padY else padX)
     val scale = if (portrait) {
         minOf(
             (w - 2 * margin) / pictureWidth,
@@ -54,22 +59,22 @@ fun boardLayout(canvas: CanvasSpec, pictureWidth: Float, pictureHeight: Float, g
         Pt(margin, (h - pictureHeight * scale) / 2)
     }
     val cell = Pt(pictureWidth / cols * scale, pictureHeight / rows * scale)
-    fun toGrid(left: Float, top: Float, right: Float, bottom: Float, inset: Float) = Bounds(
-        minX = (left - origin.x) / cell.x + inset,
-        minY = (top - origin.y) / cell.y + inset,
-        maxX = (right - origin.x) / cell.x - inset,
-        maxY = (bottom - origin.y) / cell.y - inset,
+    fun toGrid(left: Float, top: Float, right: Float, bottom: Float, insetX: Float, insetY: Float) = Bounds(
+        minX = (left - origin.x) / cell.x + insetX,
+        minY = (top - origin.y) / cell.y + insetY,
+        maxX = (right - origin.x) / cell.x - insetX,
+        maxY = (bottom - origin.y) / cell.y - insetY,
     )
     val tray = if (portrait) {
-        toGrid(0f, origin.y + pictureHeight * scale + margin, w, h, pad)
+        toGrid(0f, origin.y + pictureHeight * scale + margin, w, h, padX, padY)
     } else {
-        toGrid(origin.x + pictureWidth * scale + margin, 0f, w, h, pad)
+        toGrid(origin.x + pictureWidth * scale + margin, 0f, w, h, padX, padY)
     }
     return BoardLayout(
         origin = origin,
         scale = scale,
         cellSize = cell,
-        screen = toGrid(0f, 0f, w, h, inset = 0f),
+        screen = toGrid(0f, 0f, w, h, insetX = 0f, insetY = 0f),
         scatter = tray,
     )
 }
