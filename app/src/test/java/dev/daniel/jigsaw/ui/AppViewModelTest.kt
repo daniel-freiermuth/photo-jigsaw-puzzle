@@ -22,6 +22,7 @@ import dev.daniel.jigsaw.puzzle.PuzzleSettings
 import dev.daniel.jigsaw.puzzle.PuzzleStore
 import dev.daniel.jigsaw.puzzle.SavedPuzzle
 import dev.daniel.jigsaw.source.HttpResource
+import dev.daniel.jigsaw.source.ImageListStore
 import dev.daniel.jigsaw.source.ImageResource
 import dev.daniel.jigsaw.source.ImageSource
 import dev.daniel.jigsaw.source.RemoteImage
@@ -33,6 +34,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
@@ -577,6 +579,25 @@ class AppViewModelTest {
         // Read as no sources, but not taken as all of them removed.
         assertEquals(emptyList<SourceConfig>(), vm.sources)
         assertEquals(SavedPuzzle.Solved, saved)
+    }
+
+    @Test
+    fun `a failed read keeps the saved gallery listings of the stored sources`() = runTest {
+        File(tmp, "datastore/config.json").apply {
+            parentFile!!.mkdirs()
+            writeText(AppConfigSerializer.encode(AppConfig(sources = listOf(source))))
+        }
+        val listings = ImageListStore(File(tmp, "gallery/listings.json"), StandardTestDispatcher(testScheduler))
+        listings.save(mapOf(source.id to listOf(image.image)))
+
+        val vm = viewModel(wrapStore = ::UnreadableStore)
+        val visible = launch { vm.feed.keepFresh() }
+        // Not advanceUntilIdle: keepFresh refreshes again every minute, forever.
+        runCurrent()
+        visible.cancel()
+
+        // The gallery lists no sources, but not all of them are gone: the next start still shows these at once.
+        assertEquals(mapOf(source.id to listOf(image.image)), listings.load())
     }
 
     @Test
