@@ -19,8 +19,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -55,7 +53,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -148,12 +145,7 @@ private fun PlayingActions(game: PuzzleGame, onStartOver: () -> Unit, modifier: 
             Text(stringResource(if (game.showHint) R.string.puzzle_hide_hint else R.string.puzzle_hint))
         }
         Box {
-            IconButton(onClick = { menuOpen = true }) {
-                Icon(
-                    painterResource(R.drawable.ic_more_vert),
-                    contentDescription = stringResource(R.string.puzzle_more_options),
-                )
-            }
+            ResourceIconButton(R.drawable.ic_more_vert, R.string.puzzle_more_options, onClick = { menuOpen = true })
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.puzzle_start_over)) },
