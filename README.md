@@ -76,7 +76,7 @@ their saved puzzles.
 
 ## Build
 
-Requires JDK 25 and an Android SDK with platform 37 (compileSdk 37) referenced by `local.properties` (`sdk.dir=…`) or `ANDROID_HOME`.
+Requires JDK 25 and an Android SDK with platform 37.1 (compileSdk 37.1) referenced by `local.properties` (`sdk.dir=…`) or `ANDROID_HOME`.
 
 ```sh
 just check-all                     # = ./gradlew check; must pass before committing (CI runs the same)
