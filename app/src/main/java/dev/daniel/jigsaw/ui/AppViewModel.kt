@@ -158,6 +158,9 @@ class AppViewModel @JvmOverloads constructor(
     /** Counts [saveCurrentPuzzle] calls, so a failed save can tell whether a later one superseded it. */
     private var saves = 0
 
+    /** True once the stored sources were read; after a failed read, [sources] holds only those added since. */
+    private var sourcesRead = false
+
     /** The gallery's images, kept current while it is on screen. */
     val feed = GalleryFeed(
         scope = viewModelScope,
@@ -173,6 +176,7 @@ class AppViewModel @JvmOverloads constructor(
                 }.toMap()
             }
         },
+        sourcesRead = { sourcesRead },
     )
 
     init {
@@ -186,6 +190,7 @@ class AppViewModel @JvmOverloads constructor(
             if (stored != null) {
                 sources = stored.sources
                 settings = stored.settings
+                sourcesRead = true
                 // Sources dropped on load (types an update removed) never pass through removeSource. Queued
                 // before anything can be added, so it runs before any save of a source added from here on.
                 // Not after a failed read: that would delete the saves of every source.

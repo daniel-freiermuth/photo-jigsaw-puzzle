@@ -57,6 +57,7 @@ fun mergeListings(
  * Every source is listed concurrently; one that can't be reached keeps its last known images, and
  * each source's latest listing is saved so the gallery appears at once on the next start.
  */
+@Suppress("LongParameterList") // Each one is a seam the view model wires up; the last two have defaults.
 class GalleryFeed(
     private val scope: CoroutineScope,
     private val sources: () -> List<SourceConfig>,
@@ -66,6 +67,11 @@ class GalleryFeed(
     private val list: suspend (SourceConfig) -> List<RemoteImage>,
     /** Runs before new content is shown (the gallery tiles are read from the saved puzzles here). */
     private val beforeShow: suspend (GalleryContent) -> Unit = {},
+    /**
+     * False while the stored sources couldn't be read: [sources] then isn't all of them, so the saved
+     * listings are left alone instead of being replaced by those of the sources it does hold.
+     */
+    private val sourcesRead: () -> Boolean = { true },
 ) {
     var state by mutableStateOf<Load<GalleryContent>>(Load.Loading)
         private set
@@ -155,11 +161,13 @@ class GalleryFeed(
             show(merged.content)
             refreshing = false
             refreshedAt = clock()
-            try {
-                imageLists.save(merged.listings)
-            } catch (e: IOException) {
-                // Only costs the instant start next time.
-                Log.w(TAG, "Could not save gallery listings", e)
+            if (sourcesRead()) {
+                try {
+                    imageLists.save(merged.listings)
+                } catch (e: IOException) {
+                    // Only costs the instant start next time.
+                    Log.w(TAG, "Could not save gallery listings", e)
+                }
             }
         }.also { job = it }
     }
