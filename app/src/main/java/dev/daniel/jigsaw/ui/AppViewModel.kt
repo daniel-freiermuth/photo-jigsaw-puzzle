@@ -409,7 +409,8 @@ class AppViewModel @JvmOverloads constructor(
                 withContext(ioDispatcher) { fetchImage(resource) }
             }
             decodePicture(thumbnailBytes, MAX_SIDE)
-        } catch (_: IOException) {
+        } catch (e: IOException) {
+            Log.w(TAG, "Could not load thumbnail of ${image.key}; grid follows the full picture", e)
             picture
         }
         return JigsawCut.gridFor(thumbnail.width, thumbnail.height, pieces)
