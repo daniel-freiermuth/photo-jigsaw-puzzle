@@ -282,15 +282,14 @@ data class BoardSnapshot(
     val locked: List<Boolean>,
     /** Piece indices bottom → top. */
     val order: List<Int>,
-    /** Clockwise quarter turns per piece; empty for saves from before rotation existed (all upright). */
-    val turns: List<Int> = emptyList(),
+    /** Clockwise quarter turns per piece. */
+    val turns: List<Int>,
     val rotatable: Boolean = false,
 )
 
 /**
  * Throws [IllegalArgumentException] unless this snapshot describes a [grid]-sized board: every
- * per-piece list sized rows × cols ([turns][BoardSnapshot.turns] may be empty), the draw order a
- * permutation of the pieces, and group ids naming pieces.
+ * per-piece list sized rows × cols, the draw order a permutation of the pieces, and group ids naming pieces.
  */
 fun BoardSnapshot.requireFits(grid: Grid) {
     val rows = grid.rows
@@ -298,10 +297,9 @@ fun BoardSnapshot.requireFits(grid: Grid) {
     require(rows >= 1 && cols >= 1) { "A board needs at least one row and column, not $rows×$cols" }
     // Long: a product that overflows Int must not happen to match the list sizes.
     val n = rows.toLong() * cols
-    require(listOf(xs, ys, groups, locked, order).all { it.size.toLong() == n }) {
+    require(listOf(xs, ys, groups, locked, order, turns).all { it.size.toLong() == n }) {
         "Snapshot does not match a $rows×$cols board"
     }
-    require(turns.isEmpty() || turns.size.toLong() == n) { "Snapshot rotations don't match the board" }
     require(order.sorted() == order.indices.toList()) { "Snapshot draw order is not a permutation" }
     require(groups.all { it in order.indices }) { "Snapshot group ids out of range" }
 }

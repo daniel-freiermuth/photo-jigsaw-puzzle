@@ -383,12 +383,10 @@ class PuzzleBoardTest {
     }
 
     @Test
-    fun `restoring keeps rotations, and saves from before rotation restore upright`() {
+    fun `restoring keeps rotations`() {
         val board = rotatableBoard()
         board.rotateGroup(1)
         assertEquals(board.snapshot, PuzzleBoard(Grid(rows = 1, cols = 2), board.snapshot).snapshot)
-        val legacy = PuzzleBoard(Grid(rows = 1, cols = 2)).snapshot.copy(turns = emptyList())
-        assertEquals(listOf(0, 0), PuzzleBoard(Grid(rows = 1, cols = 2), legacy).snapshot.turns)
     }
 
     @Test

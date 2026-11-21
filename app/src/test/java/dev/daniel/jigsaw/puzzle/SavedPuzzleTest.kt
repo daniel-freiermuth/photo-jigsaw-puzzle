@@ -58,6 +58,7 @@ class SavedPuzzleTest {
             groups = listOf(0, 0, 0, 3, 4, 5),
             locked = List(6) { false },
             order = (0 until 6).toList(),
+            turns = List(6) { 0 },
         )
         // The strip's group comes first, so the first draw picks its turns: three quarters swing it upwards.
         val seed = (0L..100L).first { Random(it).nextInt(PuzzleBoard.QUARTERS) == 3 }
@@ -81,6 +82,7 @@ class SavedPuzzleTest {
             groups = List(16) { if (it in corner) 11 else it },
             locked = List(16) { false },
             order = (0 until 16).toList(),
+            turns = List(16) { 0 },
         )
         // Pieces 0 to 10 come first, one draw each, so the twelfth draw picks the L's turns.
         for (quarters in 1 until PuzzleBoard.QUARTERS) {

@@ -54,7 +54,7 @@ internal fun pileFrame(board: BoardSnapshot, cellWidth: Float, cellHeight: Float
     var maxX = Float.NEGATIVE_INFINITY
     var maxY = Float.NEGATIVE_INFINITY
     for (i in board.xs.indices) {
-        val sideways = board.turns.getOrElse(i) { 0 } % 2 != 0
+        val sideways = board.turns[i] % 2 != 0
         val halfX = if (sideways) half * cellHeight / cellWidth else half
         val halfY = if (sideways) half * cellWidth / cellHeight else half
         val cx = board.xs[i] + 0.5f
@@ -95,7 +95,7 @@ private fun render(cut: CutPuzzle, board: BoardSnapshot, frame: Bounds, maxSide:
             val top = cut.pieceTop(board.ys[i])
             val piece = cut.pieces[i]
             withRotation(
-                board.turns.getOrElse(i) { 0 } * PuzzleBoard.QUARTER_TURN_DEGREES,
+                board.turns[i] * PuzzleBoard.QUARTER_TURN_DEGREES,
                 cut.pieceCenterX(board.xs[i]),
                 cut.pieceCenterY(board.ys[i]),
             ) {
