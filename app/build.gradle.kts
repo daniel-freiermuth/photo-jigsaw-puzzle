@@ -10,7 +10,10 @@ plugins {
 
 android {
     namespace = "dev.daniel.jigsaw"
-    compileSdk = 37
+    compileSdk {
+        // Compose BOM 2026.11.01 (ui/foundation 1.13.0) declares minCompileSdk 37.1 in its AAR metadata.
+        version = release(37) { minorApiLevel = 1 }
+    }
 
     defaultConfig {
         applicationId = "dev.daniel.jigsaw"
@@ -149,7 +152,7 @@ tasks.named("check") {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2026.09.00")
+    val composeBom = platform("androidx.compose:compose-bom:2026.11.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
