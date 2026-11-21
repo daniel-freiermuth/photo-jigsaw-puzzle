@@ -610,6 +610,68 @@ class AppViewModelTest {
         assertEquals(emptyList<SourceConfig>(), vm.sources)
     }
 
+    @Test
+    fun `a wrong-typed setting costs only that setting, and the next save repairs the file`() = runTest {
+        val config = File(tmp, "datastore/config.json").apply { parentFile!!.mkdirs() }
+        val stored = AppConfig(sources = listOf(source), settings = PuzzleSettings(pieces = PieceCount.P96))
+        val unparseable = AppConfigSerializer.encode(stored)
+            .replace("\"snapToBoard\":false", "\"snapToBoard\":\"yes\"")
+        check(unparseable.contains("\"yes\""))
+        config.writeText(unparseable)
+        PuzzleStore(File(tmp, "puzzles")).save(image.puzzleKey, SavedPuzzle.Solved)
+
+        val firstRun = CoroutineScope(Job())
+        val vm = viewModel(storeScope = firstRun)
+        assertEquals(stored.sources, vm.sources)
+        assertEquals(stored.settings, vm.settings)
+        assertEquals(SavedPuzzle.Solved, saved)
+
+        vm.updateSettings { it.copy(rotatePieces = true) }
+        advanceUntilIdle()
+        firstRun.cancel()
+
+        val restarted = viewModel()
+        assertEquals(stored.sources, restarted.sources)
+        assertEquals(stored.settings.copy(rotatePieces = true), restarted.settings)
+        assertEquals(SavedPuzzle.Solved, saved)
+    }
+
+    @Test
+    fun `a config that isn't JSON reads as nothing configured, and the next save replaces it`() = runTest {
+        File(tmp, "datastore/config.json").apply {
+            parentFile!!.mkdirs()
+            writeText("{\"sources\": [")
+        }
+
+        val firstRun = CoroutineScope(Job())
+        val vm = viewModel(storeScope = firstRun)
+        assertEquals(emptyList<SourceConfig>(), vm.sources)
+        vm.updateSettings { it.copy(rotatePieces = true) }
+        advanceUntilIdle()
+        firstRun.cancel()
+
+        assertEquals(PuzzleSettings(rotatePieces = true), viewModel().settings)
+    }
+
+    @Test
+    fun `object- or array-valued settings read as their defaults`() = runTest {
+        val stored = AppConfig(sources = listOf(source), settings = PuzzleSettings(rotatePieces = true))
+        File(tmp, "datastore/config.json").apply {
+            parentFile!!.mkdirs()
+            writeText(
+                AppConfigSerializer.encode(stored)
+                    .replace("\"snapToBoard\":false", "\"snapToBoard\":{}")
+                    .replace(Regex("\"pieces\":\\d+"), "\"pieces\":{\"rows\":4}"),
+            )
+        }
+        PuzzleStore(File(tmp, "puzzles")).save(image.puzzleKey, SavedPuzzle.Solved)
+
+        val vm = viewModel()
+        assertEquals(stored.sources, vm.sources)
+        assertEquals(stored.settings, vm.settings)
+        assertEquals(SavedPuzzle.Solved, saved)
+    }
+
     /** A config store whose reads fail; writes reach [store]. */
     private class UnreadableStore(private val store: DataStore<AppConfig>) : DataStore<AppConfig> {
         override val data: Flow<AppConfig> = flow { throw IOException("Unreadable") }

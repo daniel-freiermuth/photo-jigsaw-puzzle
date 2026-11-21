@@ -14,7 +14,12 @@ import dev.daniel.jigsaw.source.StoredSources
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
 import java.io.InputStream
 import java.io.OutputStream
 
@@ -68,9 +73,11 @@ internal object LegacyPreferences {
 }
 
 /**
- * [AppConfig] as JSON. Sources are read one at a time ([StoredSources.decode]), so an unknown or broken
- * entry costs only that source; an unreadable file counts as nothing configured, as an unreadable
- * preferences file did, so it never crashes the app on start.
+ * [AppConfig] as JSON. Read one value at a time: an unknown or broken source entry costs only that source
+ * ([StoredSources.decode]) and a value of the wrong type only that setting, so a bad setting never takes the
+ * sources (and with them their puzzle saves) down. A file that isn't a JSON object counts as nothing
+ * configured, as an unreadable preferences file did, so it never crashes the app on start, and the next save
+ * replaces it.
  */
 internal object AppConfigSerializer : Serializer<AppConfig> {
     private const val TAG = "AppConfigSerializer"
@@ -94,25 +101,30 @@ internal object AppConfigSerializer : Serializer<AppConfig> {
 
     fun decode(json: String): AppConfig {
         val file = try {
-            WireJson.decodeFromString<ConfigFile>(json)
+            WireJson.decodeFromString<JsonObject>(json)
         } catch (e: SerializationException) {
             Log.w(TAG, "Stored config is unreadable, starting with none", e)
             return defaultValue
         }
+        val defaults = ConfigFile()
         return AppConfig(
-            sources = StoredSources.decode(file.sources),
+            sources = StoredSources.decode(file["sources"] as? JsonArray ?: defaults.sources),
             settings = PuzzleSettings(
-                snapToBoard = file.snapToBoard,
-                rotatePieces = file.rotatePieces,
-                pieces = PieceCount.fromTarget(file.pieces),
+                snapToBoard = file.literal("snapToBoard")?.booleanOrNull ?: defaults.snapToBoard,
+                rotatePieces = file.literal("rotatePieces")?.booleanOrNull ?: defaults.rotatePieces,
+                pieces = PieceCount.fromTarget(file.literal("pieces")?.intOrNull ?: defaults.pieces),
             ),
         )
     }
 
     /**
-     * The file format. Unknown keys are skipped, so add a key rather than change one's type: a value of the
-     * wrong type makes the whole file unreadable.
+     * The unquoted value under [key] (a number, `true`/`false` or `null`), or null when it is missing or of
+     * another type; the caller then uses the default.
      */
+    private fun JsonObject.literal(key: String): JsonPrimitive? =
+        (get(key) as? JsonPrimitive)?.takeUnless { it.isString }
+
+    /** The file format, as written. Unknown keys are skipped, so add a key rather than change one's type. */
     @Serializable
     private class ConfigFile(
         @EncodeDefault val sources: List<JsonElement> = emptyList(),
