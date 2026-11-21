@@ -4,7 +4,6 @@ import dev.daniel.jigsaw.WireJson
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import java.time.Instant
 
 class SourceParsingTest {
 
@@ -137,6 +136,4 @@ class SourceParsingTest {
             StoredSources.decode(json),
         )
     }
-
-    private fun millis(iso: String) = Instant.parse(iso).toEpochMilli()
 }
