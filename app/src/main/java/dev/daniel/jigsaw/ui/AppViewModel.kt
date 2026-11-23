@@ -301,7 +301,7 @@ class AppViewModel @JvmOverloads constructor(
     fun openRandomImage() {
         val images = (feed.state as? Load.Ready)?.value?.images ?: return
         val current = (screen as? Screen.Puzzle)?.image
-        val pool = images.filter { it != current }.ifEmpty { images }
+        val pool = images.filter { it.puzzleKey != current?.puzzleKey }.ifEmpty { images }
         if (pool.isNotEmpty()) openImage(pool.random())
     }
 
