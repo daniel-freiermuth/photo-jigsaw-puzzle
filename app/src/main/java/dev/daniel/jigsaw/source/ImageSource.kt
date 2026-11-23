@@ -214,8 +214,11 @@ object Http {
     private object Revisioned
 }
 
-/** The server answered, but not with success. */
-class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code for $url")
+/**
+ * The server answered, but not with success. The message names [url] without its query: an Immich
+ * share's `key`/`slug` rides there and grants access to the album, so it must not reach logs.
+ */
+class HttpStatusException(val code: Int, url: String) : IOException("HTTP $code for ${url.substringBefore('?')}")
 
 /** The server answered successfully with something the source can't interpret. */
 class UnexpectedResponseException(message: String, cause: Throwable? = null) : IOException(message, cause)
