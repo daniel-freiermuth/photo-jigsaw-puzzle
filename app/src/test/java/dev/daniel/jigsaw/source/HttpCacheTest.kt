@@ -76,4 +76,14 @@ class HttpCacheTest {
         }
         assertEquals(404, error.code)
     }
+
+    @Test
+    fun `a status error does not log the share key in the url`() {
+        server.enqueue(MockResponse.Builder().code(404).build())
+        val url = server.url("/api/assets/a/thumbnail?key=secret-share-key").toString()
+        val error = assertThrows<HttpStatusException> {
+            Http.getImage(HttpResource(url, revision = "r"), client)
+        }
+        assertEquals(false, error.message!!.contains("secret-share-key"), error.message)
+    }
 }

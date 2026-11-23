@@ -94,6 +94,7 @@ fun GalleryThumbnail(
     when {
         saved == SavedPuzzle.Solved -> LoadedImage(
             key = content,
+            label = item.key,
             produce = picture,
             contentDescription = item.image.name,
             contentScale = ContentScale.Crop,
@@ -103,6 +104,7 @@ fun GalleryThumbnail(
         // The data class hash changes with every move, so each layout gets its own cache entry.
         inProgress != null -> LoadedImage(
             key = "progress:$content:${inProgress.hashCode()}:${settings.rotatePieces}",
+            label = item.key,
             produce = { renderProgress(picture(), inProgress, settings, MAX_SIDE) },
             contentDescription = item.image.name,
             contentScale = ContentScale.Fit,
@@ -111,6 +113,7 @@ fun GalleryThumbnail(
 
         else -> LoadedImage(
             key = untouchedTileKey(item, canvas, settings),
+            label = item.key,
             produce = {
                 // The seed the first opening cuts and scatters with, so the tile shows that very pile.
                 renderUntouched(picture(), canvas, settings, item.seed, MAX_SIDE)
@@ -125,6 +128,8 @@ fun GalleryThumbnail(
 @Composable
 private fun LoadedImage(
     key: String,
+    // Names the tile in logs: [key] holds the picture's URL, and an Immich share URL carries its key.
+    label: String,
     produce: () -> Bitmap,
     contentDescription: String,
     contentScale: ContentScale,
@@ -139,7 +144,7 @@ private fun LoadedImage(
         value = try {
             ThumbState.Ready(thumbnails.load(key, produce))
         } catch (e: IOException) {
-            Log.w(TAG, "Could not load gallery tile $key", e)
+            Log.w(TAG, "Could not load gallery tile $label", e)
             ThumbState.Failed
         }
     }
