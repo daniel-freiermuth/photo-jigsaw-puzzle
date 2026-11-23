@@ -693,6 +693,41 @@ class AppViewModelTest {
         assertEquals(SavedPuzzle.Solved, saved)
     }
 
+    @Test
+    fun `another image never reopens the picture on screen, even once it is relisted with a new revision`() = runTest {
+        File(tmp, "datastore/config.json").apply {
+            parentFile!!.mkdirs()
+            writeText(AppConfigSerializer.encode(AppConfig(sources = listOf(source))))
+        }
+        fun picture(id: String, revision: String) =
+            RemoteImage(id, id, HttpResource("https://p/thumb/$id", revision), HttpResource("https://p/$id", revision))
+        var listing = listOf(picture("x", "r1"), picture("y", "r1"))
+        openSource = {
+            object : ImageSource {
+                override suspend fun listImages() = listing
+            }
+        }
+        val vm = viewModel()
+        vm.feed.refresh()
+        advanceUntilIdle()
+        val onScreen = GalleryImage(source, listing[0])
+        vm.openImage(onScreen)
+        advanceUntilIdle()
+
+        // The picture was edited since: the gallery's fresh listing replaces it while its puzzle is open.
+        listing = listOf(picture("x", "r2"), picture("y", "r1"))
+        vm.feed.refresh()
+        advanceUntilIdle()
+
+        repeat(20) {
+            vm.openImage(onScreen)
+            advanceUntilIdle()
+            vm.openRandomImage()
+            advanceUntilIdle()
+            assertEquals(PuzzleKey(source.id, "y"), (vm.screen as Screen.Puzzle).image.puzzleKey)
+        }
+    }
+
     /** A config store whose reads fail; writes reach [store]. */
     private class UnreadableStore(private val store: DataStore<AppConfig>) : DataStore<AppConfig> {
         override val data: Flow<AppConfig> = flow { throw IOException("Unreadable") }
